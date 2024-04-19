@@ -1,0 +1,53 @@
+body, html {
+  background-color: black; /* Set the background to black */
+  color: white; /* Set the default text color to white for visibility */
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+#childrenContainer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center; /* Adjust this to center if space-around doesn't fit */
+  align-content: flex-start; /* Align the wrapped flex lines at the start of the container */
+  max-width: 1000px; /* Adjust this so four children fit in one row */
+}
+
+canvas {
+  border: none; /* Removes the border */
+  margin: 10px auto; /* Keeps the canvas centered with margin */
+  display: block; /* Ensures the canvas is block-level for margin auto to work */
+  background-color: black; /* Canvas background color */
+}
+
+
+h1, h2 {
+  color: rgba(255, 255, 255, 0.65); /* More toned down white for headers */
+}
+
+#randomize {
+  position: absolute; /* Position the button absolutely relative to its positioned parent */
+  top: 10px; /* 10px from the top */
+  right: 10px; /* 10px from the right */
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  outline: none;
+}
+
+#randomize:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.biomorph-container {
+  position: relative; /* Needed to correctly position the absolute button */
+  margin: 20px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
