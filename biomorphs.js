@@ -16,13 +16,22 @@ class Biomorph {
                 genes.push(Math.floor(Math.random() * 21)); // Range of 0-20 for other genes
             }
         }
+        // Add new symmetry genes
+        genes.push(Math.floor(Math.random() * 2)); // Gene 14: Bilateral symmetry (left-right)
+        genes.push(Math.floor(Math.random() * 2)); // Gene 15: Up-down symmetry
+        genes.push(Math.floor(Math.random() * 2)); // Gene 16: Radial symmetry
         return genes;
     }
-    
 
     mutateGenes() {
         const geneToMutate = Math.floor(Math.random() * this.genes.length);
-        this.genes[geneToMutate] = Math.floor(Math.random() * 21);
+        if (geneToMutate >= 14 && geneToMutate <= 16) {
+            // For symmetry genes, just toggle between 0 and 1
+            this.genes[geneToMutate] = this.genes[geneToMutate] === 0 ? 1 : 0;
+        } else {
+            // For other genes, assign a new random value within their range
+            this.genes[geneToMutate] = Math.floor(Math.random() * 21);
+        }
         this.draw();
     }
 
@@ -37,11 +46,31 @@ class Biomorph {
         ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
 
         // Branching structure based on genes 0, 1, 2 (depth, angle variation)
-        const depth = this.genes[0] % 6 + 5;  // Now the range is 5-10, assuming you want
+        const depth = this.genes[0] % 6 + 5;  // Now the range is 5-10
         const angleVariation = (this.genes[1] / 20) * Math.PI; // Angle variation based on gene 1
         const length = this.canvas.height / 10 + this.genes[2]; // Length of branches based on gene 2
 
+        // Symmetry genes
+        const bilateralSymmetry = this.genes[14]; // Gene 14: left-right symmetry
+        const upDownSymmetry = this.genes[15]; // Gene 15: up-down symmetry
+        const radialSymmetry = this.genes[16]; // Gene 16: radial symmetry
+
+        // Draw main branch
         this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10, length, -Math.PI / 2, depth, angleVariation);
+
+        // Draw symmetrical branches based on gene configuration
+        if (bilateralSymmetry) {
+            this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10, length, -Math.PI / 2, depth, -angleVariation); // Mirrored left-right
+        }
+
+        if (upDownSymmetry) {
+            this.drawBranch(ctx, this.canvas.width / 2, 10, length, Math.PI / 2, depth, angleVariation); // Mirrored up-down
+        }
+
+        if (radialSymmetry) {
+            this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10, length, Math.PI / 4, depth, angleVariation); // Radial symmetry 45 degrees
+            this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10, length, -Math.PI / 4, depth, angleVariation); // Radial symmetry -45 degrees
+        }
     }
 
     drawBranch(ctx, x, y, length, angle, depth, angleVariation) {
@@ -84,7 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 generateChildren();
             });
         }
-    }    
+    }
 
     generateChildren();
 });
+
