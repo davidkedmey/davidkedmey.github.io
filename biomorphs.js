@@ -10,7 +10,6 @@ class Biomorph {
         let genes = [];
         for (let i = 0; i < 14; i++) {
             if (i >= 7 && i <= 9) {
-                // Make the color genes brighter
                 genes.push(Math.floor(Math.random() * 106) + 150); // Range of 150-255 for RGB
             } else {
                 genes.push(Math.floor(Math.random() * 21)); // Range of 0-20 for other genes
@@ -28,7 +27,6 @@ class Biomorph {
     mutateGenes() {
         const geneToMutate = Math.floor(Math.random() * this.genes.length);
         if (geneToMutate >= 14 && geneToMutate <= 18) {
-            // For symmetry and segmentation genes, just toggle or adjust values
             if (geneToMutate === 17) {
                 this.genes[geneToMutate] = Math.floor(Math.random() * 10) + 1; // Re-randomize segments
             } else if (geneToMutate === 18) {
@@ -37,7 +35,6 @@ class Biomorph {
                 this.genes[geneToMutate] = this.genes[geneToMutate] === 0 ? 1 : 0;
             }
         } else {
-            // For other genes, assign a new random value within their range
             this.genes[geneToMutate] = Math.floor(Math.random() * 21);
         }
         this.draw();
@@ -68,10 +65,12 @@ class Biomorph {
         const distanceBetweenSegments = this.genes[18]; // Gene for distance between segments
         const segmentationEnabled = document.getElementById('toggleSegmentation').checked; // Toggle for segmentation
 
+        // Display gene values on the screen
+        this.displayGeneValues();
+
         for (let i = 0; i < (segmentationEnabled ? numberOfSegments : 1); i++) {
             this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 2, depth, angleVariation);
 
-            // Apply symmetry based on gene configuration
             if (bilateralSymmetry) {
                 this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 2, depth, -angleVariation);
             }
@@ -98,6 +97,18 @@ class Biomorph {
 
         this.drawBranch(ctx, xEnd, yEnd, length * 0.7, angle - angleVariation, depth - 1, angleVariation);
         this.drawBranch(ctx, xEnd, yEnd, length * 0.7, angle + angleVariation, depth - 1, angleVariation);
+    }
+
+    displayGeneValues() {
+        const geneOutput = document.getElementById('geneOutput');
+        geneOutput.innerHTML = `
+          <p><strong>Genes:</strong></p>
+          <p>Segments: ${this.genes[17]}</p>
+          <p>Distance Between Segments: ${this.genes[18]}</p>
+          <p>Bilateral Symmetry: ${this.genes[14]}</p>
+          <p>Up-Down Symmetry: ${this.genes[15]}</p>
+          <p>Radial Symmetry: ${this.genes[16]}</p>
+        `;
     }
 }
 
@@ -129,3 +140,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateChildren();
 });
+
