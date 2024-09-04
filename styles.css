@@ -4,6 +4,16 @@ body, html {
   margin: 0;
   padding: 0;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.biomorph-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
 }
 
 #childrenContainer {
@@ -12,6 +22,7 @@ body, html {
   justify-content: center;
   align-content: flex-start; /* Align the wrapped flex lines at the start of the container */
   max-width: 1000px; /* Adjust this so four children fit in one row */
+  margin-top: 20px;
 }
 
 canvas {
@@ -42,9 +53,7 @@ canvas {
   display: flex;
   justify-content: center; /* Center the buttons */
   align-items: center;
-  position: absolute; /* Position the control panel absolutely */
-  top: 10px; /* Align it with the randomize button */
-  right: 10px;
+  margin-top: 10px;
 }
 
 label {
@@ -60,4 +69,5 @@ label {
 input[type="checkbox"] {
   margin-right: 5px;
 }
+
 
