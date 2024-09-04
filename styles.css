@@ -3,50 +3,46 @@ body, html {
     color: white;
     margin: 0;
     padding: 0;
-    display: flex;
     height: 100%;
+    display: flex; /* Flex layout for control panel and grid */
 }
 
 .control-panel {
     display: flex;
     flex-direction: column;
-    padding: 10px;
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: 20px;
+    width: 250px; /* Set fixed width for control panel */
     background-color: rgba(0, 0, 0, 0.8);
-    width: 200px; /* Set width for control panel */
-    height: 100%;
+    box-sizing: border-box;
 }
 
-.gene-inputs label, .control-panel button {
-    margin: 10px 0;
+.control-panel label, .control-panel button {
+    margin-bottom: 10px;
+    width: 100%; /* Ensure full-width buttons and labels */
 }
 
 .biomorph-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr); /* 4 columns */
-    grid-template-rows: repeat(2, 1fr);    /* 2 rows */
+    grid-template-rows: repeat(2, 1fr); /* 2 rows */
     gap: 10px;
-    flex-grow: 1;
-    margin-left: 220px; /* Leave space for control panel */
     padding: 20px;
-    justify-items: center;
-}
-
-.parent {
-    grid-column: 1 / 2; /* Make parent occupy the first grid cell */
-    grid-row: 1 / 2;
-    border: 3px solid white;
-}
-
-.children-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    grid-template-rows: repeat(2, 1fr);
-    gap: 10px;
+    flex-grow: 1; /* Take up remaining space */
 }
 
 canvas {
+    width: 220px;
+    height: 220px;
     background-color: black;
+    display: block;
 }
+
+.parent {
+    border: 3px solid white;
+}
+
 
 
 
