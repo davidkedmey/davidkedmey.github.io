@@ -10,7 +10,6 @@ class Biomorph {
         let genes = [];
         for (let i = 0; i < 14; i++) {
             if (i >= 7 && i <= 9) {
-                // Make the color genes brighter
                 genes.push(Math.floor(Math.random() * 106) + 150); // Range of 150-255 for RGB
             } else {
                 genes.push(Math.floor(Math.random() * 21)); // Range of 0-20 for other genes
@@ -51,9 +50,9 @@ class Biomorph {
         const length = this.canvas.height / 10 + this.genes[2]; // Length of branches based on gene 2
 
         // Symmetry genes
-        const bilateralSymmetry = this.genes[14]; // Gene 14: left-right symmetry
-        const upDownSymmetry = this.genes[15]; // Gene 15: up-down symmetry
-        const radialSymmetry = this.genes[16]; // Gene 16: radial symmetry
+        const bilateralSymmetry = document.getElementById('toggleBilateralSymmetry').checked ? this.genes[14] : 0; // Gene 14: left-right symmetry
+        const upDownSymmetry = document.getElementById('toggleUpDownSymmetry').checked ? this.genes[15] : 0; // Gene 15: up-down symmetry
+        const radialSymmetry = document.getElementById('toggleRadialSymmetry').checked ? this.genes[16] : 0; // Gene 16: radial symmetry
 
         // Draw main branch
         this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10, length, -Math.PI / 2, depth, angleVariation);
@@ -117,4 +116,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateChildren();
 });
+
 
