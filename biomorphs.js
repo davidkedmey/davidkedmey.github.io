@@ -10,23 +10,32 @@ class Biomorph {
         let genes = [];
         for (let i = 0; i < 14; i++) {
             if (i >= 7 && i <= 9) {
+                // Make the color genes brighter
                 genes.push(Math.floor(Math.random() * 106) + 150); // Range of 150-255 for RGB
             } else {
                 genes.push(Math.floor(Math.random() * 21)); // Range of 0-20 for other genes
             }
         }
-        // Add new symmetry genes
+        // Add new symmetry and segmentation genes
         genes.push(Math.floor(Math.random() * 2)); // Gene 14: Bilateral symmetry (left-right)
         genes.push(Math.floor(Math.random() * 2)); // Gene 15: Up-down symmetry
         genes.push(Math.floor(Math.random() * 2)); // Gene 16: Radial symmetry
+        genes.push(Math.floor(Math.random() * 10) + 1); // Gene 17: Number of segments (1-10)
+        genes.push(Math.floor(Math.random() * 50) + 20); // Gene 18: Distance between segments (20-70)
         return genes;
     }
 
     mutateGenes() {
         const geneToMutate = Math.floor(Math.random() * this.genes.length);
-        if (geneToMutate >= 14 && geneToMutate <= 16) {
-            // For symmetry genes, just toggle between 0 and 1
-            this.genes[geneToMutate] = this.genes[geneToMutate] === 0 ? 1 : 0;
+        if (geneToMutate >= 14 && geneToMutate <= 18) {
+            // For symmetry and segmentation genes, just toggle or adjust values
+            if (geneToMutate === 17) {
+                this.genes[geneToMutate] = Math.floor(Math.random() * 10) + 1; // Re-randomize segments
+            } else if (geneToMutate === 18) {
+                this.genes[geneToMutate] = Math.floor(Math.random() * 50) + 20; // Re-randomize distance
+            } else {
+                this.genes[geneToMutate] = this.genes[geneToMutate] === 0 ? 1 : 0;
+            }
         } else {
             // For other genes, assign a new random value within their range
             this.genes[geneToMutate] = Math.floor(Math.random() * 21);
@@ -45,30 +54,34 @@ class Biomorph {
         ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
 
         // Branching structure based on genes 0, 1, 2 (depth, angle variation)
-        const depth = this.genes[0] % 6 + 5;  // Now the range is 5-10
-        const angleVariation = (this.genes[1] / 20) * Math.PI; // Angle variation based on gene 1
-        const length = this.canvas.height / 10 + this.genes[2]; // Length of branches based on gene 2
+        const depth = this.genes[0] % 6 + 5;
+        const angleVariation = (this.genes[1] / 20) * Math.PI;
+        const length = this.canvas.height / 10 + this.genes[2];
 
         // Symmetry genes
-        const bilateralSymmetry = document.getElementById('toggleBilateralSymmetry').checked ? this.genes[14] : 0; // Gene 14: left-right symmetry
-        const upDownSymmetry = document.getElementById('toggleUpDownSymmetry').checked ? this.genes[15] : 0; // Gene 15: up-down symmetry
-        const radialSymmetry = document.getElementById('toggleRadialSymmetry').checked ? this.genes[16] : 0; // Gene 16: radial symmetry
+        const bilateralSymmetry = document.getElementById('toggleBilateralSymmetry').checked ? this.genes[14] : 0;
+        const upDownSymmetry = document.getElementById('toggleUpDownSymmetry').checked ? this.genes[15] : 0;
+        const radialSymmetry = document.getElementById('toggleRadialSymmetry').checked ? this.genes[16] : 0;
 
-        // Draw main branch
-        this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10, length, -Math.PI / 2, depth, angleVariation);
+        // Segmentation genes
+        const numberOfSegments = this.genes[17]; // Gene for number of segments
+        const distanceBetweenSegments = this.genes[18]; // Gene for distance between segments
+        const segmentationEnabled = document.getElementById('toggleSegmentation').checked; // Toggle for segmentation
 
-        // Draw symmetrical branches based on gene configuration
-        if (bilateralSymmetry) {
-            this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10, length, -Math.PI / 2, depth, -angleVariation); // Mirrored left-right
-        }
+        for (let i = 0; i < (segmentationEnabled ? numberOfSegments : 1); i++) {
+            this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 2, depth, angleVariation);
 
-        if (upDownSymmetry) {
-            this.drawBranch(ctx, this.canvas.width / 2, 10, length, Math.PI / 2, depth, angleVariation); // Mirrored up-down
-        }
-
-        if (radialSymmetry) {
-            this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10, length, Math.PI / 4, depth, angleVariation); // Radial symmetry 45 degrees
-            this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10, length, -Math.PI / 4, depth, angleVariation); // Radial symmetry -45 degrees
+            // Apply symmetry based on gene configuration
+            if (bilateralSymmetry) {
+                this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 2, depth, -angleVariation);
+            }
+            if (upDownSymmetry) {
+                this.drawBranch(ctx, this.canvas.width / 2, 10 + i * distanceBetweenSegments, length, Math.PI / 2, depth, angleVariation);
+            }
+            if (radialSymmetry) {
+                this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, Math.PI / 4, depth, angleVariation);
+                this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 4, depth, angleVariation);
+            }
         }
     }
 
@@ -116,5 +129,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateChildren();
 });
-
-
