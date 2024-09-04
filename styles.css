@@ -25,9 +25,9 @@ body, html {
     align-items: center;
     justify-content: center;
     flex-grow: 1;
+    margin-left: 150px; /* Space for control panel on the left */
+    margin-right: 150px; /* Space for input fields on the right */
     margin-top: 20px;
-    margin-left: 200px; /* Leave space for control panel */
-    margin-right: 200px; /* Leave space for input fields */
 }
 
 #childrenContainer {
@@ -53,18 +53,20 @@ canvas {
     transform: translateY(-50%);
     z-index: 1;
     max-height: 90%;
-    overflow-y: auto; /* Add scroll if the input fields overflow */
+    overflow-y: auto; /* Scroll if inputs overflow */
 }
 
 .gene-inputs label {
     margin: 5px 0;
     color: white;
+    display: flex;
+    justify-content: space-between;
 }
 
 .gene-inputs input {
-    width: 50px;
+    width: 60px;
     text-align: center;
-    margin-top: 5px;
+    margin-left: 10px;
 }
 
 #updateBiomorph {
@@ -74,5 +76,6 @@ canvas {
     border: none;
     cursor: pointer;
 }
+
 
 
