@@ -3,7 +3,10 @@ class Biomorph {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.genes = genes || this.randomizeGenes();
-        this.draw();
+        this.currentFrame = 0; // Track animation frame for growth
+        this.growthSpeed = 5; // Control the speed of the growth animation
+        this.maxDepth = this.genes[0] % 6 + 5; // Depth is derived from the gene
+        this.drawGrowing(); // Start drawing with animation
         this.updateGeneFields();
     }
 
@@ -41,7 +44,7 @@ class Biomorph {
         } else {
             this.genes[geneToMutate] = Math.floor(Math.random() * 21);
         }
-        this.draw();
+        this.drawGrowing(); // Redraw with growth animation
         this.updateGeneFields();
     }
 
@@ -52,16 +55,24 @@ class Biomorph {
         // Update additional fields for symmetry, segmentation, etc.
     }
 
-    draw() {
-        const ctx = this.ctx;
-        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    drawGrowing() {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); // Clear the canvas
+        this.currentFrame = 0; // Reset frame counter for animation
+        this.animateGrowth(); // Start the animation
+    }
 
+    animateGrowth() {
+        if (this.currentFrame > this.maxDepth * this.growthSpeed) {
+            return; // Stop when full depth has been drawn
+        }
+        
+        const ctx = this.ctx;
         const r = this.genes[7];
         const g = this.genes[8];
         const b = this.genes[9];
         ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
 
-        let depth = this.genes[0] % 6 + 5;
+        let depth = Math.floor(this.currentFrame / this.growthSpeed); // Control current growth depth
         let angleVariation = (this.genes[1] / 20) * Math.PI;
         const length = this.canvas.height / 10 + this.genes[2];
 
@@ -103,6 +114,9 @@ class Biomorph {
                 this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 4, depth, currentAngleVariation);
             }
         }
+
+        this.currentFrame += 1; // Increase frame counter to grow the biomorph gradually
+        requestAnimationFrame(() => this.animateGrowth()); // Request the next frame
     }
 
     drawBranch(ctx, x, y, length, angle, depth, angleVariation) {
@@ -139,7 +153,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fill in missing genes
         genes.push(1, 1, 1, 5, 40, 0, 0); // Adding symmetry, segmentation, etc.
         parentBiomorph = new Biomorph(parentCanvas, genes);
-        generateChildren();
+
+        generateChildren(); // Now generate children based on the updated parent
     });
 
     function generateChildren() {
@@ -160,6 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateChildren();
 });
+
 
 
 
