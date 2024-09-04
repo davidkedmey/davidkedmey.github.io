@@ -4,7 +4,6 @@ body, html {
     margin: 0;
     padding: 0;
     display: flex;
-    flex-direction: row;
     height: 100%;
 }
 
@@ -17,14 +16,18 @@ body, html {
     left: 0;
     top: 50%;
     transform: translateY(-50%);
+    z-index: 1;
 }
 
 .biomorph-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-left: 200px;
+    justify-content: center;
+    flex-grow: 1;
     margin-top: 20px;
+    margin-left: 200px; /* Leave space for control panel */
+    margin-right: 200px; /* Leave space for input fields */
 }
 
 #childrenContainer {
@@ -41,14 +44,20 @@ canvas {
 
 .gene-inputs {
     display: flex;
-    flex-wrap: wrap;
-    margin-left: 200px;
-    justify-content: center;
-    margin-bottom: 20px;
+    flex-direction: column;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.8);
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+    max-height: 90%;
+    overflow-y: auto; /* Add scroll if the input fields overflow */
 }
 
 .gene-inputs label {
-    margin: 5px;
+    margin: 5px 0;
     color: white;
 }
 
@@ -65,4 +74,5 @@ canvas {
     border: none;
     cursor: pointer;
 }
+
 
