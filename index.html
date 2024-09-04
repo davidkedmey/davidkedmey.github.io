@@ -7,6 +7,7 @@
     <script src="biomorphs.js" defer></script>
 </head>
 <body>
+    <!-- Left Control Panel -->
     <div class="control-panel">
         <button id="randomize">Randomize Parent</button>
         <label>
@@ -33,24 +34,30 @@
             <input type="checkbox" id="toggleAlternatingAsymmetry">
             Alternating Asymmetry
         </label>
+
+        <!-- Gene Input Fields -->
+        <div class="gene-inputs">
+            <label>Depth: <input type="number" id="gene0" value="10" min="0" max="20"></label>
+            <label>Angle Variation: <input type="number" id="gene1" value="10" min="0" max="20"></label>
+            <label>Length: <input type="number" id="gene2" value="10" min="0" max="20"></label>
+            <label>Split Count: <input type="number" id="gene3" value="10" min="0" max="20"></label>
+            <label>Branch Distribution: <input type="number" id="gene4" value="10" min="0" max="20"></label>
+            <label>Length Variation: <input type="number" id="gene5" value="10" min="0" max="20"></label>
+            <label>Red: <input type="number" id="gene7" value="150" min="150" max="255"></label>
+            <label>Green: <input type="number" id="gene8" value="150" min="150" max="255"></label>
+            <label>Blue: <input type="number" id="gene9" value="150" min="150" max="255"></label>
+            <button id="updateBiomorph">Update Biomorph</button>
+        </div>
     </div>
 
-    <div class="gene-inputs">
-        <label>Depth: <input type="number" id="gene0" value="10" min="0" max="20"></label>
-        <label>Angle Variation: <input type="number" id="gene1" value="10" min="0" max="20"></label>
-        <label>Length: <input type="number" id="gene2" value="10" min="0" max="20"></label>
-        <label>Branching 1: <input type="number" id="gene3" value="10" min="0" max="20"></label>
-        <label>Branching 2: <input type="number" id="gene4" value="10" min="0" max="20"></label>
-        <label>Branching 3: <input type="number" id="gene5" value="10" min="0" max="20"></label>
-        <label>Red: <input type="number" id="gene7" value="150" min="150" max="255"></label>
-        <label>Green: <input type="number" id="gene8" value="150" min="150" max="255"></label>
-        <label>Blue: <input type="number" id="gene9" value="150" min="150" max="255"></label>
-        <button id="updateBiomorph">Update Biomorph</button>
-    </div>
-
-    <div class="biomorph-container">
-        <canvas id="parentCanvas" width="220" height="220"></canvas>
-        <div id="childrenContainer"></div>
+    <!-- Parent and Children Grid -->
+    <div class="biomorph-grid">
+        <!-- Parent in the upper left with a border -->
+        <canvas id="parentCanvas" class="parent" width="220" height="220"></canvas>
+        
+        <!-- Children -->
+        <div id="childrenContainer" class="children-grid"></div>
     </div>
 </body>
 </html>
+
