@@ -15,13 +15,13 @@ class Biomorph {
                 genes.push(Math.floor(Math.random() * 21)); // Range of 0-20 for other genes
             }
         }
-        genes.push(Math.floor(Math.random() * 2)); // Gene 14: Bilateral symmetry (left-right)
-        genes.push(Math.floor(Math.random() * 2)); // Gene 15: Up-down symmetry
-        genes.push(Math.floor(Math.random() * 2)); // Gene 16: Radial symmetry
-        genes.push(Math.floor(Math.random() * 10) + 1); // Gene 17: Number of segments (1-10)
-        genes.push(Math.floor(Math.random() * 50) + 20); // Gene 18: Distance between segments (20-70)
-        genes.push(Math.floor(Math.random() * 10) - 5); // Gene 19: Gradient for depth change per segment (-5 to 5)
-        genes.push(Math.floor(Math.random() * 10) - 5); // Gene 20: Gradient for angle variation change per segment (-5 to 5)
+        genes.push(Math.floor(Math.random() * 2)); // Bilateral symmetry
+        genes.push(Math.floor(Math.random() * 2)); // Up-down symmetry
+        genes.push(Math.floor(Math.random() * 2)); // Radial symmetry
+        genes.push(Math.floor(Math.random() * 10) + 1); // Number of segments (1-10)
+        genes.push(Math.floor(Math.random() * 50) + 20); // Distance between segments (20-70)
+        genes.push(Math.floor(Math.random() * 10) - 5); // Gradient for depth change per segment (-5 to 5)
+        genes.push(Math.floor(Math.random() * 10) - 5); // Gradient for angle variation change per segment (-5 to 5)
         return genes;
     }
 
@@ -127,6 +127,8 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < 10; i++) {
             genes.push(parseInt(document.getElementById(`gene${i}`).value, 10));
         }
+        // Fill in missing genes
+        genes.push(1, 1, 1, 5, 40, 0, 0); // Adding symmetry, segmentation, etc.
         parentBiomorph = new Biomorph(parentCanvas, genes);
         generateChildren();
     });
@@ -149,5 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateChildren();
 });
+
 
 
