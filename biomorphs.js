@@ -4,6 +4,7 @@ class Biomorph {
         this.ctx = canvas.getContext('2d');
         this.genes = genes || this.randomizeGenes();
         this.draw();
+        this.updateGeneFields();
     }
 
     randomizeGenes() {
@@ -41,6 +42,14 @@ class Biomorph {
             this.genes[geneToMutate] = Math.floor(Math.random() * 21);
         }
         this.draw();
+        this.updateGeneFields();
+    }
+
+    updateGeneFields() {
+        for (let i = 0; i < 10; i++) {
+            document.getElementById(`gene${i}`).value = this.genes[i];
+        }
+        // Update additional fields for symmetry, segmentation, etc.
     }
 
     draw() {
@@ -151,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateChildren();
 });
+
 
 
 
