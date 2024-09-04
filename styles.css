@@ -1,83 +1,68 @@
 body, html {
-  background-color: black; /* Set the background to black */
-  color: white; /* Set the default text color to white for visibility */
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  display: flex;
-  flex-direction: row; /* Change to row to align content horizontally */
+    background-color: black;
+    color: white;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: row;
+    height: 100%;
 }
 
 .control-panel {
-  display: flex;
-  flex-direction: column; /* Stack buttons vertically */
-  justify-content: center; /* Center buttons vertically */
-  align-items: center;
-  padding: 10px;
-  background-color: rgba(0, 0, 0, 0.8); /* Background for better visibility */
-  z-index: 1000;
-  position: fixed; /* Keep the buttons fixed on the left */
-  left: 0;
-  top: 50%; /* Center the buttons vertically */
-  transform: translateY(-50%); /* Adjust for perfect centering */
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.8);
+    position: fixed;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .biomorph-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-left: 80px; /* Add space for the control panel */
-  margin-top: 20px;
-  flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-left: 200px;
+    margin-top: 20px;
 }
 
 #childrenContainer {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-content: flex-start;
-  max-width: 1000px;
-  margin-top: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
 canvas {
-  border: none;
-  margin: 10px auto;
-  display: block;
-  background-color: black;
+    border: none;
+    margin: 10px;
+    background-color: black;
 }
 
-#randomize, .control-panel label {
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  padding: 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  outline: none;
-  margin-bottom: 10px; /* Stack buttons with space between */
-  display: flex;
-  align-items: center;
-  width: 150px; /* Ensure consistent width for the buttons */
-  justify-content: center;
+.gene-inputs {
+    display: flex;
+    flex-wrap: wrap;
+    margin-left: 200px;
+    justify-content: center;
+    margin-bottom: 20px;
 }
 
-#randomize:hover, .control-panel label:hover {
-  background: rgba(255, 255, 255, 0.2);
+.gene-inputs label {
+    margin: 5px;
+    color: white;
 }
 
-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  padding: 10px;
-  border-radius: 5px;
-  width: 150px;
+.gene-inputs input {
+    width: 50px;
+    text-align: center;
+    margin-top: 5px;
 }
 
-input[type="checkbox"] {
-  margin-right: 5px;
+#updateBiomorph {
+    margin: 10px;
+    padding: 10px;
+    background-color: white;
+    border: none;
+    cursor: pointer;
 }
+
