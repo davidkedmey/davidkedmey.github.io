@@ -9,7 +9,7 @@ body, html {
 #childrenContainer {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center; /* Adjust this to center if space-around doesn't fit */
+  justify-content: center;
   align-content: flex-start; /* Align the wrapped flex lines at the start of the container */
   max-width: 1000px; /* Adjust this so four children fit in one row */
 }
@@ -21,10 +21,7 @@ canvas {
   background-color: black; /* Canvas background color */
 }
 
-#randomize {
-  position: absolute; /* Position the button absolutely relative to its positioned parent */
-  top: 10px; /* 10px from the top */
-  right: 10px; /* 10px from the right */
+#randomize, .control-panel label {
   color: rgba(255, 255, 255, 0.8);
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -32,35 +29,29 @@ canvas {
   border-radius: 5px;
   cursor: pointer;
   outline: none;
+  margin-right: 10px; /* Adds spacing between buttons */
 }
 
-#randomize:hover {
+#randomize:hover, .control-panel label:hover {
   background: rgba(255, 255, 255, 0.2);
 }
 
-.biomorph-container {
-  position: relative; /* Needed to correctly position the absolute button */
-  margin: 20px auto;
+.control-panel {
   display: flex;
-  flex-direction: column;
+  justify-content: center; /* Center the buttons */
   align-items: center;
-}
-
-.controls {
   margin-top: 10px;
-  display: flex;
-  justify-content: space-around;
-  width: 100%;
-  max-width: 300px;
 }
 
 label {
-  color: white;
-  font-size: 14px;
+  display: flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.8); /* Match label text color */
 }
 
 input[type="checkbox"] {
   margin-right: 5px;
 }
+
 
 
