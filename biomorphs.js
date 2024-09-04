@@ -15,22 +15,27 @@ class Biomorph {
                 genes.push(Math.floor(Math.random() * 21)); // Range of 0-20 for other genes
             }
         }
-        // Add new symmetry and segmentation genes
+        // Add new symmetry, segmentation, and gradient genes
         genes.push(Math.floor(Math.random() * 2)); // Gene 14: Bilateral symmetry (left-right)
         genes.push(Math.floor(Math.random() * 2)); // Gene 15: Up-down symmetry
         genes.push(Math.floor(Math.random() * 2)); // Gene 16: Radial symmetry
         genes.push(Math.floor(Math.random() * 10) + 1); // Gene 17: Number of segments (1-10)
         genes.push(Math.floor(Math.random() * 50) + 20); // Gene 18: Distance between segments (20-70)
+        genes.push(Math.floor(Math.random() * 10) - 5); // Gene 19: Gradient for depth change per segment (-5 to 5)
+        genes.push(Math.floor(Math.random() * 10) - 5); // Gene 20: Gradient for angle variation change per segment (-5 to 5)
         return genes;
     }
 
     mutateGenes() {
         const geneToMutate = Math.floor(Math.random() * this.genes.length);
-        if (geneToMutate >= 14 && geneToMutate <= 18) {
+        if (geneToMutate >= 14 && geneToMutate <= 20) {
+            // Mutate the new genes appropriately
             if (geneToMutate === 17) {
                 this.genes[geneToMutate] = Math.floor(Math.random() * 10) + 1; // Re-randomize segments
             } else if (geneToMutate === 18) {
                 this.genes[geneToMutate] = Math.floor(Math.random() * 50) + 20; // Re-randomize distance
+            } else if (geneToMutate >= 19) {
+                this.genes[geneToMutate] = Math.floor(Math.random() * 10) - 5; // Re-randomize gradients
             } else {
                 this.genes[geneToMutate] = this.genes[geneToMutate] === 0 ? 1 : 0;
             }
@@ -51,8 +56,8 @@ class Biomorph {
         ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
 
         // Branching structure based on genes 0, 1, 2 (depth, angle variation)
-        const depth = this.genes[0] % 6 + 5;
-        const angleVariation = (this.genes[1] / 20) * Math.PI;
+        let depth = this.genes[0] % 6 + 5;
+        let angleVariation = (this.genes[1] / 20) * Math.PI;
         const length = this.canvas.height / 10 + this.genes[2];
 
         // Symmetry genes
@@ -65,12 +70,21 @@ class Biomorph {
         const distanceBetweenSegments = this.genes[18]; // Gene for distance between segments
         const segmentationEnabled = document.getElementById('toggleSegmentation').checked; // Toggle for segmentation
 
-        // Display gene values on the screen
-        this.displayGeneValues();
+        // Gradient genes
+        const depthGradient = this.genes[19]; // Gradient for depth
+        const angleGradient = this.genes[20]; // Gradient for angle variation
+        const gradientEnabled = document.getElementById('toggleGradient').checked; // Toggle for gradient
 
         for (let i = 0; i < (segmentationEnabled ? numberOfSegments : 1); i++) {
+            // Adjust depth and angle based on gradient if enabled
+            if (gradientEnabled) {
+                depth += depthGradient;
+                angleVariation += (angleGradient / 20) * Math.PI;
+            }
+
             this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 2, depth, angleVariation);
 
+            // Apply symmetry based on gene configuration
             if (bilateralSymmetry) {
                 this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 2, depth, -angleVariation);
             }
@@ -85,7 +99,7 @@ class Biomorph {
     }
 
     drawBranch(ctx, x, y, length, angle, depth, angleVariation) {
-        if (depth === 0) return;
+        if (depth <= 0) return;
 
         const xEnd = x + Math.cos(angle) * length;
         const yEnd = y + Math.sin(angle) * length;
@@ -97,18 +111,6 @@ class Biomorph {
 
         this.drawBranch(ctx, xEnd, yEnd, length * 0.7, angle - angleVariation, depth - 1, angleVariation);
         this.drawBranch(ctx, xEnd, yEnd, length * 0.7, angle + angleVariation, depth - 1, angleVariation);
-    }
-
-    displayGeneValues() {
-        const geneOutput = document.getElementById('geneOutput');
-        geneOutput.innerHTML = `
-          <p><strong>Genes:</strong></p>
-          <p>Segments: ${this.genes[17]}</p>
-          <p>Distance Between Segments: ${this.genes[18]}</p>
-          <p>Bilateral Symmetry: ${this.genes[14]}</p>
-          <p>Up-Down Symmetry: ${this.genes[15]}</p>
-          <p>Radial Symmetry: ${this.genes[16]}</p>
-        `;
     }
 }
 
@@ -140,4 +142,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateChildren();
 });
-
