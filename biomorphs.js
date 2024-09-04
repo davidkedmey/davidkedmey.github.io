@@ -3,6 +3,7 @@ class Biomorph {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.genes = genes || this.randomizeGenes();
+        this.maxDepth = 10; // Limit recursion depth to prevent overdraw
         this.draw(); // Draw immediately
         this.updateGeneFields();
     }
@@ -61,7 +62,7 @@ class Biomorph {
         const b = this.genes[9];
         ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
 
-        let depth = this.genes[0] % 6 + 5;
+        let depth = Math.min(this.genes[0], this.maxDepth); // Limit depth
         let angleVariation = (this.genes[1] / 20) * Math.PI;
         const length = this.canvas.height / 10 + this.genes[2];
 
@@ -144,29 +145,21 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function generateChildren() {
-    childrenContainer.innerHTML = ''; // Clear the existing children
-    for (let i = 0; i < 7; i++) { // Display 7 children
-        const childCanvas = document.createElement('canvas');
-        childCanvas.width = 220;
-        childCanvas.height = 220;
-        childCanvas.classList.add('child'); // Class for potential future styling
-        childrenContainer.appendChild(childCanvas);
-        const childBiomorph = new Biomorph(childCanvas, parentBiomorph.genes.slice());
-        childBiomorph.mutateGenes();
-        childCanvas.addEventListener('click', () => {
-            parentBiomorph = new Biomorph(parentCanvas, childBiomorph.genes);
-            generateChildren();
-        });
+        childrenContainer.innerHTML = ''; // Clear the existing children
+        for (let i = 0; i < 7; i++) { // Display 7 children
+            const childCanvas = document.createElement('canvas');
+            childCanvas.width = 220;
+            childCanvas.height = 220;
+            childCanvas.classList.add('child'); // Class for potential future styling
+            childrenContainer.appendChild(childCanvas);
+            const childBiomorph = new Biomorph(childCanvas, parentBiomorph.genes.slice());
+            childBiomorph.mutateGenes();
+            childCanvas.addEventListener('click', () => {
+                parentBiomorph = new Biomorph(parentCanvas, childBiomorph.genes);
+                generateChildren();
+            });
+        }
     }
-}
-
 
     generateChildren();
 });
-
-
-
-
-
-
-
