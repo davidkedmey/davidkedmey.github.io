@@ -75,6 +75,9 @@ class Biomorph {
         const angleGradient = this.genes[20]; // Gradient for angle variation
         const gradientEnabled = document.getElementById('toggleGradient').checked; // Toggle for gradient
 
+        // Alternating Asymmetry Toggle
+        const alternatingAsymmetry = document.getElementById('toggleAlternatingAsymmetry').checked;
+
         for (let i = 0; i < (segmentationEnabled ? numberOfSegments : 1); i++) {
             // Adjust depth and angle based on gradient if enabled
             if (gradientEnabled) {
@@ -82,18 +85,24 @@ class Biomorph {
                 angleVariation += (angleGradient / 20) * Math.PI;
             }
 
-            this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 2, depth, angleVariation);
+            // Alternate the direction of asymmetry if enabled
+            let currentAngleVariation = angleVariation;
+            if (alternatingAsymmetry && i % 2 === 1) {
+                currentAngleVariation = -angleVariation; // Reverse the direction for alternating segments
+            }
+
+            this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 2, depth, currentAngleVariation);
 
             // Apply symmetry based on gene configuration
             if (bilateralSymmetry) {
-                this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 2, depth, -angleVariation);
+                this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 2, depth, -currentAngleVariation);
             }
             if (upDownSymmetry) {
-                this.drawBranch(ctx, this.canvas.width / 2, 10 + i * distanceBetweenSegments, length, Math.PI / 2, depth, angleVariation);
+                this.drawBranch(ctx, this.canvas.width / 2, 10 + i * distanceBetweenSegments, length, Math.PI / 2, depth, currentAngleVariation);
             }
             if (radialSymmetry) {
-                this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, Math.PI / 4, depth, angleVariation);
-                this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 4, depth, angleVariation);
+                this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, Math.PI / 4, depth, currentAngleVariation);
+                this.drawBranch(ctx, this.canvas.width / 2, this.canvas.height - 10 - i * distanceBetweenSegments, length, -Math.PI / 4, depth, currentAngleVariation);
             }
         }
     }
@@ -142,3 +151,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateChildren();
 });
+
