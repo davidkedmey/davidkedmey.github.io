@@ -144,20 +144,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function generateChildren() {
-        childrenContainer.innerHTML = ''; // Clear the existing children
-        for (let i = 0; i < 7; i++) { // Display 7 children
-            const childCanvas = document.createElement('canvas');
-            childCanvas.width = 220;
-            childCanvas.height = 220;
-            childrenContainer.appendChild(childCanvas);
-            const childBiomorph = new Biomorph(childCanvas, parentBiomorph.genes.slice());
-            childBiomorph.mutateGenes();
-            childCanvas.addEventListener('click', () => {
-                parentBiomorph = new Biomorph(parentCanvas, childBiomorph.genes);
-                generateChildren();
-            });
-        }
+    childrenContainer.innerHTML = ''; // Clear the existing children
+    for (let i = 0; i < 7; i++) { // Display 7 children
+        const childCanvas = document.createElement('canvas');
+        childCanvas.width = 220;
+        childCanvas.height = 220;
+        childCanvas.classList.add('child'); // Class for potential future styling
+        childrenContainer.appendChild(childCanvas);
+        const childBiomorph = new Biomorph(childCanvas, parentBiomorph.genes.slice());
+        childBiomorph.mutateGenes();
+        childCanvas.addEventListener('click', () => {
+            parentBiomorph = new Biomorph(parentCanvas, childBiomorph.genes);
+            generateChildren();
+        });
     }
+}
+
 
     generateChildren();
 });
