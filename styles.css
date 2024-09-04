@@ -4,16 +4,26 @@ body, html {
   margin: 0;
   padding: 0;
   height: 100%;
+}
+
+header {
   display: flex;
-  flex-direction: column;
+  justify-content: center; /* Center the buttons horizontally */
   align-items: center;
+  padding: 10px;
+  background-color: black;
+  position: fixed;
+  width: 100%;
+  top: 0;
+  z-index: 1000; /* Ensure the header stays above other content */
+  box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.5); /* Optional: adds a subtle shadow */
 }
 
 .biomorph-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 20px;
+  margin-top: 60px; /* Add margin to avoid overlap with the fixed header */
 }
 
 #childrenContainer {
@@ -53,7 +63,6 @@ canvas {
   display: flex;
   justify-content: center; /* Center the buttons */
   align-items: center;
-  margin-top: 10px;
 }
 
 label {
@@ -69,5 +78,3 @@ label {
 input[type="checkbox"] {
   margin-right: 5px;
 }
-
-
