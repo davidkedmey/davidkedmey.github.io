@@ -41,6 +41,9 @@ canvas {
   justify-content: center; /* Center the buttons */
   align-items: center;
   margin-top: 10px;
+  position: absolute; /* Position the control panel absolutely */
+  top: 10px; /* Align it with the randomize button */
+  right: 10px;
 }
 
 label {
@@ -52,6 +55,3 @@ label {
 input[type="checkbox"] {
   margin-right: 5px;
 }
-
-
-
