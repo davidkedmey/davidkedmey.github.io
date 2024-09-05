@@ -43,6 +43,11 @@ canvas {
     border: 3px solid white;
 }
 
+.child {
+    border: 1px solid gray; /* Optional styling for children */
+}
+
+
 
 
 
