@@ -94,16 +94,38 @@ class Biomorph {
 
 document.addEventListener('DOMContentLoaded', () => {
     const parentCanvas = document.getElementById('parentCanvas');
+    const childrenContainer = document.getElementById('childrenContainer');
     let parentBiomorph = new Biomorph(parentCanvas);
 
     document.getElementById('randomize').addEventListener('click', () => {
         parentBiomorph = new Biomorph(parentCanvas);
+        generateChildren();
     });
 
     document.getElementById('updateBiomorph').addEventListener('click', () => {
-        const genes = Array.from({length: 10}, (_, i) => parseInt(document.getElementById(`gene${i}`).value, 10));
-        genes.push(...[1, 1, 1, 5, 40, 0, 0]); // Reinitialize other genes for simplicity
+        const genes = Array.from({length: 21}, (_, i) => parseInt(document.getElementById(`gene${i}`).value, 10));
         parentBiomorph = new Biomorph(parentCanvas, genes);
+        generateChildren();
     });
+
+    function generateChildren() {
+        childrenContainer.innerHTML = ''; // Clear the existing children
+        for (let i = 0; i < 7; i++) { // Display 7 children
+            const childCanvas = document.createElement('canvas');
+            childCanvas.width = 220;
+            childCanvas.height = 220;
+            childrenContainer.appendChild(childCanvas);
+            const childBiomorph = new Biomorph(childCanvas, parentBiomorph.genes.slice());
+            childBiomorph.mutateGenes();
+            childCanvas.addEventListener('click', () => {
+                parentBiomorph = new Biomorph(parentCanvas, childBiomorph.genes);
+                parentBiomorph.updateGeneFields(); // Update fields to show new parent's genes
+                generateChildren(); // Regenerate children
+            });
+        }
+    }
+
+    generateChildren();
 });
+
 
