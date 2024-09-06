@@ -35,7 +35,6 @@ body, html {
     margin-left: 10px; /* Add a bit of space between label and input */
 }
 
-
 .biomorph-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr); /* 4 columns */
@@ -52,6 +51,7 @@ canvas {
     width: 100%;
     max-width: 220px; /* Set max width to maintain proportions */
     height: auto;
+    border: 2px dashed red; /* Add a dashed red border to visualize the canvases */
 }
 
 .parent {
@@ -60,7 +60,9 @@ canvas {
 
 .child {
     border: 1px solid gray; /* Optional styling for children */
+    border: 2px dashed blue; /* Add a dashed blue border to children canvases */
 }
+
 
 
 
