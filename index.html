@@ -40,7 +40,7 @@
         </label>
 
         <!-- Gene Input Fields -->
-        <div class="gene-inputs">
+        <div class="gene-inputs" id="geneInputsContainer">
             <label>Depth: <input type="number" id="gene0" value="10" min="0" max="20"></label>
             <label>Angle Variation: <input type="number" id="gene1" value="10" min="0" max="20"></label>
             <label>Length: <input type="number" id="gene2" value="10" min="0" max="20"></label>
@@ -60,17 +60,14 @@
         <progress id="progress" value="0" max="100" style="width: 100%;"></progress>
     </div>
 
-
     <!-- Parent and Children Grid -->
     <div class="biomorph-grid">
-        <!-- Parent in the upper left with a border -->
         <canvas id="parentCanvas" class="parent" width="220" height="220"></canvas>
-        
-        <!-- Children -->
         <div id="childrenContainer" class="children-grid"></div>
     </div>
 </body>
 </html>
+
 
 
 
