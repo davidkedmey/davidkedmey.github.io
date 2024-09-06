@@ -155,11 +155,13 @@ function showProgressBar(show) {
     const progressContainer = document.getElementById('progressContainer');
     const progress = document.getElementById('progress');
 
-    if (show) {
-        progressContainer.style.display = 'block';
-        progress.value = 0;
-    } else {
-        progressContainer.style.display = 'none';
+    if (progressContainer) {
+        if (show) {
+            progressContainer.style.display = 'block';
+            progress.value = 0;
+        } else {
+            progressContainer.style.display = 'none';
+        }
     }
 }
 
@@ -180,7 +182,7 @@ function generateChildren() {
 
         // Debugging output
         console.log(`Child ${i + 1}: Genes = ${childBiomorph.genes}`);
-        console.log(`Child ${i + 1}: Canvas Position = ${childCanvas.getBoundingClientRect()}`);
+        console.log(`Child ${i + 1}: Canvas Position =`, childCanvas.getBoundingClientRect());
 
         childCanvas.addEventListener('click', () => {
             parentBiomorph = new Biomorph(parentCanvas, childBiomorph.genes);
@@ -232,4 +234,5 @@ document.addEventListener('DOMContentLoaded', () => {
     parentBiomorph = new Biomorph(parentCanvas); // Initialize parent biomorph
     generateChildren();
 });
+
 
