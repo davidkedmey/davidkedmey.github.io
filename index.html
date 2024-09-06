@@ -7,48 +7,42 @@
     <script src="biomorphs.js" defer></script>
 </head>
 <body>
-    <!-- Left Control Panel -->
-    <div class="control-panel">
-        <button id="randomize">Randomize Parent</button>
-        <label><input type="checkbox" id="toggleVariableBranching"> Use Variable Branching</label>
-        <label><input type="checkbox" id="toggleBilateralSymmetry" checked> Bilateral Symmetry</label>
-        <label><input type="checkbox" id="toggleUpDownSymmetry" checked> Up-Down Symmetry</label>
-        <label><input type="checkbox" id="toggleRadialSymmetry"> Radial Symmetry</label>
-        <label><input type="checkbox" id="toggleSegmentation" checked> Segmentation</label>
-        <label><input type="checkbox" id="toggleGradient" checked> Gradient</label>
-        <label><input type="checkbox" id="toggleAlternatingAsymmetry"> Alternating Asymmetry</label>
+    <!-- Parent Container aligned to the upper-left -->
+    <div id="parentContainer">
+        <canvas id="parentCanvas" class="parent" width="220" height="220"></canvas>
 
-        <!-- Gene Input Fields -->
-        <div class="gene-inputs" id="geneInputsContainer">
-            <label>Depth: <input type="number" id="gene0" value="10" min="0" max="20"></label>
-            <label>Angle Variation: <input type="number" id="gene1" value="10" min="0" max="20"></label>
-            <label>Length: <input type="number" id="gene2" value="10" min="0" max="20"></label>
-            <label>Split Count: <input type="number" id="gene3" value="10" min="0" max="20"></label>
-            <label>Branch Distribution: <input type="number" id="gene4" value="10" min="0" max="20"></label>
-            <label>Length Variation: <input type="number" id="gene5" value="10" min="0" max="20"></label>
-            <label>Red: <input type="number" id="gene7" value="150" min="150" max="255"></label>
-            <label>Green: <input type="number" id="gene8" value="150" min="150" max="255"></label>
-            <label>Blue: <input type="number" id="gene9" value="150" min="150" max="255"></label>
-            <button id="updateBiomorph">Update Biomorph</button>
+        <!-- Parameters aligned below parent -->
+        <div class="control-panel">
+            <button id="randomize">Randomize Parent</button>
+            <label><input type="checkbox" id="toggleVariableBranching"> Use Variable Branching</label>
+            <label><input type="checkbox" id="toggleBilateralSymmetry" checked> Bilateral Symmetry</label>
+            <label><input type="checkbox" id="toggleUpDownSymmetry" checked> Up-Down Symmetry</label>
+            <label><input type="checkbox" id="toggleRadialSymmetry"> Radial Symmetry</label>
+            <label><input type="checkbox" id="toggleSegmentation" checked> Segmentation</label>
+            <label><input type="checkbox" id="toggleGradient" checked> Gradient</label>
+            <label><input type="checkbox" id="toggleAlternatingAsymmetry"> Alternating Asymmetry</label>
+
+            <!-- Gene Input Fields -->
+            <div class="gene-inputs" id="geneInputsContainer">
+                <label>Depth: <input type="number" id="gene0" value="10" min="0" max="20"></label>
+                <label>Angle Variation: <input type="number" id="gene1" value="10" min="0" max="20"></label>
+                <label>Length: <input type="number" id="gene2" value="10" min="0" max="20"></label>
+                <label>Split Count: <input type="number" id="gene3" value="10" min="0" max="20"></label>
+                <label>Branch Distribution: <input type="number" id="gene4" value="10" min="0" max="20"></label>
+                <label>Length Variation: <input type="number" id="gene5" value="10" min="0" max="20"></label>
+                <label>Red: <input type="number" id="gene7" value="150" min="150" max="255"></label>
+                <label>Green: <input type="number" id="gene8" value="150" min="150" max="255"></label>
+                <label>Blue: <input type="number" id="gene9" value="150" min="150" max="255"></label>
+                <button id="updateBiomorph">Update Biomorph</button>
+            </div>
         </div>
     </div>
 
-    <!-- Parent Canvas -->
-    <div id="parentContainer">
-        <canvas id="parentCanvas" class="parent" width="220" height="220"></canvas>
-    </div>
-
-    <!-- Progress Bar -->
-    <div id="progressContainer" style="display: none;">
-        <label for="progress">Generating Biomorphs...</label>
-        <progress id="progress" value="0" max="100" style="width: 100%;"></progress>
-    </div>
-
-    <!-- Children Grid -->
+    <!-- Children Grid aligned to the right -->
     <div id="childrenContainer"></div>
-
 </body>
 </html>
+
 
 
 
