@@ -10,34 +10,13 @@
     <!-- Left Control Panel -->
     <div class="control-panel">
         <button id="randomize">Randomize Parent</button>
-        <label>
-            <input type="checkbox" id="toggleVariableBranching">
-            Use Variable Branching
-        </label>
-        <label>
-            <input type="checkbox" id="toggleBilateralSymmetry" checked>
-            Bilateral Symmetry
-        </label>
-        <label>
-            <input type="checkbox" id="toggleUpDownSymmetry" checked>
-            Up-Down Symmetry
-        </label>
-        <label>
-            <input type="checkbox" id="toggleRadialSymmetry">
-            Radial Symmetry
-        </label>
-        <label>
-            <input type="checkbox" id="toggleSegmentation" checked>
-            Segmentation
-        </label>
-        <label>
-            <input type="checkbox" id="toggleGradient" checked>
-            Gradient
-        </label>
-        <label>
-            <input type="checkbox" id="toggleAlternatingAsymmetry">
-            Alternating Asymmetry
-        </label>
+        <label><input type="checkbox" id="toggleVariableBranching"> Use Variable Branching</label>
+        <label><input type="checkbox" id="toggleBilateralSymmetry" checked> Bilateral Symmetry</label>
+        <label><input type="checkbox" id="toggleUpDownSymmetry" checked> Up-Down Symmetry</label>
+        <label><input type="checkbox" id="toggleRadialSymmetry"> Radial Symmetry</label>
+        <label><input type="checkbox" id="toggleSegmentation" checked> Segmentation</label>
+        <label><input type="checkbox" id="toggleGradient" checked> Gradient</label>
+        <label><input type="checkbox" id="toggleAlternatingAsymmetry"> Alternating Asymmetry</label>
 
         <!-- Gene Input Fields -->
         <div class="gene-inputs" id="geneInputsContainer">
@@ -54,19 +33,23 @@
         </div>
     </div>
 
+    <!-- Parent Canvas -->
+    <div id="parentContainer">
+        <canvas id="parentCanvas" class="parent" width="220" height="220"></canvas>
+    </div>
+
     <!-- Progress Bar -->
     <div id="progressContainer" style="display: none;">
         <label for="progress">Generating Biomorphs...</label>
         <progress id="progress" value="0" max="100" style="width: 100%;"></progress>
     </div>
 
-    <!-- Parent and Children Grid -->
-    <div class="biomorph-grid">
-        <canvas id="parentCanvas" class="parent" width="220" height="220"></canvas>
-        <div id="childrenContainer" class="children-grid"></div>
-    </div>
+    <!-- Children Grid -->
+    <div id="childrenContainer"></div>
+
 </body>
 </html>
+
 
 
 
