@@ -7,11 +7,23 @@ body, html {
     display: flex;
 }
 
+#mainContainer {
+    display: flex;
+    justify-content: flex-start; /* Align items to the left */
+}
+
+#parentAndControlPanel {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* Keep parent and controls at the top */
+    align-items: flex-start; /* Align to the left */
+    margin-right: 20px; /* Add some space between parent and children */
+}
+
 .control-panel {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    padding: 20px;
     width: 250px;
     background-color: rgba(0, 0, 0, 0.8);
     box-sizing: border-box;
@@ -34,23 +46,13 @@ body, html {
     margin-left: 10px;
 }
 
-/* Align parent to upper-left corner */
-#parentContainer {
-    display: flex;
-    justify-content: flex-start; 
-    flex-direction: column;
-    margin-right: 20px;
-}
-
-/* Children grid placed to the right of parent */
 #childrenContainer {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 4 columns for grid */
+    grid-template-columns: repeat(4, 1fr); /* 4 columns grid */
     grid-gap: 10px;
     justify-items: center;
 }
 
-/* Add white dotted border around each child canvas */
 canvas {
     background-color: black;
     display: block;
@@ -66,9 +68,9 @@ canvas {
 }
 
 .child {
-    border: 1px solid gray;
-    border: 1px dotted white; /* White dotted line for children */
+    border: 1px dotted white;
 }
+
 
 
 
