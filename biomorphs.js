@@ -204,6 +204,16 @@ function resizeCanvas() {
     }
 }
 
+// Set dynamic grid layout for children (2x4 by default)
+function setChildrenGrid(rows = 2, columns = 4) {
+    const childrenContainer = document.getElementById('childrenContainer');
+    childrenContainer.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+}
+
+// Initialize layout
+setChildrenGrid(2, 4); // Default 2x4 grid
+
+// Initialize parent biomorph
 let parentCanvas = document.getElementById('parentCanvas');
 let parentBiomorph = new Biomorph(parentCanvas); // Initialize the parent biomorph before use
 
