@@ -11,6 +11,10 @@
     <div class="control-panel">
         <button id="randomize">Randomize Parent</button>
         <label>
+            <input type="checkbox" id="toggleVariableBranching">
+            Use Variable Branching
+        </label>
+        <label>
             <input type="checkbox" id="toggleBilateralSymmetry" checked>
             Bilateral Symmetry
         </label>
@@ -49,6 +53,13 @@
             <button id="updateBiomorph">Update Biomorph</button>
         </div>
     </div>
+
+    <!-- Progress Bar -->
+    <div id="progressContainer" style="display: none;">
+        <label for="progress">Generating Biomorphs...</label>
+        <progress id="progress" value="0" max="100" style="width: 100%;"></progress>
+    </div>
+
 
     <!-- Parent and Children Grid -->
     <div class="biomorph-grid">
