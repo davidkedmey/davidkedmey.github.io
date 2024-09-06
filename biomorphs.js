@@ -199,8 +199,13 @@ function resizeCanvas() {
     const parentCanvas = document.getElementById('parentCanvas');
     parentCanvas.width = parentCanvas.clientWidth;
     parentCanvas.height = parentCanvas.clientHeight;
-    parentBiomorph.draw();
+    if (parentBiomorph) {
+        parentBiomorph.draw(); // Ensure the parentBiomorph exists before drawing
+    }
 }
+
+let parentCanvas = document.getElementById('parentCanvas');
+let parentBiomorph = new Biomorph(parentCanvas); // Initialize the parent biomorph before use
 
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -214,7 +219,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('toggleAlternatingAsymmetry').checked = false;
 
     // Generate initial biomorphs and set up events
+    parentBiomorph = new Biomorph(parentCanvas); // Initialize parent biomorph
     generateChildren();
 });
-
-
