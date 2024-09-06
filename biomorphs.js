@@ -232,3 +232,4 @@ document.addEventListener('DOMContentLoaded', () => {
     parentBiomorph = new Biomorph(parentCanvas); // Initialize parent biomorph
     generateChildren();
 });
+
