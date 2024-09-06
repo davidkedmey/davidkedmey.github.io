@@ -24,7 +24,24 @@ class Biomorph {
 
     mutateGenes() {
         const geneToMutate = Math.floor(Math.random() * this.genes.length);
-        this.genes[geneToMutate] = Math.floor(Math.random() * (geneToMutate >= 14 && geneToMutate <= 21 ? 30 : 21)); // Adjust mutation ranges
+        let mutationRange;
+        switch (geneToMutate) {
+            case 0: // Mutation logic for Depth gene
+                mutationRange = 20;
+                break;
+            case 1: // Mutation logic for Angle Variation
+                mutationRange = 180;
+                break;
+            case 17: // Mutation logic for Number of Segments
+                mutationRange = 5;
+                break;
+            case 18: // Mutation logic for Distance Between Segments
+                mutationRange = 30;
+                break;
+            default:
+                mutationRange = 21; // Default case
+        }
+        this.genes[geneToMutate] = Math.floor(Math.random() * mutationRange);
         this.draw(); // Immediately draw the updated biomorph
         this.updateGeneFields();
     }
@@ -54,17 +71,31 @@ class Biomorph {
         let numberOfBranches = this.genes[3]; // Number of branches per node
 
         const useVariableBranching = document.getElementById('toggleVariableBranching').checked;
+        const useBilateralSymmetry = document.getElementById('toggleBilateralSymmetry').checked;
+        const useUpDownSymmetry = document.getElementById('toggleUpDownSymmetry').checked;
+        const useRadialSymmetry = document.getElementById('toggleRadialSymmetry').checked;
 
         for (let i = 0; i < numberOfSegments; i++) {
             let segmentPosition = this.canvas.height - (i * distanceBetweenSegments);
             depth += depthGradient;
 
             if (useVariableBranching) {
-                // Variable Branching Case
                 this.drawBranchVariable(ctx, this.canvas.width / 2, segmentPosition, length, -Math.PI / 2, depth, angleVariation, numberOfBranches);
             } else {
-                // Uniform Base Case (two branches with a fixed angle)
                 this.drawBranch(ctx, this.canvas.width / 2, segmentPosition, length, -Math.PI / 2, depth, angleVariation);
+            }
+
+            // Apply symmetry logic
+            if (useBilateralSymmetry) {
+                this.drawBranch(ctx, this.canvas.width / 2, segmentPosition, length, Math.PI / 2, depth, angleVariation);
+            }
+            if (useUpDownSymmetry) {
+                this.drawBranch(ctx, this.canvas.width / 2, segmentPosition, length, Math.PI, depth, angleVariation);
+            }
+            if (useRadialSymmetry) {
+                for (let j = 0; j < 6; j++) {
+                    this.drawBranch(ctx, this.canvas.width / 2, segmentPosition, length, (j * Math.PI) / 3, depth, angleVariation);
+                }
             }
         }
     }
@@ -74,16 +105,14 @@ class Biomorph {
 
         const xEnd = x + Math.cos(angle) * length;
         const yEnd = y + Math.sin(angle) * length;
-        
+
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.lineTo(xEnd, yEnd);
         ctx.stroke();
 
-        // Convert angle variation from degrees to radians
         const angleRad = (angleVariation / 180) * Math.PI;
 
-        // Draw two child branches with a fixed angle variation of ±angleRad
         this.drawBranch(ctx, xEnd, yEnd, length * 0.7, angle - angleRad, depth - 1, angleVariation);
         this.drawBranch(ctx, xEnd, yEnd, length * 0.7, angle + angleRad, depth - 1, angleVariation);
     }
@@ -93,26 +122,33 @@ class Biomorph {
 
         const xEnd = x + Math.cos(angle) * length;
         const yEnd = y + Math.sin(angle) * length;
-        
+
         ctx.beginPath();
         ctx.moveTo(x, y);
         ctx.lineTo(xEnd, yEnd);
         ctx.stroke();
 
-        // Convert angle variation from degrees to radians
         const angleRad = (angleVariation / 180) * Math.PI;
+        const totalBranchingAngle = angleRad;
+        const angleBetweenBranches = totalBranchingAngle / (numberOfBranches - 1);
 
-        // Distribute the branches within the total angle space
-        const totalBranchingAngle = angleRad; // Total angle space for all branches
-        const angleBetweenBranches = totalBranchingAngle / (numberOfBranches - 1); // Angle between each branch
-
-        // Loop through each branch and draw it at the appropriate angle
         for (let i = 0; i < numberOfBranches; i++) {
-            let branchAngle = angle - totalBranchingAngle / 2 + i * angleBetweenBranches; // Adjust angle for each branch
+            let branchAngle = angle - totalBranchingAngle / 2 + i * angleBetweenBranches;
             this.drawBranchVariable(ctx, xEnd, yEnd, length * 0.7, branchAngle, depth - 1, angleVariation, numberOfBranches);
         }
     }
 }
+
+// Event Listener for Gene Update
+document.getElementById('updateBiomorph').addEventListener('click', () => {
+    let newGenes = [];
+    for (let i = 0; i < 22; i++) {
+        const geneInput = document.getElementById(`gene${i}`);
+        if (geneInput) newGenes.push(parseInt(geneInput.value));
+    }
+    parentBiomorph.genes = newGenes;
+    parentBiomorph.draw();
+});
 
 // Progress Bar Control
 function showProgressBar(show) {
@@ -127,14 +163,14 @@ function showProgressBar(show) {
     }
 }
 
-// Debugging information
+// Generate Children and show progress
 function generateChildren() {
     const numberOfChildren = 7;
     const progress = document.getElementById('progress');
     showProgressBar(true);
 
     childrenContainer.innerHTML = ''; // Clear the existing children
-    for (let i = 0; i < numberOfChildren; i++) { // Display 7 children
+    for (let i = 0; i < numberOfChildren; i++) {
         const childCanvas = document.createElement('canvas');
         childCanvas.width = 220;
         childCanvas.height = 220;
@@ -152,23 +188,33 @@ function generateChildren() {
             generateChildren(); // Regenerate children
         });
 
-        // Update progress
         progress.value = ((i + 1) / numberOfChildren) * 100;
     }
 
     showProgressBar(false);
 }
 
+// Ensure canvas size remains proportional
+function resizeCanvas() {
+    const parentCanvas = document.getElementById('parentCanvas');
+    parentCanvas.width = parentCanvas.clientWidth;
+    parentCanvas.height = parentCanvas.clientHeight;
+    parentBiomorph.draw();
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
 document.addEventListener('DOMContentLoaded', () => {
     // Set default for all checkboxes to unchecked
-    document.getElementById('toggleBilateralSymmetry').checked = false;
-    document.getElementById('toggleUpDownSymmetry').checked = false;
+    document.getElementById('toggleVariableBranching').checked = false;
+    document.getElementById('toggleBilateralSymmetry').checked = true;
+    document.getElementById('toggleUpDownSymmetry').checked = true;
     document.getElementById('toggleRadialSymmetry').checked = false;
-    document.getElementById('toggleSegmentation').checked = false;
-    document.getElementById('toggleGradient').checked = false;
     document.getElementById('toggleAlternatingAsymmetry').checked = false;
-    document.getElementById('toggleVariableBranching').checked = false; // Default to uniform base case
 
     // Generate initial biomorphs and set up events
     generateChildren();
 });
+
+
