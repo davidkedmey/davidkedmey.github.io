@@ -5,15 +5,12 @@ body, html {
     padding: 0;
     height: 100%;
     display: flex;
-    flex-direction: column; /* Ensure vertical stacking */
-    justify-content: flex-start;
 }
 
 .control-panel {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    align-items: flex-start;
     padding: 20px;
     width: 250px;
     background-color: rgba(0, 0, 0, 0.8);
@@ -37,21 +34,23 @@ body, html {
     margin-left: 10px;
 }
 
-/* Container for Parent and Children Grid */
+/* Align parent to upper-left corner */
 #parentContainer {
     display: flex;
-    justify-content: center; /* Center the parent canvas */
-    margin-bottom: 20px;
+    justify-content: flex-start; 
+    flex-direction: column;
+    margin-right: 20px;
 }
 
-/* Grid for Children */
+/* Children grid placed to the right of parent */
 #childrenContainer {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 4 columns by default */
+    grid-template-columns: repeat(4, 1fr); /* 4 columns for grid */
     grid-gap: 10px;
-    justify-items: center; /* Center children in their grid cells */
+    justify-items: center;
 }
 
+/* Add white dotted border around each child canvas */
 canvas {
     background-color: black;
     display: block;
@@ -59,7 +58,7 @@ canvas {
     width: 100%;
     max-width: 220px;
     height: auto;
-    border: 2px dashed red;
+    border: 1px dotted white; /* Thin white dotted border */
 }
 
 .parent {
@@ -68,8 +67,9 @@ canvas {
 
 .child {
     border: 1px solid gray;
-    border: 2px dashed blue;
+    border: 1px dotted white; /* White dotted line for children */
 }
+
 
 
 
