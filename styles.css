@@ -23,10 +23,18 @@ body, html {
     width: 100%; /* Ensure full-width buttons and labels */
 }
 
-.gene-inputs {
+.gene-inputs label {
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    width: 100%; /* Full width for uniform spacing */
 }
+
+.gene-inputs input {
+    width: 50px; /* Set fixed width for input boxes */
+    margin-left: 10px; /* Add a bit of space between label and input */
+}
+
 
 .biomorph-grid {
     display: grid;
