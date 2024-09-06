@@ -23,6 +23,11 @@ body, html {
     width: 100%; /* Ensure full-width buttons and labels */
 }
 
+.gene-inputs {
+    display: flex;
+    flex-direction: column;
+}
+
 .biomorph-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr); /* 4 columns */
@@ -33,10 +38,12 @@ body, html {
 }
 
 canvas {
-    width: 220px;
-    height: 220px;
     background-color: black;
     display: block;
+    aspect-ratio: 1 / 1; /* Ensure aspect ratio remains square */
+    width: 100%;
+    max-width: 220px; /* Set max width to maintain proportions */
+    height: auto;
 }
 
 .parent {
@@ -46,6 +53,7 @@ canvas {
 .child {
     border: 1px solid gray; /* Optional styling for children */
 }
+
 
 
 
