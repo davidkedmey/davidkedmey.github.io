@@ -4,7 +4,9 @@ body, html {
     margin: 0;
     padding: 0;
     height: 100%;
-    display: flex; /* Flex layout for control panel and grid */
+    display: flex;
+    flex-direction: column; /* Ensure vertical stacking */
+    justify-content: flex-start;
 }
 
 .control-panel {
@@ -13,45 +15,51 @@ body, html {
     justify-content: flex-start;
     align-items: flex-start;
     padding: 20px;
-    width: 250px; /* Set fixed width for control panel */
+    width: 250px;
     background-color: rgba(0, 0, 0, 0.8);
     box-sizing: border-box;
 }
 
 .control-panel label, .control-panel button {
     margin-bottom: 10px;
-    width: 100%; /* Ensure full-width buttons and labels */
+    width: 100%;
 }
 
 .gene-inputs label {
     display: flex;
     justify-content: space-between;
     margin-bottom: 10px;
-    width: 100%; /* Full width for uniform spacing */
+    width: 100%;
 }
 
 .gene-inputs input {
-    width: 50px; /* Set fixed width for input boxes */
-    margin-left: 10px; /* Add a bit of space between label and input */
+    width: 50px;
+    margin-left: 10px;
 }
 
-.biomorph-grid {
+/* Container for Parent and Children Grid */
+#parentContainer {
+    display: flex;
+    justify-content: center; /* Center the parent canvas */
+    margin-bottom: 20px;
+}
+
+/* Grid for Children */
+#childrenContainer {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 4 columns */
-    grid-template-rows: repeat(2, 1fr); /* 2 rows */
-    gap: 10px;
-    padding: 20px;
-    flex-grow: 1; /* Take up remaining space */
+    grid-template-columns: repeat(4, 1fr); /* 4 columns by default */
+    grid-gap: 10px;
+    justify-items: center; /* Center children in their grid cells */
 }
 
 canvas {
     background-color: black;
     display: block;
-    aspect-ratio: 1 / 1; /* Ensure aspect ratio remains square */
+    aspect-ratio: 1 / 1;
     width: 100%;
-    max-width: 220px; /* Set max width to maintain proportions */
+    max-width: 220px;
     height: auto;
-    border: 2px dashed red; /* Add a dashed red border to visualize the canvases */
+    border: 2px dashed red;
 }
 
 .parent {
@@ -59,9 +67,10 @@ canvas {
 }
 
 .child {
-    border: 1px solid gray; /* Optional styling for children */
-    border: 2px dashed blue; /* Add a dashed blue border to children canvases */
+    border: 1px solid gray;
+    border: 2px dashed blue;
 }
+
 
 
 
