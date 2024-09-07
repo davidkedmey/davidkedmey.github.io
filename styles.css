@@ -1,62 +1,65 @@
-/* Main layout for body */
-body, html {
-    background-color: black;
-    color: white;
+/* Ensure the body and html take up full space */
+html, body {
     margin: 0;
     padding: 0;
     height: 100%;
-    display: flex;
-    flex-direction: row; /* Side-by-side layout */
+    background-color: black;
+    color: white;
 }
 
+/* Wrapper to contain both the control panel and main content */
+.layout-wrapper {
+    display: flex;
+    height: 100%;
+}
+
+/* Control Panel on the left */
 .control-panel {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: flex-start;
+    width: 250px;
     padding: 20px;
-    width: 250px; /* Set fixed width for control panel */
     background-color: rgba(0, 0, 0, 0.8);
-    box-sizing: border-box;
-}
-
-.control-panel label, .control-panel button {
-    margin-bottom: 10px;
-    width: 100%; /* Ensure full-width buttons and labels */
-}
-
-.main-content {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    align-items: center;
-    flex-grow: 1; /* Take up remaining space */
 }
 
-/* Styling for the parent canvas */
+/* Ensure buttons and inputs take full width */
+.control-panel label, .control-panel button {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+/* Main content area to the right, taking up remaining space */
+.main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center the parent canvas horizontally */
+    justify-content: flex-start; /* Start alignment from the top */
+    padding-top: 20px;
+}
+
+/* Parent canvas should be centered at the top */
 .parent {
-    border: 3px solid white;
-    margin-bottom: 20px; /* Space between parent and children grid */
+    border: 2px solid white;
+    margin-bottom: 20px;
 }
 
-/* Grid for children */
+/* Children grid layout */
 .children-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr); /* 4 columns */
-    gap: 10px; /* Gap between children */
+    grid-template-rows: repeat(2, 1fr); /* 2 rows for the children */
+    gap: 10px;
+    width: 90%; /* Take most of the width but keep some margin */
 }
 
-canvas {
-    background-color: black;
-    display: block;
-    aspect-ratio: 1 / 1; /* Ensure aspect ratio remains square */
-    width: 100%;
-    max-width: 220px; /* Set max width to maintain proportions */
-    height: auto;
-}
-
+/* Each child canvas should have a border and similar size as parent */
 .child {
-    border: 1px dotted white; /* Thin dotted border for children */
+    border: 2px dotted white;
+    width: 100%; /* Scale the children to fit within the grid */
+    aspect-ratio: 1 / 1; /* Ensure square aspect ratio */
 }
+
 
 
