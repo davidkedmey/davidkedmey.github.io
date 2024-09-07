@@ -6,6 +6,17 @@ class Biomorph {
         this.maxDepth = 6; // Limit recursion depth for performance
         this.draw(); // Draw immediately
         this.updateGeneFields(); // Update the gene input fields on the HTML
+
+        // Log canvas details when a biomorph is created
+        this.logCanvasDetails(canvas, "Parent");
+    }
+
+    logCanvasDetails(canvas, label) {
+        const rect = canvas.getBoundingClientRect();
+        console.log(`${label} Canvas Details:`);
+        console.log(`Position: (${rect.x}, ${rect.y})`);
+        console.log(`Size: ${rect.width}x${rect.height}`);
+        console.log(`Top: ${rect.top}, Bottom: ${rect.bottom}, Left: ${rect.left}, Right: ${rect.right}`);
     }
 
     randomizeGenes() {
@@ -167,7 +178,7 @@ function showProgressBar(show) {
 
 // Generate Children and show progress
 function generateChildren() {
-    const numberOfChildren = 8; // Update to 8 children for grid
+    const numberOfChildren = 7;
     const progress = document.getElementById('progress');
     showProgressBar(true);
 
@@ -176,14 +187,12 @@ function generateChildren() {
         const childCanvas = document.createElement('canvas');
         childCanvas.width = 220;
         childCanvas.height = 220;
-        childCanvas.classList.add('child'); // Ensure proper class for styling
         childrenContainer.appendChild(childCanvas);
         const childBiomorph = new Biomorph(childCanvas, parentBiomorph.genes.slice());
         childBiomorph.mutateGenes();
 
-        // Log the bounding coordinates of each child after it's added to the grid
-        const childRect = childCanvas.getBoundingClientRect();
-        console.log(`Child ${i + 1}: Coordinates = Top: ${childRect.top}, Left: ${childRect.left}, Width: ${childRect.width}, Height: ${childRect.height}`);
+        // Log child canvas details
+        childBiomorph.logCanvasDetails(childCanvas, `Child ${i + 1}`);
 
         childCanvas.addEventListener('click', () => {
             parentBiomorph = new Biomorph(parentCanvas, childBiomorph.genes);
@@ -191,6 +200,7 @@ function generateChildren() {
             generateChildren(); // Regenerate children
         });
 
+        // Update progress
         progress.value = ((i + 1) / numberOfChildren) * 100;
     }
 
@@ -235,6 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
     parentBiomorph = new Biomorph(parentCanvas); // Initialize parent biomorph
     generateChildren();
 });
+
 
 
 
