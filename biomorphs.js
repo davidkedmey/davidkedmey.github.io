@@ -178,7 +178,7 @@ function showProgressBar(show) {
 
 // Generate Children and show progress
 function generateChildren() {
-    const numberOfChildren = 7;
+    const numberOfChildren = 8; // Updated to 8 children to fill the 2x4 grid
     const progress = document.getElementById('progress');
     showProgressBar(true);
 
