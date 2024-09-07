@@ -183,25 +183,38 @@ function generateChildren() {
     showProgressBar(true);
 
     childrenContainer.innerHTML = ''; // Clear the existing children
+
     for (let i = 0; i < numberOfChildren; i++) {
         const childCanvas = document.createElement('canvas');
         childCanvas.width = 220;
         childCanvas.height = 220;
+        childCanvas.classList.add('child'); // Add child class for grid styling
         childrenContainer.appendChild(childCanvas);
+
         const childBiomorph = new Biomorph(childCanvas, parentBiomorph.genes.slice());
         childBiomorph.mutateGenes();
 
-        // Log child canvas details
-        childBiomorph.logCanvasDetails(childCanvas, `Child ${i + 1}`);
+        // Log details for debugging
+        console.log(`Child ${i + 1} Genes:`, childBiomorph.genes);
+        const childRect = childCanvas.getBoundingClientRect();
+        console.log(`Child ${i + 1} Position: (${childRect.x}, ${childRect.y}), Size: ${childRect.width}x${childRect.height}`);
+
+        // Check if gene input exists before setting its value
+        const geneInput = document.getElementById(`gene${i}`);
+        if (geneInput) {
+            geneInput.value = childBiomorph.genes[i] || 0; // Set value safely
+        }
 
         childCanvas.addEventListener('click', () => {
             parentBiomorph = new Biomorph(parentCanvas, childBiomorph.genes);
-            parentBiomorph.updateGeneFields(); // Update fields to show new parent's genes
+            parentBiomorph.updateGeneFields(); // Update gene fields
             generateChildren(); // Regenerate children
         });
 
-        // Update progress
-        progress.value = ((i + 1) / numberOfChildren) * 100;
+        // Update progress bar
+        if (progress) {
+            progress.value = ((i + 1) / numberOfChildren) * 100;
+        }
     }
 
     showProgressBar(false);
