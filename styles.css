@@ -1,65 +1,62 @@
-/* Main container flexbox */
-#mainContainer {
-    display: flex;
-    justify-content: flex-start;
-    align-items: flex-start;
-    height: 100vh;
-    padding: 20px;
+/* Main layout for body */
+body, html {
     background-color: black;
     color: white;
-}
-
-/* Flexbox for Parent and Control Panel on the left */
-#parentAndControlPanel {
+    margin: 0;
+    padding: 0;
+    height: 100%;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    margin-right: 20px;
+    flex-direction: row; /* Side-by-side layout */
 }
 
-/* The Parent Canvas */
-canvas {
-    border: 3px solid white;
-    width: 220px;
-    height: 220px;
-    margin-bottom: 20px;
-}
-
-/* Control Panel */
 .control-panel {
     display: flex;
     flex-direction: column;
+    justify-content: flex-start;
     align-items: flex-start;
+    padding: 20px;
+    width: 250px; /* Set fixed width for control panel */
     background-color: rgba(0, 0, 0, 0.8);
-    padding: 10px;
+    box-sizing: border-box;
 }
 
-/* Styling for Labels and Inputs */
-label {
+.control-panel label, .control-panel button {
     margin-bottom: 10px;
-    width: 100%;
+    width: 100%; /* Ensure full-width buttons and labels */
+}
+
+.main-content {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    flex-grow: 1; /* Take up remaining space */
 }
 
-input {
-    width: 60px;
+/* Styling for the parent canvas */
+.parent {
+    border: 3px solid white;
+    margin-bottom: 20px; /* Space between parent and children grid */
 }
 
-/* Children Grid */
+/* Grid for children */
 .children-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr); /* 4 columns */
-    grid-template-rows: repeat(2, 1fr); /* 2 rows */
-    grid-gap: 10px; /* Space between grid items */
-    justify-items: center;
-    align-items: center;
+    gap: 10px; /* Gap between children */
 }
 
-/* Child Canvas Styling */
-.child {
-    border: 1px dashed white;
-    width: 220px;
-    height: 220px;
+canvas {
+    background-color: black;
+    display: block;
+    aspect-ratio: 1 / 1; /* Ensure aspect ratio remains square */
+    width: 100%;
+    max-width: 220px; /* Set max width to maintain proportions */
+    height: auto;
 }
+
+.child {
+    border: 1px dotted white; /* Thin dotted border for children */
+}
+
 
