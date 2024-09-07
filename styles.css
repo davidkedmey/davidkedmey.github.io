@@ -1,4 +1,3 @@
-/* Ensure the body and html take up full space */
 html, body {
     margin: 0;
     padding: 0;
@@ -7,59 +6,47 @@ html, body {
     color: white;
 }
 
-/* Wrapper to contain both the control panel and main content */
+/* Wrapper for control panel and content */
 .layout-wrapper {
     display: flex;
     height: 100%;
 }
 
-/* Control Panel on the left */
+/* Control panel styling */
 .control-panel {
     width: 250px;
     padding: 20px;
     background-color: rgba(0, 0, 0, 0.8);
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
 }
 
-/* Ensure buttons and inputs take full width */
-.control-panel label, .control-panel button {
-    width: 100%;
-    margin-bottom: 10px;
-}
-
-/* Main content area to the right, taking up remaining space */
+/* Main content (parent and children) */
 .main-content {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
-    align-items: center; /* Center the parent canvas horizontally */
-    justify-content: flex-start; /* Start alignment from the top */
-    padding-top: 20px;
+    align-items: center; /* Centering horizontally */
+    justify-content: flex-start; /* Align the parent to the top */
 }
 
-/* Parent canvas should be centered at the top */
+/* Parent canvas styling */
 .parent {
     border: 2px solid white;
-    margin-bottom: 20px;
+    margin-bottom: 20px; /* Spacing between parent and children grid */
 }
 
-/* Children grid layout */
+/* Grid for children */
 .children-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr); /* 4 columns */
-    grid-template-rows: repeat(2, 1fr); /* 2 rows for the children */
     gap: 10px;
-    width: 90%; /* Take most of the width but keep some margin */
+    width: 80%; /* Width to ensure the grid is smaller and centered */
 }
 
-/* Each child canvas should have a border and similar size as parent */
+/* Each child should be square with dotted borders */
 .child {
     border: 2px dotted white;
-    width: 100%; /* Scale the children to fit within the grid */
-    aspect-ratio: 1 / 1; /* Ensure square aspect ratio */
+    width: 100%;
+    aspect-ratio: 1 / 1; /* Ensure square shape */
 }
-
-
-
