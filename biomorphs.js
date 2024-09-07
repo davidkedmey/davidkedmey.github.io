@@ -167,7 +167,7 @@ function showProgressBar(show) {
 
 // Generate Children and show progress
 function generateChildren() {
-    const numberOfChildren = 7;
+    const numberOfChildren = 8; // Update to 8 children for grid
     const progress = document.getElementById('progress');
     showProgressBar(true);
 
@@ -176,13 +176,14 @@ function generateChildren() {
         const childCanvas = document.createElement('canvas');
         childCanvas.width = 220;
         childCanvas.height = 220;
+        childCanvas.classList.add('child'); // Ensure proper class for styling
         childrenContainer.appendChild(childCanvas);
         const childBiomorph = new Biomorph(childCanvas, parentBiomorph.genes.slice());
         childBiomorph.mutateGenes();
 
-        // Debugging output
-        console.log(`Child ${i + 1}: Genes = ${childBiomorph.genes}`);
-        console.log(`Child ${i + 1}: Canvas Position =`, childCanvas.getBoundingClientRect());
+        // Log the bounding coordinates of each child after it's added to the grid
+        const childRect = childCanvas.getBoundingClientRect();
+        console.log(`Child ${i + 1}: Coordinates = Top: ${childRect.top}, Left: ${childRect.left}, Width: ${childRect.width}, Height: ${childRect.height}`);
 
         childCanvas.addEventListener('click', () => {
             parentBiomorph = new Biomorph(parentCanvas, childBiomorph.genes);
@@ -234,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     parentBiomorph = new Biomorph(parentCanvas); // Initialize parent biomorph
     generateChildren();
 });
+
 
 
 
