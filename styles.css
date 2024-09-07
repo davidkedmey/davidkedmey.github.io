@@ -1,83 +1,61 @@
-body, html {
-    background-color: black;
-    color: white;
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    display: flex;
-}
-
+/* Parent and Control Panel on the left, Children on the right */
 #mainContainer {
     display: flex;
-    justify-content: flex-start; /* Align items to the left */
+    justify-content: flex-start;
+    align-items: flex-start;
+    height: 100vh;
+    padding: 20px;
+    background-color: black;
+    color: white;
 }
 
+/* Flexbox for Parent and Control Panel on the left */
 #parentAndControlPanel {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start; /* Keep parent and controls at the top */
-    align-items: flex-start; /* Align to the left */
-    margin-right: 20px; /* Add some space between parent and children */
+    align-items: flex-start;
+    margin-right: 20px;
 }
 
+/* The Parent Canvas */
+canvas {
+    border: 3px solid white;
+    width: 220px;
+    height: 220px;
+    margin-bottom: 20px;
+}
+
+/* Control Panel */
 .control-panel {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
-    width: 250px;
+    align-items: flex-start;
     background-color: rgba(0, 0, 0, 0.8);
-    box-sizing: border-box;
+    padding: 10px;
 }
 
-.control-panel label, .control-panel button {
+/* Styling for Labels and Inputs */
+label {
     margin-bottom: 10px;
     width: 100%;
-}
-
-.gene-inputs label {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 10px;
-    width: 100%;
 }
 
-.gene-inputs input {
-    width: 50px;
-    margin-left: 10px;
+input {
+    width: 60px;
 }
 
-#childrenContainer {
+/* Children Grid on the right */
+.children-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* 4 columns grid */
+    grid-template-columns: repeat(4, 1fr);
     grid-gap: 10px;
     justify-items: center;
 }
 
-canvas {
-    background-color: black;
-    display: block;
-    aspect-ratio: 1 / 1;
-    width: 100%;
-    max-width: 220px;
-    height: auto;
-    border: 1px dotted white; /* Thin white dotted border */
-}
-
-.parent {
-    border: 3px solid white;
-}
-
 .child {
-    border: 1px dotted white;
+    border: 1px dashed white;
+    width: 220px;
+    height: 220px;
 }
-
-
-
-
-
-
-
-
-
-
-
