@@ -19,6 +19,30 @@ html, body {
     background-color: rgba(0, 0, 0, 0.8);
     display: flex;
     flex-direction: column;
+    justify-content: flex-start; /* Align items to the top */
+    gap: 15px; /* Add consistent spacing between elements */
+}
+
+/* Ensure each control panel item is full width and on a separate line */
+.control-panel label, .control-panel button {
+    width: 100%;
+    display: block;
+}
+
+.control-panel input[type="checkbox"] {
+    margin-right: 10px; /* Spacing between checkbox and label */
+}
+
+.gene-inputs label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    width: 100%; /* Full width to ensure proper spacing */
+}
+
+.gene-inputs input {
+    width: 50px; /* Adjust width for inputs */
+    margin-left: 10px; /* Spacing between label and input */
 }
 
 /* Main content (parent and children) */
@@ -34,6 +58,7 @@ html, body {
 .parent {
     border: 2px solid white;
     margin-bottom: 20px; /* Spacing between parent and children grid */
+    max-width: 80%; /* Ensure parent canvas isn't too large */
 }
 
 /* Grid for children */
@@ -41,7 +66,8 @@ html, body {
     display: grid;
     grid-template-columns: repeat(4, 1fr); /* 4 columns */
     gap: 10px;
-    width: 80%; /* Width to ensure the grid is smaller and centered */
+    width: 80%; /* Ensure grid is smaller and centered */
+    justify-items: center; /* Ensure children are centered within grid cells */
 }
 
 /* Each child should be square with dotted borders */
@@ -50,3 +76,4 @@ html, body {
     width: 100%;
     aspect-ratio: 1 / 1; /* Ensure square shape */
 }
+
