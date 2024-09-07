@@ -1,4 +1,4 @@
-/* Parent and Control Panel on the left, Children on the right */
+/* Main container flexbox */
 #mainContainer {
     display: flex;
     justify-content: flex-start;
@@ -46,16 +46,20 @@ input {
     width: 60px;
 }
 
-/* Children Grid on the right */
+/* Children Grid */
 .children-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-gap: 10px;
+    grid-template-columns: repeat(4, 1fr); /* 4 columns */
+    grid-template-rows: repeat(2, 1fr); /* 2 rows */
+    grid-gap: 10px; /* Space between grid items */
     justify-items: center;
+    align-items: center;
 }
 
+/* Child Canvas Styling */
 .child {
     border: 1px dashed white;
     width: 220px;
     height: 220px;
 }
+
