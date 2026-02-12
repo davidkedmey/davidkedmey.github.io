@@ -150,6 +150,10 @@ main {
   text-align: center;
   max-width: 760px;
   word-break: break-all;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
 }
 
 #offspring-grid {
@@ -174,11 +178,19 @@ main {
   border-color: #58a6ff;
 }
 
+.offspring-hint {
+  font-size: 0.65rem;
+  color: #484f58;
+  text-align: center;
+}
+
 footer {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   padding: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 button {
@@ -197,10 +209,328 @@ button:hover {
   background: #30363d;
 }
 
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 #generation-counter {
   font-size: 0.8rem;
   color: #8b949e;
 }
+
+/* ── Gene chips with tooltips (F6) ─────────────────────── */
+
+.gene-chip {
+  display: inline-block;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #8b949e;
+  position: relative;
+  cursor: default;
+}
+
+.gene-chip[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #e6edf3;
+  font-family: -apple-system, sans-serif;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.gene-chip[data-tooltip]:hover::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #30363d;
+  z-index: 10;
+}
+
+.gene-chip.gene-changed {
+  background: #1f3d1f;
+  border-color: #3fb950;
+  color: #3fb950;
+}
+
+/* ── History strip (F1) ────────────────────────────────── */
+
+#history-strip {
+  display: none;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  max-width: 840px;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #30363d #0d1117;
+}
+
+.history-thumb {
+  flex-shrink: 0;
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.history-thumb:hover,
+.history-thumb.current {
+  opacity: 1;
+}
+
+.history-thumb.current {
+  filter: drop-shadow(0 0 4px #58a6ff);
+}
+
+.history-thumb img {
+  width: 48px;
+  height: 48px;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: #161b22;
+}
+
+.history-thumb.current img {
+  border-color: #58a6ff;
+}
+
+.history-thumb span {
+  font-size: 0.6rem;
+  color: #8b949e;
+}
+
+/* ── Collapsible panels ────────────────────────────────── */
+
+.collapsible-panel {
+  width: 100%;
+  max-width: 840px;
+  margin: 4px auto;
+}
+
+.panel-toggle {
+  width: 100%;
+  text-align: left;
+  padding: 8px 16px;
+  font-size: 0.8rem;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #161b22;
+  color: #8b949e;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.panel-toggle::before {
+  content: '\25B6  ';
+  font-size: 0.6rem;
+}
+
+.panel-toggle.open {
+  border-radius: 6px 6px 0 0;
+}
+
+.panel-toggle.open::before {
+  content: '\25BC  ';
+}
+
+.panel-toggle:hover {
+  background: #21262d;
+  color: #e6edf3;
+}
+
+.panel-content {
+  border: 1px solid #30363d;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  background: #0d1117;
+  padding: 12px;
+}
+
+/* ── Gallery (F2) ──────────────────────────────────────── */
+
+#gallery-content {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.gallery-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+}
+
+.gallery-card img {
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  background: #0d1117;
+}
+
+.gallery-name {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.7rem;
+  padding: 2px 4px;
+  border: 1px solid #30363d;
+  border-radius: 3px;
+  background: #0d1117;
+  color: #e6edf3;
+  text-align: center;
+}
+
+.gallery-info {
+  font-size: 0.6rem;
+  color: #8b949e;
+}
+
+.gallery-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.gallery-actions button {
+  font-size: 0.65rem;
+  padding: 2px 8px;
+}
+
+.btn-danger {
+  color: #f85149 !important;
+  border-color: #f85149 !important;
+}
+
+.btn-danger:hover {
+  background: rgba(248, 81, 73, 0.15) !important;
+}
+
+.gallery-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #8b949e;
+  padding: 16px;
+}
+
+/* ── Genealogy (F8) ────────────────────────────────────── */
+
+#genealogy-panel .panel-content {
+  overflow: auto;
+  max-height: 400px;
+}
+
+#genealogy-canvas {
+  display: block;
+  cursor: pointer;
+}
+
+/* ── Comparison modal (F7) ─────────────────────────────── */
+
+#comparison-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.comparison-content {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: center;
+  max-width: 720px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.comparison-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.comparison-side h3 {
+  font-size: 0.9rem;
+  color: #58a6ff;
+  font-weight: 500;
+}
+
+.comparison-side canvas {
+  border: 2px solid #30363d;
+  border-radius: 8px;
+  background: #0d1117;
+}
+
+.comparison-genes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  max-width: 300px;
+}
+
+.comparison-actions {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* ── Mutation select (F5) ──────────────────────────────── */
+
+.mutation-label {
+  font-size: 0.8rem;
+  color: #8b949e;
+}
+
+.mutation-label select {
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: #161b22;
+  color: #e6edf3;
+}
+
+/* ── Responsive ────────────────────────────────────────── */
 
 @media (max-width: 600px) {
   #offspring-grid {
@@ -212,5 +542,9 @@ button:hover {
   .mode-tab {
     font-size: 0.65rem;
     padding: 5px 8px;
+  }
+  .comparison-side canvas {
+    width: 140px;
+    height: 140px;
   }
 }

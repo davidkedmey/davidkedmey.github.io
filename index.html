@@ -47,15 +47,61 @@
     </div>
 
     <div id="offspring-grid"></div>
+    <p class="offspring-hint">Click to select &middot; Shift+click to compare</p>
   </main>
 
+  <div id="history-strip"></div>
+
   <footer>
+    <button id="btn-undo" title="Undo last selection (Ctrl+Z)">Undo</button>
+    <button id="btn-save" title="Save current biomorph to gallery">Save</button>
+    <button id="btn-copy-link" title="Copy shareable link to clipboard">Copy Link</button>
+    <button id="btn-interesting" title="Generate a random interesting biomorph (depth 5+)">Random Interesting</button>
     <button id="btn-random">Random Parent</button>
     <button id="btn-reset">Reset to Origin</button>
+    <label class="mutation-label">Mutation:
+      <select id="mutation-intensity">
+        <option value="1">Gentle</option>
+        <option value="2">Moderate</option>
+        <option value="3">Wild</option>
+      </select>
+    </label>
     <div id="generation-counter">Generation: 0</div>
   </footer>
 
+  <div id="gallery-panel" class="collapsible-panel">
+    <button class="panel-toggle">Gallery</button>
+    <div id="gallery-content" class="panel-content" style="display:none"></div>
+  </div>
+
+  <div id="genealogy-panel" class="collapsible-panel">
+    <button class="panel-toggle">Genealogy</button>
+    <div class="panel-content" style="display:none">
+      <canvas id="genealogy-canvas"></canvas>
+    </div>
+  </div>
+
+  <div id="comparison-modal" style="display:none">
+    <div class="comparison-content">
+      <div class="comparison-side">
+        <h3>Parent</h3>
+        <canvas id="compare-parent" width="300" height="300"></canvas>
+        <div id="compare-parent-genes" class="comparison-genes"></div>
+      </div>
+      <div class="comparison-side">
+        <h3>Offspring</h3>
+        <canvas id="compare-child" width="300" height="300"></canvas>
+        <div id="compare-child-genes" class="comparison-genes"></div>
+      </div>
+      <div class="comparison-actions">
+        <button id="compare-select">Select This Offspring</button>
+        <button id="compare-dismiss">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script src="peppering.js"></script>
+  <script src="history.js"></script>
   <script src="biomorph.js"></script>
 </body>
 </html>
