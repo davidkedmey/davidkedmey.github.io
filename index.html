@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dawkins' Biomorphs</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Dawkins' Biomorphs</h1>
+    <p class="subtitle">Artificial selection from <em>The Evolution of Evolvability</em> (1988)</p>
+  </header>
+
+  <main>
+    <div id="parent-section">
+      <canvas id="parent" width="240" height="240"></canvas>
+      <div id="parent-label">Parent</div>
+      <div id="gene-display"></div>
+    </div>
+
+    <div id="offspring-grid"></div>
+  </main>
+
+  <footer>
+    <button id="btn-random">Random Parent</button>
+    <button id="btn-reset">Reset to Origin</button>
+    <div id="generation-counter">Generation: 0</div>
+  </footer>
+
+  <script src="biomorph.js"></script>
+</body>
+</html>
