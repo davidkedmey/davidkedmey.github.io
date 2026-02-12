@@ -1,17 +1,36 @@
 # Dawkins' Biomorphs
 
-A faithful implementation of Richard Dawkins' biomorphs from **"The Evolution of Evolvability"** (1988), originally described in *The Blind Watchmaker* (1986).
+A faithful implementation of Richard Dawkins' progressive embryologies from **"The Evolution of Evolvability"** (1988), originally described in *The Blind Watchmaker* (1986).
+
+**Live demo:** https://dkclaude2000.github.io/dawkins-biomorphs/
+
+## 6 Progressive Modes
+
+The app walks through Dawkins' embryologies in the order he introduced them:
+
+### Mode 0: Pixel Peppering (p.204-205)
+Random pixels on a 16×16 grid. No embryological structure. Demonstrates that without constrained development, cumulative selection is impotent.
+
+### Mode 1: Basic Biomorphs (p.207-210)
+The classic 9-gene recursive bilateral tree. Genes g1-g8 define direction vectors, g9 controls recursion depth.
+
+### Mode 2: + Symmetry Options (p.210)
+Adds a symmetry selector: left-right (default), up-down, four-way radial, or asymmetric. Opens new morphospace.
+
+### Mode 3: + Segmentation (p.211-212)
+Body repeated in segments along a backbone, like arthropod body plans. Adds `segCount` and `segDist` genes (11 total).
+
+### Mode 4: + Gradients (p.212-213)
+Segments taper front-to-back via gradient genes. Creates naturalistic body plans where segments differ in a graded fashion (13 total genes).
+
+### Mode 5: Full Dawkins (p.213-215)
+All features combined, plus:
+- **Alternating asymmetry** — successive segments are asymmetrical in alternate directions, like leaves on a stem
+- **Radial symmetry** — combined with segmentation, produces echinoderms (starfish, sea urchins)
 
 ## The Algorithm
 
-Each biomorph has a **genotype of 9 integer genes**:
-
-- **g1–g8** (range −3 to 3): Define 8 two-dimensional direction vectors
-- **g9** (range 1 to 8): Controls recursion depth (developmental stages)
-
-### DefineVectors
-
-The first 8 genes map to 8 vectors with built-in bilateral symmetry:
+Each biomorph has a genotype of integer genes. The core 8 genes map to 8 direction vectors with built-in bilateral symmetry:
 
 | Vector | dx   | dy  |
 |--------|------|-----|
@@ -24,33 +43,16 @@ The first 8 genes map to 8 vectors with built-in bilateral symmetry:
 | v7     | g3   | g7  |
 | v8     | 0    | g8  |
 
-Note the symmetry: v1 mirrors v7, v2 mirrors v6, v3 mirrors v5.
-
-### DrawBiomorph
-
-```
-procedure DrawBiomorph(i, c, x₀, y₀):
-    if i = 0 then i ← 8
-    if i = 9 then i ← 1
-    (x₁, y₁) ← (x₀ + c·vᵢ.dx, y₀ + c·vᵢ.dy)
-    draw line from (x₀, y₀) to (x₁, y₁)
-    if c > 1:
-        DrawBiomorph(i−1, c−1, x₁, y₁)
-        DrawBiomorph(i+1, c−1, x₁, y₁)
-```
-
-Initial call: `DrawBiomorph(4, g9, 0, 0)`
-
-### Mutation
-
-A single gene changes by ±1 per generation, clamped to its valid range.
+The recursive drawing procedure branches at each node, creating tree-like structures. Mutation changes a single gene by ±1 per generation.
 
 ## How to Use
 
-1. Open `index.html` in a browser
-2. The parent biomorph is shown at the top with 8 mutant offspring below
-3. Click any offspring to select it as the new parent
-4. Repeat to evolve creatures through artificial selection
+1. Open `index.html` in a browser (or visit the live demo)
+2. Select a mode from the tab bar
+3. The parent biomorph is shown at the top with 8 mutant offspring below
+4. Click any offspring to select it as the new parent
+5. Repeat to evolve creatures through artificial selection
+6. Use mode-specific controls (symmetry selector, toggles) to explore different morphospaces
 
 ## References
 

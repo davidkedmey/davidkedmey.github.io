@@ -9,8 +9,35 @@
 <body>
   <header>
     <h1>Dawkins' Biomorphs</h1>
-    <p class="subtitle">Artificial selection from <em>The Evolution of Evolvability</em> (1988)</p>
+    <p class="subtitle">Progressive embryologies from <em>The Evolution of Evolvability</em> (1988)</p>
   </header>
+
+  <nav class="mode-tabs">
+    <button class="mode-tab" data-mode="0">Pixel Peppering</button>
+    <button class="mode-tab active" data-mode="1">Basic</button>
+    <button class="mode-tab" data-mode="2">+ Symmetry</button>
+    <button class="mode-tab" data-mode="3">+ Segments</button>
+    <button class="mode-tab" data-mode="4">+ Gradients</button>
+    <button class="mode-tab" data-mode="5">Full Dawkins</button>
+  </nav>
+
+  <p id="mode-description"></p>
+
+  <div id="symmetry-controls" class="mode-controls" style="display:none">
+    <label>Symmetry:
+      <select id="symmetry-select">
+        <option value="left-right">Left-right</option>
+        <option value="up-down">Up-down</option>
+        <option value="four-way">Four-way radial</option>
+        <option value="asymmetric">Asymmetric</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="mode5-controls" class="mode-controls" style="display:none">
+    <label><input type="checkbox" id="alternating-asym"> Alternating asymmetry</label>
+    <label><input type="checkbox" id="radial-sym"> Radial symmetry</label>
+  </div>
 
   <main>
     <div id="parent-section">
@@ -28,6 +55,7 @@
     <div id="generation-counter">Generation: 0</div>
   </footer>
 
+  <script src="peppering.js"></script>
   <script src="biomorph.js"></script>
 </body>
 </html>
