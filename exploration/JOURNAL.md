@@ -132,4 +132,77 @@ Lineages 1 and 3 both reached depth=8 with spread genes, yet look completely dif
 
 ---
 
-*This exploration was conducted programmatically — Claude selected offspring based on explicit fitness criteria, not visual evaluation of rendered images. A future exploration should use vision-based evaluation (rendering biomorphs and evaluating the images) for more naturalistic selection.*
+## Part 2: Vision-Based Selection
+
+**Method:** Claude renders biomorphs visually, looks at the actual images, and selects based on aesthetic and morphological criteria — the same way Dawkins did it. No numerical heuristics. Pure visual judgment.
+
+**Starting point:** Origin genotype, Mode 1 (Basic).
+**Bootstrap:** Generations 0-9 selected for depth (to escape the featureless single-line phase).
+**Visual selection:** Generations 10-21 selected by looking at rendered offspring.
+
+### The Journey
+
+**Gen 9 → 10:** First real visual choice. 8 offspring with visible branching at depth=5. Selected #5 for structural density — a figure with outstretched arms. *Criterion: maximum visual mass.*
+
+**Gen 10 → 11:** Chose a form with a strong central spine and symmetric branches — the most "living thing" quality. Looked like a plant or a nervous system. *Criterion: organic resemblance.*
+
+**Gen 11 → 12:** Selected clean Y-branching antler form. A **winter tree** — one of Dawkins' canonical biomorphs. The most naturalistic form to this point.
+
+![Gen 12 — the antler/winter tree](vision_gen16_insect_moment.png)
+
+**Gen 12 — the evolutionary fork.** The offspring split into two distinct morphological families:
+- *Organic branchers* — trees, vines, coral
+- *Rectilinear grids* — circuit boards, city plans, lattices
+
+This was a genuine speciation event in morphospace. One gene change (g4) flipped the entire body plan paradigm.
+
+**Gen 12 → 13:** Chose the dense coral/dendrite variant. Pushed toward organic complexity rather than architectural order.
+
+**Gen 13 → 14:** A **woven cross** appeared — crossing lines created a Celtic knotwork pattern. Completely unexpected. The g2=-1 mutation caused branches to cross over each other rather than diverge. Selected this for its novelty.
+
+**Gen 14 → 15:** Deepened the knotwork pattern. Offspring #2 had reverted to a simple tree — demonstrating that one gene step separates ornamental complexity from structural simplicity.
+
+**Gen 15 → 16:** Selected for wider, more creature-like forms. Looking for bilateral "body" shapes.
+
+**Gen 16 — THE INSECT MOMENT.** Offspring #0 was unmistakably an insect — head at top, thorax, abdomen, legs splayed outward. This is exactly the moment Dawkins described in his paper: the shock of recognition when a living form emerges from abstract mathematics. *I selected it immediately.*
+
+**Gen 17 → 18:** The insect evolved a **fox/bat face** quality — pointed ears, a snout, a longer body. The g5=-3 mutation stretched the form downward into a dramatic arrowhead/spearpoint shape.
+
+**Gen 18 → 19:** Selected the "owl/shield" variant — rounder, wider. Depth increased to 7, adding another layer of fractal detail. The form now had nested diamond chambers inside the body, like a decorated shield or a cathedral window.
+
+**Gen 19 → 20:** A dramatic departure — selected a **geometric pagoda/temple** form with horizontal layered structure. Architectural rather than biological.
+
+**Gen 20 → 21:** The pagoda evolved Sierpinski-triangle-like nesting. Selected a dense variant with face/mask qualities. The final form: `[1, -1, 0, 1, -3, -1, 0, 0, 7]`.
+
+![Gen 21 — final form](vision_gen21_final.png)
+
+### What vision-based selection revealed
+
+**1. I found the insect faster than the heuristic did.** The programmatic "insect" strategy (Lineage 2) produced a flat crab-lattice after 30 generations. Vision-based selection found a recognizable insect in 16 generations — because I could *see* the insect emerging and select toward it, whereas the heuristic could only optimize proxy metrics.
+
+**2. I was drawn to "meaning."** My selections consistently favored forms that *resembled something* — trees, insects, faces, architecture. I didn't set out to find faces, but I selected for them when they appeared. This mirrors what Dawkins reported: the selector's pareidolia guides evolution toward recognizable forms.
+
+**3. The woven-cross was a surprise.** No heuristic would have found it — it emerged from a specific gene combination (g2=-1 creating crossing lines) that a numerical strategy would never target. Vision-based selection can exploit unexpected phenotypic features that heuristics are blind to.
+
+**4. Evolutionary forks are visible.** At generation 12, I could see the morphospace splitting into organic vs. geometric families. A heuristic can't perceive this — it just follows its gradient. A visual selector can consciously choose which branch of the evolutionary tree to explore.
+
+**5. Regression is always one step away.** Several times, a single mutation collapsed an elaborate form back to a simple tree or line. The morphospace has narrow ridges: rich, complex forms are surrounded by simplicity. This is why cumulative selection works — it navigates these ridges.
+
+### Updated Museum Specimens
+
+| # | Name | Mode | Genes | Gen | Description |
+|---|------|------|-------|-----|-------------|
+| 1 | Gothic Spire | Basic | `3,-3,1,2,3,-3,-3,-3,8` | 30 | Dense vertical fractal, conifer-like |
+| 2 | Crab | Basic | `-3,2,3,0,-1,-1,1,3,8` | 30 | Flat horizontal lattice, crustacean |
+| 3 | Deciduous Tree | Basic | `3,-1,3,1,3,-1,3,0,8` | 30 | Classic tree with spreading canopy |
+| 4 | The Null | Basic | `-2,-2,-2,2,0,-1,0,1,1` | 30 | A line. Selection for diversity builds nothing. |
+| 5 | Centipede | +Segments | `-3,0,3,0,1,-2,2,2,8,8,11` | 40 | 8-segment arthropod/fern frond |
+| 6 | Sea Urchin | Full Dawkins | `-3,1,-3,1,-1,0,-1,-1,8,8,12,3,-3` | 40 | 8-armed radial echinoderm |
+| 7 | Winter Antler | Basic | `1,0,0,0,-1,-1,0,0,6` | 12 | Clean Y-branching, deer antler / winter tree |
+| 8 | Woven Cross | Basic | `1,-1,0,1,-1,-1,0,0,6` | 14 | Celtic knotwork — crossing lines create lattice |
+| 9 | The Insect | Basic | `1,-1,0,1,-2,-1,0,0,6` | 16 | Head, thorax, legs — the Dawkins moment |
+| 10 | Winged Demon | Basic | `1,-1,0,1,-3,-1,0,0,7` | 21 | Bat/demon with ornamental crown and stinger |
+
+---
+
+*Part 1 was conducted with programmatic heuristics. Part 2 used genuine vision-based selection — Claude looked at rendered images and chose based on visual judgment. The vision-based approach found more varied, more naturalistic, and more surprising forms in fewer generations.*
