@@ -274,7 +274,7 @@ main {
 .offspring-number {
   position: absolute;
   top: 4px;
-  left: 4px;
+  right: 4px;
   z-index: 2;
   width: 20px;
   height: 20px;
