@@ -10,6 +10,7 @@
   <header>
     <h1>Dawkins' Biomorphs</h1>
     <p class="subtitle">Progressive embryologies from <em>The Evolution of Evolvability</em> (1988)</p>
+    <span id="version-tag">v0.13</span>
   </header>
 
   <nav class="mode-tabs">
@@ -20,65 +21,74 @@
     <button class="mode-tab" data-mode="4">+ Gradients</button>
     <button class="mode-tab" data-mode="5">Full Dawkins</button>
   </nav>
-
   <p id="mode-description"></p>
-
-  <div id="symmetry-controls" class="mode-controls" style="display:none">
-    <label>Symmetry:
-      <select id="symmetry-select">
-        <option value="left-right">Left-right</option>
-        <option value="up-down">Up-down</option>
-        <option value="four-way">Four-way radial</option>
-        <option value="asymmetric">Asymmetric</option>
-      </select>
-    </label>
-  </div>
-
-  <div id="mode5-controls" class="mode-controls" style="display:none">
-    <label><input type="checkbox" id="alternating-asym"> Alternating asymmetry</label>
-    <label><input type="checkbox" id="radial-sym"> Radial symmetry</label>
+  <div id="settings-bar">
+    <div id="symmetry-controls" class="setting-row" style="display:none">
+      <label>Symmetry:
+        <select id="symmetry-select">
+          <option value="left-right">Left-right</option>
+          <option value="up-down">Up-down</option>
+          <option value="four-way">Four-way radial</option>
+          <option value="asymmetric">Asymmetric</option>
+        </select>
+      </label>
+    </div>
+    <div id="mode5-controls" class="setting-row" style="display:none">
+      <label><input type="checkbox" id="alternating-asym"> Alternating asymmetry</label>
+      <label><input type="checkbox" id="radial-sym"> Radial symmetry</label>
+    </div>
+    <div id="color-controls" class="setting-row" style="display:none">
+      <label><input type="checkbox" id="color-toggle"> Color by depth</label>
+    </div>
+    <div class="setting-row">
+      <label class="mutation-label">Mutation:
+        <select id="mutation-intensity">
+          <option value="1">Gentle</option>
+          <option value="2">Moderate</option>
+          <option value="3">Wild</option>
+        </select>
+      </label>
+    </div>
   </div>
 
   <main>
     <div id="parent-section">
-      <canvas id="parent" width="240" height="240"></canvas>
-      <div id="parent-label">Parent</div>
-      <div id="gene-display"></div>
+      <div id="parent-wrapper">
+        <canvas id="parent" width="240" height="240"></canvas>
+        <button id="btn-animate" title="Watch growth animation">&#9654;</button>
+        <button id="btn-save-parent" class="card-icon" title="Save to gallery">&#11123;</button>
+        <button id="btn-link-parent" class="card-icon" title="Copy link">&#9939;</button>
+      </div>
+      <div id="parent-label">Parent &middot; <span id="generation-counter">Gen 0</span></div>
+      <div id="parent-actions">
+        <button id="btn-undo" title="Undo last selection (Ctrl+Z)">Undo</button>
+        <button id="btn-reset">Reset</button>
+        <button id="btn-random">Random</button>
+        <button id="btn-interesting" title="Generate a random interesting biomorph (depth 5+)">Interesting</button>
+      </div>
+    </div>
+
+    <div id="genome-panel" class="collapsible-panel">
+      <button class="panel-toggle">Genome</button>
+      <div class="panel-content" style="display:none">
+        <div id="genome-table"></div>
+      </div>
     </div>
 
     <div id="offspring-grid"></div>
     <p class="offspring-hint">Click to select &middot; Shift+click to compare</p>
   </main>
 
-  <div id="history-strip"></div>
-
-  <footer>
-    <button id="btn-undo" title="Undo last selection (Ctrl+Z)">Undo</button>
-    <button id="btn-save" title="Save current biomorph to gallery">Save</button>
-    <button id="btn-copy-link" title="Copy shareable link to clipboard">Copy Link</button>
-    <button id="btn-interesting" title="Generate a random interesting biomorph (depth 5+)">Random Interesting</button>
-    <button id="btn-random">Random Parent</button>
-    <button id="btn-reset">Reset to Origin</button>
-    <label class="mutation-label">Mutation:
-      <select id="mutation-intensity">
-        <option value="1">Gentle</option>
-        <option value="2">Moderate</option>
-        <option value="3">Wild</option>
-      </select>
-    </label>
-    <div id="generation-counter">Generation: 0</div>
-  </footer>
-
-  <div id="gallery-panel" class="collapsible-panel">
-    <button class="panel-toggle">Gallery</button>
-    <div id="gallery-content" class="panel-content" style="display:none"></div>
-  </div>
-
   <div id="genealogy-panel" class="collapsible-panel">
     <button class="panel-toggle">Genealogy</button>
     <div class="panel-content" style="display:none">
       <canvas id="genealogy-canvas"></canvas>
     </div>
+  </div>
+
+  <div id="gallery-panel" class="collapsible-panel">
+    <button class="panel-toggle open">Gallery</button>
+    <div id="gallery-content" class="panel-content" style="display:grid"></div>
   </div>
 
   <div id="comparison-modal" style="display:none">
@@ -96,6 +106,28 @@
       <div class="comparison-actions">
         <button id="compare-select">Select This Offspring</button>
         <button id="compare-dismiss">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="breed-modal" style="display:none">
+    <div class="breed-content">
+      <div class="breed-parents">
+        <div class="breed-parent-side">
+          <h3>Parent</h3>
+          <canvas id="breed-parent1" width="200" height="200"></canvas>
+        </div>
+        <span class="breed-x">&times;</span>
+        <div class="breed-parent-side">
+          <h3>Mate</h3>
+          <canvas id="breed-parent2" width="200" height="200"></canvas>
+        </div>
+      </div>
+      <div id="breed-gene-comparison" class="breed-gene-comparison"></div>
+      <div id="breed-offspring" class="breed-offspring-grid"></div>
+      <div id="breed-detail-strip" class="breed-detail-strip"></div>
+      <div class="breed-actions">
+        <button id="breed-dismiss">Cancel</button>
       </div>
     </div>
   </div>

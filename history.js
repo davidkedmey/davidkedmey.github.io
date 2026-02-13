@@ -79,8 +79,8 @@ class EvolutionHistory {
 
 function captureNodeThumbnail(history, node) {
   const canvas = document.createElement('canvas');
-  canvas.width = 48;
-  canvas.height = 48;
+  canvas.width = 80;
+  canvas.height = 80;
 
   // Temporarily swap global render state
   const prevMode = currentMode;
@@ -96,7 +96,10 @@ function captureNodeThumbnail(history, node) {
   if (node.mode === 0) {
     renderPeppering(canvas, node.genes);
   } else {
-    renderBiomorph(canvas, node.genes);
+    const opts = node.colorEnabled && node.colorGenes
+      ? { colorEnabled: true, colorGenes: node.colorGenes }
+      : undefined;
+    renderBiomorph(canvas, node.genes, opts);
   }
 
   currentMode = prevMode;
@@ -114,56 +117,16 @@ function captureNodeThumbnail(history, node) {
   return dataUrl;
 }
 
-// ── History strip UI ────────────────────────────────────────
-
-function updateHistoryStrip(history, onJump) {
-  const strip = document.getElementById('history-strip');
-  if (!strip) return;
-
-  const ancestors = history.getAncestors(20);
-  strip.innerHTML = '';
-
-  if (ancestors.length <= 1) {
-    strip.style.display = 'none';
-    return;
-  }
-
-  strip.style.display = 'flex';
-
-  for (const node of ancestors) {
-    const thumb = document.createElement('div');
-    thumb.className = 'history-thumb';
-    if (node.id === history.currentId) thumb.classList.add('current');
-
-    if (node.thumbnail) {
-      const img = document.createElement('img');
-      img.src = node.thumbnail;
-      img.alt = `Gen ${node.generation}`;
-      img.draggable = false;
-      thumb.appendChild(img);
-    }
-
-    const label = document.createElement('span');
-    label.textContent = node.generation;
-    thumb.appendChild(label);
-
-    thumb.addEventListener('click', () => onJump(node.id));
-    strip.appendChild(thumb);
-  }
-
-  strip.scrollLeft = strip.scrollWidth;
-}
-
 // ── Genealogy tree layout ───────────────────────────────────
 
 function layoutGenealogy(history) {
   const allNodes = history.getAllNodes();
-  if (allNodes.length === 0) return { positions: new Map(), width: 0, height: 0, nodeW: 56, nodeH: 56 };
+  if (allNodes.length === 0) return { positions: new Map(), width: 0, height: 0, nodeW: 100, nodeH: 100 };
 
-  const NODE_W = 56;
-  const NODE_H = 56;
-  const GAP_X = 24;
-  const GAP_Y = 12;
+  const NODE_W = 100;
+  const NODE_H = 100;
+  const GAP_X = 28;
+  const GAP_Y = 16;
 
   const positions = new Map();
   const depths = new Map();
@@ -218,6 +181,25 @@ function renderGenealogy(history, onJump) {
   const canvas = document.getElementById('genealogy-canvas');
   if (!canvas) return;
 
+  const nodeCount = history.getAllNodes().length;
+
+  // Manage hint element
+  let hint = content.querySelector('.genealogy-hint');
+  if (!hint) {
+    hint = document.createElement('p');
+    hint.className = 'genealogy-hint';
+    content.appendChild(hint);
+  }
+  if (nodeCount === 0) {
+    hint.textContent = 'Your evolutionary tree will appear here as you select offspring.';
+    hint.style.display = '';
+  } else if (nodeCount === 1) {
+    hint.textContent = 'Select offspring to grow your evolutionary tree.';
+    hint.style.display = '';
+  } else {
+    hint.style.display = 'none';
+  }
+
   const { positions, width, height, nodeW, nodeH } = layoutGenealogy(history);
   if (positions.size === 0) return;
 
@@ -250,25 +232,25 @@ function renderGenealogy(history, onJump) {
     const isCurrent = node.id === history.currentId;
 
     // Node background
-    ctx.fillStyle = isCurrent ? '#1f6feb' : '#21262d';
+    ctx.fillStyle = isCurrent ? '#1f6feb' : '#161b22';
     ctx.strokeStyle = isCurrent ? '#58a6ff' : '#30363d';
-    ctx.lineWidth = isCurrent ? 2 : 1;
+    ctx.lineWidth = isCurrent ? 2.5 : 1;
     ctx.beginPath();
-    ctx.roundRect(pos.x, pos.y, nodeW, nodeH, 4);
+    ctx.roundRect(pos.x, pos.y, nodeW, nodeH, 6);
     ctx.fill();
     ctx.stroke();
 
     // Thumbnail
     const img = history.imageCache.get(node.id);
     if (img && img.complete && img.naturalWidth > 0) {
-      ctx.drawImage(img, pos.x + 4, pos.y + 3, nodeW - 8, nodeH - 16);
+      ctx.drawImage(img, pos.x + 6, pos.y + 4, nodeW - 12, nodeH - 22);
     }
 
     // Generation label
     ctx.fillStyle = isCurrent ? '#fff' : '#8b949e';
-    ctx.font = '9px -apple-system, sans-serif';
+    ctx.font = '11px -apple-system, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(node.generation, pos.x + nodeW / 2, pos.y + nodeH - 3);
+    ctx.fillText(`Gen ${node.generation}`, pos.x + nodeW / 2, pos.y + nodeH - 5);
   }
 
   // Click handler

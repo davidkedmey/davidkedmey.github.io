@@ -47,6 +47,8 @@ let symmetryType = 'left-right';
 let alternatingAsymmetry = false;
 let radialSymmetry = false;
 let mutationIntensity = 1; // F5: 1=Gentle, 2=Moderate, 3=Wild
+let colorEnabled = false;
+let colorGenes = { hue: 7, spread: 3 }; // hue: 0-11 (30° steps), spread: -6 to 6
 
 // ── Gene tooltips (F6) ──────────────────────────────────────
 
@@ -71,31 +73,35 @@ const GENE_TOOLTIPS = {
 const SYM_CODES = { 'left-right': 'lr', 'up-down': 'ud', 'four-way': 'fw', 'asymmetric': 'as' };
 const SYM_DECODE = { lr: 'left-right', ud: 'up-down', fw: 'four-way', as: 'asymmetric' };
 
-function encodeState() {
-  const parts = [`m=${currentMode}`];
+function encodeStateFor(genes, mode, sym, altAsym, radSym, mi, gen, colorEn, cGenes) {
+  const parts = [`m=${mode}`];
 
-  if (currentMode === 0) {
-    // Compact hex encoding for 256-element binary array
+  if (mode === 0) {
     let hex = '';
-    for (let i = 0; i < parentGenes.length; i += 4) {
+    for (let i = 0; i < genes.length; i += 4) {
       let nibble = 0;
-      for (let j = 0; j < 4 && i + j < parentGenes.length; j++) {
-        if (parentGenes[i + j]) nibble |= (1 << j);
+      for (let j = 0; j < 4 && i + j < genes.length; j++) {
+        if (genes[i + j]) nibble |= (1 << j);
       }
       hex += nibble.toString(16);
     }
     parts.push(`g=${hex}`);
   } else {
-    parts.push(`g=${parentGenes.join(',')}`);
-    parts.push(`s=${SYM_CODES[symmetryType] || 'lr'}`);
-    if (alternatingAsymmetry) parts.push('aa=1');
-    if (radialSymmetry) parts.push('rs=1');
+    parts.push(`g=${genes.join(',')}`);
+    parts.push(`s=${SYM_CODES[sym] || 'lr'}`);
+    if (altAsym) parts.push('aa=1');
+    if (radSym) parts.push('rs=1');
   }
 
-  if (mutationIntensity !== 1) parts.push(`mi=${mutationIntensity}`);
-  parts.push(`gen=${generation}`);
+  if (mi !== 1) parts.push(`mi=${mi}`);
+  if (colorEn && cGenes) parts.push(`ce=1&cg=${cGenes.hue},${cGenes.spread}`);
+  parts.push(`gen=${gen}`);
 
   return '#' + parts.join('&');
+}
+
+function encodeState() {
+  return encodeStateFor(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, mutationIntensity, generation, colorEnabled, colorGenes);
 }
 
 function decodeState(hash) {
@@ -131,6 +137,13 @@ function decodeState(hash) {
     }
   }
 
+  let colorEn = params.ce === '1';
+  let cGenes = { hue: 7, spread: 3 };
+  if (params.cg) {
+    const parts2 = params.cg.split(',').map(Number);
+    if (parts2.length === 2) cGenes = { hue: parts2[0], spread: parts2[1] };
+  }
+
   return {
     mode,
     genes,
@@ -139,6 +152,8 @@ function decodeState(hash) {
     radialSym: params.rs === '1',
     mutationIntensity: parseInt(params.mi) || 1,
     generation: parseInt(params.gen) || 0,
+    colorEnabled: colorEn,
+    colorGenes: cGenes,
   };
 }
 
@@ -183,6 +198,33 @@ function mutate(genes) {
   const delta = (1 + Math.floor(Math.random() * maxDelta)) * (Math.random() < 0.5 ? -1 : 1);
   child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], child[i] + delta));
   return child;
+}
+
+// ── Color gene helpers ───────────────────────────────────────
+
+function depthToColor(depth, maxDepth, hue, spread) {
+  const t = maxDepth > 1 ? (maxDepth - depth) / (maxDepth - 1) : 0; // 0 at trunk, 1 at tips
+  const h = ((hue * 30) + spread * 30 * t + 360) % 360;
+  const s = 70 + t * 20; // saturation 70-90%
+  const l = 55 + t * 15; // lightness 55-70%
+  return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
+function mutateColor(cGenes) {
+  const child = { hue: cGenes.hue, spread: cGenes.spread };
+  if (Math.random() < 0.5) {
+    child.hue = ((child.hue + (Math.random() < 0.5 ? 1 : -1)) % 12 + 12) % 12;
+  } else {
+    child.spread = Math.max(-6, Math.min(6, child.spread + (Math.random() < 0.5 ? 1 : -1)));
+  }
+  return child;
+}
+
+function crossoverColor(cGenes1, cGenes2) {
+  return {
+    hue: Math.random() < 0.5 ? cGenes1.hue : cGenes2.hue,
+    spread: Math.random() < 0.5 ? cGenes1.spread : cGenes2.spread,
+  };
 }
 
 /**
@@ -276,7 +318,7 @@ function drawTree(genes) {
     const v = vectors[i];
     const x1 = x0 + c * v[0];
     const y1 = y0 + c * v[1];
-    lines.push({ x0, y0, x1, y1 });
+    lines.push({ x0, y0, x1, y1, depth: c });
     if (c > 1) {
       recurse(i - 1, c - 1, x1, y1);
       recurse(i + 1, c - 1, x1, y1);
@@ -297,14 +339,14 @@ function applySymmetry(lines, symType) {
   if (symType === 'up-down' || symType === 'four-way') {
     // Mirror across horizontal axis (negate y)
     for (const seg of lines) {
-      result.push({ x0: seg.x0, y0: -seg.y0, x1: seg.x1, y1: -seg.y1 });
+      result.push({ x0: seg.x0, y0: -seg.y0, x1: seg.x1, y1: -seg.y1, depth: seg.depth });
     }
   }
   if (symType === 'four-way') {
     // Also mirror the entire set across vertical axis (negate x)
     const soFar = result.slice();
     for (const seg of soFar) {
-      result.push({ x0: -seg.x0, y0: seg.y0, x1: -seg.x1, y1: seg.y1 });
+      result.push({ x0: -seg.x0, y0: seg.y0, x1: -seg.x1, y1: seg.y1, depth: seg.depth });
     }
   }
   if (symType === 'asymmetric') {
@@ -360,6 +402,7 @@ function drawSegmented(genes) {
       allLines.push({
         x0: seg.x0, y0: seg.y0 + yOffset,
         x1: seg.x1, y1: seg.y1 + yOffset,
+        depth: seg.depth,
       });
     }
   }
@@ -382,6 +425,7 @@ function applyRadial(lines, arms) {
         y0: seg.x0 * sin + seg.y0 * cos,
         x1: seg.x1 * cos - seg.y1 * sin,
         y1: seg.x1 * sin + seg.y1 * cos,
+        depth: seg.depth,
       });
     }
   }
@@ -413,21 +457,26 @@ function drawBiomorph(genes) {
 
 // ── Rendering ────────────────────────────────────────────────
 
-function renderBiomorph(canvas, genes) {
+function renderBiomorph(canvas, genes, options) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width;
   const h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
-  const lines = drawBiomorph(genes);
+  const lines = options && options.lines ? options.lines : drawBiomorph(genes);
   if (lines.length === 0) return;
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const seg of lines) {
-    minX = Math.min(minX, seg.x0, seg.x1);
-    maxX = Math.max(maxX, seg.x0, seg.x1);
-    minY = Math.min(minY, seg.y0, seg.y1);
-    maxY = Math.max(maxY, seg.y0, seg.y1);
+  if (options && options.bbox) {
+    minX = options.bbox.minX; maxX = options.bbox.maxX;
+    minY = options.bbox.minY; maxY = options.bbox.maxY;
+  } else {
+    for (const seg of lines) {
+      minX = Math.min(minX, seg.x0, seg.x1);
+      maxX = Math.max(maxX, seg.x0, seg.x1);
+      minY = Math.min(minY, seg.y0, seg.y1);
+      maxY = Math.max(maxY, seg.y0, seg.y1);
+    }
   }
 
   const bw = maxX - minX || 1;
@@ -439,15 +488,340 @@ function renderBiomorph(canvas, genes) {
   const offsetX = (minX + maxX) / 2;
   const offsetY = (minY + maxY) / 2;
 
-  ctx.strokeStyle = '#e6edf3';
-  ctx.lineWidth = 1.5;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  for (const seg of lines) {
-    ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
-    ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
+  const useColor = options && options.colorEnabled && options.colorGenes;
+  if (useColor) {
+    const maxDepth = Math.max(...lines.map(s => s.depth));
+    // Group by depth and draw each group in its color
+    const byDepth = new Map();
+    for (const seg of lines) {
+      if (!byDepth.has(seg.depth)) byDepth.set(seg.depth, []);
+      byDepth.get(seg.depth).push(seg);
+    }
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    for (const [d, segs] of byDepth) {
+      ctx.strokeStyle = depthToColor(d, maxDepth, options.colorGenes.hue, options.colorGenes.spread);
+      ctx.beginPath();
+      for (const seg of segs) {
+        ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
+        ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
+      }
+      ctx.stroke();
+    }
+  } else {
+    ctx.strokeStyle = '#e6edf3';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (const seg of lines) {
+      ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
+      ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
+    }
+    ctx.stroke();
   }
-  ctx.stroke();
+}
+
+function colorOptions(cGenes) {
+  if (!colorEnabled || currentMode === 0) return undefined;
+  return { colorEnabled: true, colorGenes: cGenes || colorGenes };
+}
+
+function pushHistory() {
+  const node = evolutionHistory.push(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, generation);
+  node.colorEnabled = colorEnabled;
+  node.colorGenes = { hue: colorGenes.hue, spread: colorGenes.spread };
+  captureNodeThumbnail(evolutionHistory, node);
+  return node;
+}
+
+// ── Developmental animation ─────────────────────────────────
+
+let animationTimer = null;
+
+function stopAnimation() {
+  if (animationTimer !== null) {
+    clearTimeout(animationTimer);
+    animationTimer = null;
+  }
+  const btn = document.getElementById('btn-animate');
+  if (btn) {
+    btn.innerHTML = '&#9654;'; // ▶
+    btn.classList.remove('animating');
+    btn.title = 'Watch growth animation';
+  }
+}
+
+function animateGrowth() {
+  stopAnimation();
+  if (currentMode === 0) return;
+
+  const allLines = drawBiomorph(parentGenes);
+  if (allLines.length === 0) return;
+
+  // Compute bounding box from ALL lines (stable framing)
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const seg of allLines) {
+    minX = Math.min(minX, seg.x0, seg.x1);
+    maxX = Math.max(maxX, seg.x0, seg.x1);
+    minY = Math.min(minY, seg.y0, seg.y1);
+    maxY = Math.max(maxY, seg.y0, seg.y1);
+  }
+  const bbox = { minX, maxX, minY, maxY };
+
+  // Group by depth
+  const maxDepth = Math.max(...allLines.map(s => s.depth));
+  const depthGroups = [];
+  for (let d = maxDepth; d >= 1; d--) {
+    depthGroups.push(allLines.filter(s => s.depth >= d));
+  }
+
+  const btn = document.getElementById('btn-animate');
+  btn.innerHTML = '&#9209;'; // ⏹
+  btn.classList.add('animating');
+  btn.title = 'Stop animation';
+
+  let step = 0;
+  function nextFrame() {
+    if (step >= depthGroups.length) {
+      // Animation complete — show replay
+      animationTimer = null;
+      btn.innerHTML = '&#8635;'; // ↻
+      btn.classList.remove('animating');
+      btn.title = 'Replay growth animation';
+      return;
+    }
+
+    const lines = depthGroups[step];
+    const opts = { lines, bbox };
+    if (colorEnabled) {
+      opts.colorEnabled = true;
+      opts.colorGenes = colorGenes;
+    }
+    renderBiomorph(parentCanvas, parentGenes, opts);
+    step++;
+    animationTimer = setTimeout(() => requestAnimationFrame(nextFrame), 180);
+  }
+
+  requestAnimationFrame(nextFrame);
+}
+
+// ── Sexual reproduction (crossover) ─────────────────────────
+
+function crossover(genes1, genes2) {
+  const config = getConfig();
+  const child = new Array(config.geneCount);
+  const sources = new Array(config.geneCount);
+  for (let i = 0; i < config.geneCount; i++) {
+    const fromParent1 = Math.random() < 0.5;
+    const val = fromParent1 ? genes1[i] : genes2[i];
+    child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], val));
+    sources[i] = fromParent1 ? 1 : 2;
+  }
+  return { genes: child, sources };
+}
+
+function showBreedModal(specimen) {
+  if (currentMode === 0) return;
+
+  const modal = document.getElementById('breed-modal');
+
+  // Adapt specimen genes to current mode if different
+  let mateGenes = specimen.genes.slice();
+  if (specimen.mode !== currentMode) {
+    mateGenes = adaptGenes(mateGenes, currentMode);
+  }
+
+  const mateColorGenes = specimen.colorGenes || { hue: 7, spread: 3 };
+
+  // Render parent (current settings)
+  renderBiomorph(document.getElementById('breed-parent1'), parentGenes, colorOptions());
+
+  // Render mate using its original saved settings so it looks as saved
+  const savedMode = currentMode;
+  const savedSym = symmetryType;
+  const savedAltAsym = alternatingAsymmetry;
+  const savedRadSym = radialSymmetry;
+  currentMode = specimen.mode;
+  symmetryType = specimen.symmetry || 'left-right';
+  alternatingAsymmetry = specimen.alternatingAsym || false;
+  radialSymmetry = specimen.radialSym || false;
+  const mateColorOpts = specimen.colorEnabled
+    ? { colorEnabled: true, colorGenes: mateColorGenes }
+    : undefined;
+  renderBiomorph(document.getElementById('breed-parent2'), specimen.genes.slice(), mateColorOpts);
+  currentMode = savedMode;
+  symmetryType = savedSym;
+  alternatingAsymmetry = savedAltAsym;
+  radialSymmetry = savedRadSym;
+
+  // Generate 8 crossover+mutation offspring
+  const offspringData = [];
+  for (let i = 0; i < NUM_OFFSPRING; i++) {
+    const { genes: crossed, sources } = crossover(parentGenes, mateGenes);
+    const childGenes = mutate(crossed);
+    const childColorGenes = colorEnabled
+      ? mutateColor(crossoverColor(colorGenes, mateColorGenes))
+      : null;
+
+    let mutatedIndex = -1;
+    for (let j = 0; j < crossed.length; j++) {
+      if (crossed[j] !== childGenes[j]) { mutatedIndex = j; break; }
+    }
+
+    offspringData.push({ childGenes, childColorGenes, sources, mutatedIndex });
+  }
+
+  // Render gene comparison table with all offspring
+  renderBreedGeneComparison(parentGenes, mateGenes, offspringData);
+
+  // Render offspring grid
+  const grid = document.getElementById('breed-offspring');
+  grid.innerHTML = '';
+  for (let i = 0; i < offspringData.length; i++) {
+    const { childGenes, childColorGenes, sources, mutatedIndex } = offspringData[i];
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 140;
+    canvas.height = 140;
+    canvas.title = 'Click to select';
+    grid.appendChild(canvas);
+
+    renderBiomorph(canvas, childGenes, colorOptions(childColorGenes));
+
+    const childIdx = i;
+    canvas.addEventListener('mouseenter', () => {
+      renderBreedDetailStrip(childGenes, sources, mutatedIndex);
+      highlightBreedColumn('breed-col-child-' + childIdx);
+    });
+    canvas.addEventListener('mouseleave', () => {
+      clearBreedDetailStrip();
+      highlightBreedColumn(null);
+    });
+
+    canvas.addEventListener('click', () => {
+      hideBreedModal();
+      selectOffspring(childGenes, childColorGenes);
+    });
+  }
+
+  // Parent/mate canvas hover for column highlighting
+  const p1Canvas = document.getElementById('breed-parent1');
+  const p2Canvas = document.getElementById('breed-parent2');
+  p1Canvas.addEventListener('mouseenter', () => highlightBreedColumn('breed-col-parent'));
+  p1Canvas.addEventListener('mouseleave', () => highlightBreedColumn(null));
+  p2Canvas.addEventListener('mouseenter', () => highlightBreedColumn('breed-col-mate'));
+  p2Canvas.addEventListener('mouseleave', () => highlightBreedColumn(null));
+
+  clearBreedDetailStrip();
+  modal.style.display = 'flex';
+}
+
+function renderBreedGeneComparison(pGenes, mGenes, offspring) {
+  const config = getConfig();
+  const container = document.getElementById('breed-gene-comparison');
+  container.innerHTML = '';
+
+  // Header row
+  const header = document.createElement('div');
+  header.className = 'breed-gene-row breed-gene-header';
+  const cols = ['Gene', 'Description', 'P', 'M'];
+  const colClasses = ['', '', 'breed-col-parent', 'breed-col-mate'];
+  for (let c = 0; c < offspring.length; c++) {
+    cols.push(String(c + 1));
+    colClasses.push('breed-col-child-' + c);
+  }
+  for (let c = 0; c < cols.length; c++) {
+    const span = document.createElement('span');
+    if (colClasses[c]) span.className = colClasses[c];
+    span.textContent = cols[c];
+    header.appendChild(span);
+  }
+  container.appendChild(header);
+
+  for (let i = 0; i < config.geneCount; i++) {
+    const label = config.geneLabels[i];
+    const pVal = i < pGenes.length ? pGenes[i] : 0;
+    const mVal = i < mGenes.length ? mGenes[i] : 0;
+    const differs = pVal !== mVal;
+
+    const row = document.createElement('div');
+    row.className = 'breed-gene-row' + (differs ? ' breed-gene-differs' : '');
+
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = label;
+    row.appendChild(labelSpan);
+
+    const descSpan = document.createElement('span');
+    descSpan.className = 'breed-gene-desc';
+    descSpan.textContent = GENE_TOOLTIPS[label] || '';
+    row.appendChild(descSpan);
+
+    const pSpan = document.createElement('span');
+    pSpan.className = 'breed-col-parent breed-gene-pval';
+    pSpan.textContent = pVal;
+    row.appendChild(pSpan);
+
+    const mSpan = document.createElement('span');
+    mSpan.className = 'breed-col-mate breed-gene-mval';
+    mSpan.textContent = mVal;
+    row.appendChild(mSpan);
+
+    // Child values
+    for (let c = 0; c < offspring.length; c++) {
+      const child = offspring[c];
+      const cVal = child.childGenes[i];
+      const span = document.createElement('span');
+      span.className = 'breed-col-child-' + c;
+      if (i === child.mutatedIndex) {
+        span.classList.add('breed-gene-mutated-val');
+      } else if (child.sources[i] === 1) {
+        span.classList.add('breed-gene-from-parent');
+      } else {
+        span.classList.add('breed-gene-from-mate');
+      }
+      span.textContent = cVal;
+      row.appendChild(span);
+    }
+
+    container.appendChild(row);
+  }
+}
+
+function highlightBreedColumn(colClass) {
+  document.querySelectorAll('.breed-col-highlight').forEach(el =>
+    el.classList.remove('breed-col-highlight'));
+  if (colClass) {
+    document.querySelectorAll('.' + colClass).forEach(el =>
+      el.classList.add('breed-col-highlight'));
+  }
+}
+
+function renderBreedDetailStrip(childGenes, sources, mutatedIndex) {
+  const config = getConfig();
+  const strip = document.getElementById('breed-detail-strip');
+  strip.innerHTML = '';
+  for (let i = 0; i < config.geneCount; i++) {
+    const chip = document.createElement('span');
+    const parentClass = sources[i] === 1 ? 'breed-gene-parent' : 'breed-gene-mate';
+    const mutClass = i === mutatedIndex ? ' breed-gene-mutated' : '';
+    chip.className = `gene-chip ${parentClass}${mutClass}`;
+    chip.textContent = `${config.geneLabels[i]}=${childGenes[i]}`;
+    strip.appendChild(chip);
+  }
+}
+
+function clearBreedDetailStrip() {
+  const strip = document.getElementById('breed-detail-strip');
+  strip.innerHTML = '<span class="breed-detail-hint">Hover an offspring to see gene provenance</span>';
+}
+
+function hideBreedModal() {
+  const modal = document.getElementById('breed-modal');
+  modal.style.display = 'none';
+  document.getElementById('breed-offspring').innerHTML = '';
+  document.getElementById('breed-gene-comparison').innerHTML = '';
+  document.getElementById('breed-detail-strip').innerHTML = '';
+  highlightBreedColumn(null);
 }
 
 // ── Gallery (F2) ────────────────────────────────────────────
@@ -467,9 +841,108 @@ function captureCurrentThumbnail() {
   if (currentMode === 0) {
     renderPeppering(canvas, parentGenes);
   } else {
-    renderBiomorph(canvas, parentGenes);
+    renderBiomorph(canvas, parentGenes, colorOptions());
   }
   return canvas.toDataURL('image/png');
+}
+
+function generateThumbnail(specimen) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 80;
+  canvas.height = 80;
+
+  // Temporarily swap globals for rendering
+  const prevMode = currentMode;
+  const prevSym = symmetryType;
+  const prevAlt = alternatingAsymmetry;
+  const prevRad = radialSymmetry;
+
+  currentMode = specimen.mode;
+  symmetryType = specimen.symmetry || 'left-right';
+  alternatingAsymmetry = specimen.alternatingAsym || false;
+  radialSymmetry = specimen.radialSym || false;
+
+  const opts = specimen.colorEnabled && specimen.colorGenes
+    ? { colorEnabled: true, colorGenes: specimen.colorGenes }
+    : undefined;
+  renderBiomorph(canvas, specimen.genes, opts);
+
+  currentMode = prevMode;
+  symmetryType = prevSym;
+  alternatingAsymmetry = prevAlt;
+  radialSymmetry = prevRad;
+
+  return canvas.toDataURL('image/png');
+}
+
+function seedDefaultGallery() {
+  if (localStorage.getItem('biomorph-gallery-seeded')) return;
+
+  const seeds = [
+    {
+      name: 'Insect',
+      genes: [2, -1, 3, -2, 1, -2, 2, -3, 6],
+      mode: 1, symmetry: 'left-right',
+    },
+    {
+      name: 'Fern',
+      genes: [1, 2, -1, 3, -1, 2, -2, 3, 7],
+      mode: 1, symmetry: 'left-right',
+    },
+    {
+      name: 'Snowflake',
+      genes: [2, 1, -2, 0, 2, -1, 1, -2, 5],
+      mode: 2, symmetry: 'four-way',
+    },
+    {
+      name: 'Caterpillar',
+      genes: [1, -2, 2, -1, 2, -1, 1, -2, 5, 4, 6],
+      mode: 3, symmetry: 'left-right',
+    },
+    {
+      name: 'Centipede',
+      genes: [2, -1, 1, 0, 1, -2, 2, -1, 4, 6, 3],
+      mode: 3, symmetry: 'left-right',
+    },
+    {
+      name: 'Arthropod',
+      genes: [2, -2, 3, -1, 1, -1, 2, -3, 5, 3, 5, 2, -1],
+      mode: 4, symmetry: 'left-right',
+    },
+    {
+      name: 'Coral',
+      genes: [1, 2, -2, 2, -1, 3, -1, 2, 6, 2, 4, 1, 2],
+      mode: 4, symmetry: 'left-right',
+      colorEnabled: true, colorGenes: { hue: 4, spread: 3 },
+    },
+    {
+      name: 'Mandala',
+      genes: [2, -1, 1, -2, 2, 1, -1, -2, 5, 5, 4, 1, -1],
+      mode: 5, symmetry: 'left-right', radialSym: true,
+    },
+    {
+      name: 'Scorpion',
+      genes: [3, -2, 1, -1, 2, -3, 2, 3, 5, 3, 6, 2, -2],
+      mode: 5, symmetry: 'left-right', alternatingAsym: true,
+    },
+  ];
+
+  const gallery = seeds.map((s, i) => ({
+    id: Date.now() + i,
+    name: s.name,
+    genes: s.genes,
+    mode: s.mode,
+    symmetry: s.symmetry || 'left-right',
+    alternatingAsym: s.alternatingAsym || false,
+    radialSym: s.radialSym || false,
+    generation: 0,
+    thumbnail: generateThumbnail(s),
+    colorEnabled: s.colorEnabled || false,
+    colorGenes: s.colorGenes || { hue: 7, spread: 3 },
+  }));
+
+  localStorage.setItem(GALLERY_KEY, JSON.stringify(gallery));
+  localStorage.setItem('biomorph-gallery-seeded', '1');
 }
 
 function saveToGallery() {
@@ -484,15 +957,80 @@ function saveToGallery() {
     radialSym: radialSymmetry,
     generation,
     thumbnail: captureCurrentThumbnail(),
+    colorEnabled,
+    colorGenes: { hue: colorGenes.hue, spread: colorGenes.spread },
   };
   gallery.push(specimen);
   localStorage.setItem(GALLERY_KEY, JSON.stringify(gallery));
   renderGallery();
 
   // Visual feedback
-  const btn = document.getElementById('btn-save');
-  btn.textContent = 'Saved!';
-  setTimeout(() => btn.textContent = 'Save', 1500);
+  flashIcon(document.getElementById('btn-save-parent'), '#3fb950');
+}
+
+function flashIcon(btn, color) {
+  if (!btn) return;
+  const orig = btn.style.color;
+  btn.style.color = color;
+  setTimeout(() => btn.style.color = orig, 800);
+}
+
+function saveChildToGallery(childGenes, childColorGenes, iconBtn) {
+  const gallery = loadGallery();
+  const canvas = document.createElement('canvas');
+  canvas.width = 80;
+  canvas.height = 80;
+  const opts = colorEnabled && childColorGenes
+    ? { colorEnabled: true, colorGenes: childColorGenes }
+    : undefined;
+  if (currentMode === 0) {
+    renderPeppering(canvas, childGenes);
+  } else {
+    renderBiomorph(canvas, childGenes, opts);
+  }
+  const specimen = {
+    id: Date.now(),
+    name: `Specimen ${gallery.length + 1}`,
+    genes: currentMode === 0 ? Array.from(childGenes) : childGenes.slice(),
+    mode: currentMode,
+    symmetry: symmetryType,
+    alternatingAsym: alternatingAsymmetry,
+    radialSym: radialSymmetry,
+    generation,
+    thumbnail: canvas.toDataURL('image/png'),
+    colorEnabled,
+    colorGenes: childColorGenes ? { hue: childColorGenes.hue, spread: childColorGenes.spread } : { hue: colorGenes.hue, spread: colorGenes.spread },
+  };
+  gallery.push(specimen);
+  localStorage.setItem(GALLERY_KEY, JSON.stringify(gallery));
+  renderGallery();
+  if (iconBtn) flashIcon(iconBtn, '#3fb950');
+}
+
+function copyBiomorphLink(genes, cGenes, iconBtn) {
+  const hash = encodeStateFor(genes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, mutationIntensity, generation, colorEnabled, cGenes || colorGenes);
+  const url = window.location.origin + window.location.pathname + hash;
+  navigator.clipboard.writeText(url).then(() => {
+    if (iconBtn) flashIcon(iconBtn, '#3fb950');
+  });
+}
+
+function copySpecimenLink(specimen, iconBtn) {
+  const cGenes = specimen.colorGenes || { hue: 7, spread: 3 };
+  const hash = encodeStateFor(
+    specimen.genes, specimen.mode,
+    specimen.symmetry || 'left-right',
+    specimen.alternatingAsym || false,
+    specimen.radialSym || false,
+    mutationIntensity,
+    specimen.generation || 0,
+    specimen.colorEnabled || false,
+    cGenes
+  );
+  const url = window.location.origin + window.location.pathname + hash;
+  navigator.clipboard.writeText(url).then(() => {
+    if (iconBtn) flashIcon(iconBtn, '#3fb950');
+  });
 }
 
 function deleteFromGallery(id) {
@@ -518,13 +1056,14 @@ function loadSpecimen(specimen) {
   alternatingAsymmetry = specimen.alternatingAsym || false;
   radialSymmetry = specimen.radialSym || false;
   generation = specimen.generation || 0;
+  colorEnabled = specimen.colorEnabled || false;
+  if (specimen.colorGenes) colorGenes = { hue: specimen.colorGenes.hue, spread: specimen.colorGenes.spread };
 
   syncUIControls();
 
   // Push to history
   evolutionHistory.reset();
-  const node = evolutionHistory.push(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, generation);
-  captureNodeThumbnail(evolutionHistory, node);
+  pushHistory();
 
   updateParent();
   spawnOffspring();
@@ -545,6 +1084,13 @@ function renderGallery() {
   for (const spec of gallery) {
     const card = document.createElement('div');
     card.className = 'gallery-card';
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'gallery-card-delete';
+    delBtn.innerHTML = '&times;';
+    delBtn.title = 'Delete specimen';
+    delBtn.addEventListener('click', () => deleteFromGallery(spec.id));
+    card.appendChild(delBtn);
 
     const img = document.createElement('img');
     img.src = spec.thumbnail;
@@ -570,11 +1116,22 @@ function renderGallery() {
     loadBtn.addEventListener('click', () => loadSpecimen(spec));
     actions.appendChild(loadBtn);
 
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-danger';
-    delBtn.textContent = 'Delete';
-    delBtn.addEventListener('click', () => deleteFromGallery(spec.id));
-    actions.appendChild(delBtn);
+    const breedBtn = document.createElement('button');
+    breedBtn.className = 'btn-breed';
+    breedBtn.textContent = 'Breed';
+    breedBtn.title = 'Cross with current parent';
+    if (currentMode === 0) {
+      breedBtn.disabled = true;
+      breedBtn.title = 'Cannot breed in Pixel Peppering mode';
+    }
+    breedBtn.addEventListener('click', () => showBreedModal(spec));
+    actions.appendChild(breedBtn);
+
+    const linkBtn = document.createElement('button');
+    linkBtn.textContent = '\u26D3';
+    linkBtn.title = 'Copy link';
+    linkBtn.addEventListener('click', () => copySpecimenLink(spec, linkBtn));
+    actions.appendChild(linkBtn);
 
     card.appendChild(actions);
     content.appendChild(card);
@@ -584,12 +1141,14 @@ function renderGallery() {
 // ── Comparison modal (F7) ───────────────────────────────────
 
 let comparisonChildGenes = null;
+let comparisonChildColorGenes = null;
 
-function showComparison(childGenes) {
+function showComparison(childGenes, childColorGenes) {
   const modal = document.getElementById('comparison-modal');
   if (!modal) return;
 
   comparisonChildGenes = childGenes;
+  comparisonChildColorGenes = childColorGenes || null;
   modal.style.display = 'flex';
 
   // Render parent
@@ -597,7 +1156,7 @@ function showComparison(childGenes) {
   if (currentMode === 0) {
     renderPeppering(pCanvas, parentGenes);
   } else {
-    renderBiomorph(pCanvas, parentGenes);
+    renderBiomorph(pCanvas, parentGenes, colorOptions());
   }
 
   // Render child
@@ -605,7 +1164,7 @@ function showComparison(childGenes) {
   if (currentMode === 0) {
     renderPeppering(cCanvas, childGenes);
   } else {
-    renderBiomorph(cCanvas, childGenes);
+    renderBiomorph(cCanvas, childGenes, colorOptions(childColorGenes));
   }
 
   // Gene diff
@@ -658,22 +1217,102 @@ let parentGenes = originGenotype();
 let generation = 0;
 
 const parentCanvas = document.getElementById('parent');
-const geneDisplay = document.getElementById('gene-display');
 const offspringGrid = document.getElementById('offspring-grid');
 const genCounter = document.getElementById('generation-counter');
 
 const evolutionHistory = new EvolutionHistory();
 
-function renderGeneChips(genes) {
+const GENOME_GROUPS = [
+  { name: 'Branch Shape', genes: ['g1', 'g2', 'g3'], minMode: 1 },
+  { name: 'Branch Height', genes: ['g5', 'g6', 'g7'], minMode: 1 },
+  { name: 'Stems', genes: ['g4', 'g8'], minMode: 1 },
+  { name: 'Complexity', genes: ['depth'], minMode: 1 },
+  { name: 'Body Plan', genes: ['segs', 'segDist'], minMode: 3 },
+  { name: 'Gradients', genes: ['grad1', 'grad2'], minMode: 4 },
+];
+
+const GENOME_SHORT_DESCS = {
+  g1: 'Inner horizontal', g2: 'Mid horizontal', g3: 'Outer horizontal',
+  g4: 'Central stem', g5: 'Inner vertical', g6: 'Mid vertical',
+  g7: 'Outer vertical', g8: 'Trunk length', depth: 'Recursion depth',
+  segs: 'Segment count', segDist: 'Segment spacing',
+  grad1: 'Inner spread gradient', grad2: 'Outer spread gradient',
+  hue: 'Base hue', spread: 'Hue spread',
+};
+
+function renderGenomeTable(genes, cGenes) {
   const config = getConfig();
-  geneDisplay.innerHTML = '';
-  for (let i = 0; i < config.geneCount; i++) {
-    const chip = document.createElement('span');
-    chip.className = 'gene-chip';
-    chip.textContent = `${config.geneLabels[i]}=${genes[i]}`;
-    const tooltip = GENE_TOOLTIPS[config.geneLabels[i]];
-    if (tooltip) chip.dataset.tooltip = tooltip;
-    geneDisplay.appendChild(chip);
+  const table = document.getElementById('genome-table');
+  table.innerHTML = '';
+
+  const labelToIndex = {};
+  for (let i = 0; i < config.geneLabels.length; i++) {
+    labelToIndex[config.geneLabels[i]] = i;
+  }
+
+  for (const group of GENOME_GROUPS) {
+    if (currentMode < group.minMode) continue;
+    // Check that at least one gene in this group exists in current config
+    const activeGenes = group.genes.filter(g => labelToIndex[g] !== undefined);
+    if (activeGenes.length === 0) continue;
+
+    const header = document.createElement('div');
+    header.className = 'genome-group-header';
+    header.textContent = group.name;
+    table.appendChild(header);
+
+    for (const geneLabel of activeGenes) {
+      const idx = labelToIndex[geneLabel];
+      const row = document.createElement('div');
+      row.className = 'genome-row';
+
+      const label = document.createElement('span');
+      label.className = 'genome-label';
+      label.textContent = geneLabel;
+      row.appendChild(label);
+
+      const val = document.createElement('span');
+      val.className = 'genome-value';
+      val.textContent = genes[idx];
+      row.appendChild(val);
+
+      const desc = document.createElement('span');
+      desc.className = 'genome-desc';
+      desc.textContent = GENOME_SHORT_DESCS[geneLabel] || '';
+      row.appendChild(desc);
+
+      table.appendChild(row);
+    }
+  }
+
+  // Color genes
+  if (colorEnabled && cGenes) {
+    const header = document.createElement('div');
+    header.className = 'genome-group-header';
+    header.textContent = 'Color';
+    table.appendChild(header);
+
+    for (const [key, value] of [['hue', cGenes.hue], ['spread', cGenes.spread]]) {
+      const row = document.createElement('div');
+      row.className = 'genome-row';
+
+      const label = document.createElement('span');
+      label.className = 'genome-label';
+      label.textContent = key;
+      row.appendChild(label);
+
+      const val = document.createElement('span');
+      val.className = 'genome-value genome-color';
+      val.textContent = value;
+      row.appendChild(val);
+
+      const desc = document.createElement('span');
+      desc.className = 'genome-desc';
+      desc.textContent = GENOME_SHORT_DESCS[key] || '';
+      row.appendChild(desc);
+
+      table.appendChild(row);
+    }
   }
 }
 
@@ -687,7 +1326,8 @@ const MODE_DESCRIPTIONS = {
 };
 
 function updateModeDescription() {
-  document.getElementById('mode-description').textContent = MODE_DESCRIPTIONS[currentMode] || '';
+  const el = document.getElementById('mode-description');
+  if (el) el.textContent = MODE_DESCRIPTIONS[currentMode] || '';
 }
 
 function syncUIControls() {
@@ -701,21 +1341,23 @@ function syncUIControls() {
   document.getElementById('radial-sym').checked = radialSymmetry;
   document.getElementById('mutation-intensity').value = mutationIntensity;
   document.getElementById('btn-interesting').disabled = currentMode === 0;
+  document.getElementById('color-controls').style.display = currentMode >= 1 ? 'flex' : 'none';
+  document.getElementById('color-toggle').checked = colorEnabled;
+  document.getElementById('btn-animate').style.display = currentMode >= 1 ? '' : 'none';
   updateModeDescription();
 }
 
 function updateParent() {
+  stopAnimation();
   if (currentMode === 0) {
     renderPeppering(parentCanvas, parentGenes);
-    geneDisplay.innerHTML = '';
-    geneDisplay.textContent = pepperingFormatGenes(parentGenes);
+    document.getElementById('genome-table').innerHTML = '';
   } else {
-    renderBiomorph(parentCanvas, parentGenes);
-    renderGeneChips(parentGenes);
+    renderBiomorph(parentCanvas, parentGenes, colorOptions());
+    renderGenomeTable(parentGenes, colorGenes);
   }
-  genCounter.textContent = `Generation: ${generation}`;
+  genCounter.textContent = `Gen ${generation}`;
   updateHash();
-  updateHistoryStrip(evolutionHistory, jumpToHistoryNode);
 
   // Update genealogy if panel is open
   const genPanel = document.getElementById('genealogy-panel');
@@ -727,12 +1369,12 @@ function updateParent() {
   }
 }
 
-function selectOffspring(childGenes) {
+function selectOffspring(childGenes, childColorGenes) {
   parentGenes = childGenes;
+  if (childColorGenes) colorGenes = childColorGenes;
   generation++;
 
-  const node = evolutionHistory.push(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, generation);
-  captureNodeThumbnail(evolutionHistory, node);
+  pushHistory();
 
   updateParent();
   spawnOffspring();
@@ -745,25 +1387,51 @@ function spawnOffspring() {
     const childGenes = currentMode === 0
       ? pepperingMutate(parentGenes)
       : mutate(parentGenes);
+    const childColorGenes = colorEnabled ? mutateColor(colorGenes) : null;
+
+    const card = document.createElement('div');
+    card.className = 'offspring-card';
 
     const canvas = document.createElement('canvas');
     canvas.width = 180;
     canvas.height = 180;
     canvas.title = 'Click to select \u00B7 Shift+click to compare';
-    offspringGrid.appendChild(canvas);
+    card.appendChild(canvas);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'card-icon card-icon-save';
+    saveBtn.title = 'Save to gallery';
+    saveBtn.innerHTML = '&#11123;';
+    saveBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      saveChildToGallery(childGenes, childColorGenes, saveBtn);
+    });
+    card.appendChild(saveBtn);
+
+    const linkBtn = document.createElement('button');
+    linkBtn.className = 'card-icon card-icon-link';
+    linkBtn.title = 'Copy link';
+    linkBtn.innerHTML = '&#9939;';
+    linkBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      copyBiomorphLink(childGenes, childColorGenes, linkBtn);
+    });
+    card.appendChild(linkBtn);
+
+    offspringGrid.appendChild(card);
 
     if (currentMode === 0) {
       renderPeppering(canvas, childGenes);
     } else {
-      renderBiomorph(canvas, childGenes);
+      renderBiomorph(canvas, childGenes, colorOptions(childColorGenes));
     }
 
     canvas.addEventListener('click', (e) => {
       if (e.shiftKey) {
-        showComparison(childGenes);
+        showComparison(childGenes, childColorGenes);
         return;
       }
-      selectOffspring(childGenes);
+      selectOffspring(childGenes, childColorGenes);
     });
   }
 }
@@ -775,6 +1443,10 @@ function restoreFromNode(node) {
   symmetryType = node.symmetry;
   alternatingAsymmetry = node.alternatingAsym;
   radialSymmetry = node.radialSym;
+  if (node.colorGenes) {
+    colorEnabled = node.colorEnabled || false;
+    colorGenes = { hue: node.colorGenes.hue, spread: node.colorGenes.spread };
+  }
   syncUIControls();
 }
 
@@ -803,8 +1475,7 @@ function setMode(mode) {
 
   // Reset history on mode change
   evolutionHistory.reset();
-  const node = evolutionHistory.push(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, generation);
-  captureNodeThumbnail(evolutionHistory, node);
+  pushHistory();
 
   syncUIControls();
   updateParent();
@@ -825,11 +1496,12 @@ function init() {
     radialSymmetry = savedState.radialSym;
     mutationIntensity = savedState.mutationIntensity;
     generation = savedState.generation;
+    colorEnabled = savedState.colorEnabled || false;
+    if (savedState.colorGenes) colorGenes = savedState.colorGenes;
 
     syncUIControls();
 
-    const node = evolutionHistory.push(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, generation);
-    captureNodeThumbnail(evolutionHistory, node);
+    pushHistory();
 
     updateParent();
     spawnOffspring();
@@ -875,13 +1547,30 @@ function init() {
     mutationIntensity = parseInt(e.target.value);
   });
 
+  // Color toggle
+  document.getElementById('color-toggle').addEventListener('change', (e) => {
+    colorEnabled = e.target.checked;
+    updateParent();
+    spawnOffspring();
+  });
+
+  // Animation play button
+  document.getElementById('btn-animate').addEventListener('click', () => {
+    if (animationTimer !== null) {
+      stopAnimation();
+      // Re-render the full parent
+      renderBiomorph(parentCanvas, parentGenes, colorOptions());
+    } else {
+      animateGrowth();
+    }
+  });
+
   // Random Parent
   document.getElementById('btn-random').addEventListener('click', () => {
     parentGenes = currentMode === 0 ? pepperingRandomGenotype() : randomGenotype();
     generation = 0;
     evolutionHistory.reset();
-    const node = evolutionHistory.push(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, generation);
-    captureNodeThumbnail(evolutionHistory, node);
+    pushHistory();
     updateParent();
     spawnOffspring();
   });
@@ -891,8 +1580,7 @@ function init() {
     parentGenes = currentMode === 0 ? pepperingOriginGenotype() : originGenotype();
     generation = 0;
     evolutionHistory.reset();
-    const node = evolutionHistory.push(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, generation);
-    captureNodeThumbnail(evolutionHistory, node);
+    pushHistory();
     updateParent();
     spawnOffspring();
   });
@@ -907,17 +1595,12 @@ function init() {
     }
   });
 
-  // Save to gallery (F2)
-  document.getElementById('btn-save').addEventListener('click', saveToGallery);
+  // Save parent to gallery
+  document.getElementById('btn-save-parent').addEventListener('click', saveToGallery);
 
-  // Copy link (F3)
-  document.getElementById('btn-copy-link').addEventListener('click', () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-      const btn = document.getElementById('btn-copy-link');
-      btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = 'Copy Link', 1500);
-    });
+  // Copy parent link
+  document.getElementById('btn-link-parent').addEventListener('click', () => {
+    copyBiomorphLink(parentGenes, colorGenes, document.getElementById('btn-link-parent'));
   });
 
   // Random Interesting (F4)
@@ -926,8 +1609,7 @@ function init() {
     parentGenes = randomInteresting();
     generation = 0;
     evolutionHistory.reset();
-    const node = evolutionHistory.push(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, generation);
-    captureNodeThumbnail(evolutionHistory, node);
+    pushHistory();
     updateParent();
     spawnOffspring();
   });
@@ -948,25 +1630,34 @@ function init() {
     });
   });
 
-  // Load gallery on startup
+  // Seed gallery on first visit, then render
+  seedDefaultGallery();
   renderGallery();
+  renderGenealogy(evolutionHistory, jumpToHistoryNode);
 
   // Comparison modal (F7)
   document.getElementById('compare-dismiss').addEventListener('click', hideComparison);
   document.getElementById('compare-select').addEventListener('click', () => {
     if (comparisonChildGenes) {
       const genes = comparisonChildGenes;
+      const cColors = comparisonChildColorGenes;
       hideComparison();
-      selectOffspring(genes);
+      selectOffspring(genes, cColors);
     }
   });
   document.getElementById('comparison-modal').addEventListener('click', (e) => {
     if (e.target.id === 'comparison-modal') hideComparison();
   });
 
+  // Breed modal
+  document.getElementById('breed-dismiss').addEventListener('click', hideBreedModal);
+  document.getElementById('breed-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'breed-modal') hideBreedModal();
+  });
+
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') hideComparison();
+    if (e.key === 'Escape') { hideComparison(); hideBreedModal(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
       e.preventDefault();
       const node = evolutionHistory.undo();

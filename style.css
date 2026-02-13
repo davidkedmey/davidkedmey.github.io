@@ -30,6 +30,11 @@ h1 {
   margin-top: 4px;
 }
 
+#version-tag {
+  font-size: 0.7rem;
+  color: #484f58;
+}
+
 /* ── Mode tabs ──────────────────────────────────────────── */
 
 .mode-tabs {
@@ -53,6 +58,7 @@ h1 {
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
+  position: relative;
 }
 
 .mode-tab:hover {
@@ -66,36 +72,58 @@ h1 {
   color: #fff;
 }
 
-/* ── Mode description ───────────────────────────────────── */
+/* ── Mode description (Dawkins quote) ──────────────────── */
 
 #mode-description {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-style: italic;
   color: #8b949e;
   text-align: center;
-  padding: 4px 24px 8px;
-  max-width: 700px;
+  max-width: 640px;
+  padding: 2px 16px 4px;
   line-height: 1.4;
-  min-height: 2.8em;
 }
 
-/* ── Mode controls ──────────────────────────────────────── */
+/* ── Settings bar (below quote) ────────────────────────── */
 
-.mode-controls {
+#settings-bar {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 4px 16px 8px;
   flex-wrap: wrap;
   justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 16px 8px;
+  max-width: 840px;
+  width: 100%;
 }
 
-.mode-controls label {
+/* ── Parent actions ────────────────────────────────────── */
+
+#parent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+#parent-actions button {
+  font-size: 0.7rem;
+  padding: 3px 8px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.setting-row label {
   font-size: 0.8rem;
   color: #8b949e;
 }
 
-.mode-controls select {
+.setting-row select {
   font-family: inherit;
   font-size: 0.8rem;
   padding: 3px 8px;
@@ -105,7 +133,7 @@ h1 {
   color: #e6edf3;
 }
 
-.mode-controls input[type="checkbox"] {
+.setting-row input[type="checkbox"] {
   accent-color: #1f6feb;
 }
 
@@ -128,11 +156,127 @@ main {
   gap: 4px;
 }
 
+#genome-panel {
+  width: 100%;
+  max-width: 840px;
+}
+
+#parent-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
 #parent {
   border: 2px solid #58a6ff;
   border-radius: 8px;
   background: #161b22;
   cursor: default;
+}
+
+#btn-animate {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(88, 166, 255, 0.4);
+  border-radius: 50%;
+  background: rgba(22, 27, 34, 0.8);
+  color: #58a6ff;
+  font-size: 14px;
+  line-height: 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  z-index: 2;
+}
+
+#btn-animate:hover {
+  background: rgba(31, 111, 235, 0.3);
+  color: #fff;
+}
+
+#btn-animate.animating {
+  color: #f85149;
+  border-color: rgba(248, 81, 73, 0.4);
+}
+
+#btn-animate.animating:hover {
+  background: rgba(248, 81, 73, 0.2);
+}
+
+/* ── Card icon overlays (save / link) ──────────────────── */
+
+.card-icon {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid rgba(88, 166, 255, 0.4);
+  border-radius: 50%;
+  background: rgba(22, 27, 34, 0.8);
+  color: #58a6ff;
+  font-size: 14px;
+  line-height: 28px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  z-index: 2;
+}
+
+.card-icon:hover {
+  background: rgba(31, 111, 235, 0.3);
+  color: #fff;
+}
+
+#btn-save-parent {
+  bottom: 8px;
+  right: 40px;
+}
+
+#btn-link-parent {
+  bottom: 8px;
+  right: 8px;
+}
+
+/* ── Offspring card overlays ──────────────────────────── */
+
+.offspring-card {
+  position: relative;
+}
+
+.offspring-card canvas {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 2px solid #30363d;
+  border-radius: 6px;
+  background: #161b22;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.offspring-card:hover canvas {
+  border-color: #58a6ff;
+}
+
+.offspring-card .card-icon {
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.offspring-card:hover .card-icon {
+  opacity: 1;
+}
+
+.card-icon-save {
+  bottom: 6px;
+  right: 34px;
+}
+
+.card-icon-link {
+  bottom: 6px;
+  right: 6px;
 }
 
 #parent-label {
@@ -142,18 +286,62 @@ main {
   letter-spacing: 0.1em;
 }
 
-#gene-display {
+/* ── Genome table ──────────────────────────────────────── */
+
+#genome-table {
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+
+.genome-group-header {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #58a6ff;
+  background: #161b22;
+  padding: 4px 8px 2px;
+  border-top: 1px solid #21262d;
+}
+
+.genome-group-header:first-child {
+  border-top: none;
+}
+
+.genome-row {
+  display: grid;
+  grid-template-columns: 58px 32px 1fr;
+  align-items: baseline;
+  padding: 1px 8px;
+  gap: 6px;
+}
+
+.genome-row:hover {
+  background: #161b22;
+}
+
+.genome-label {
   font-family: "SF Mono", "Fira Code", monospace;
   font-size: 0.7rem;
-  color: #8b949e;
-  margin-top: 2px;
-  text-align: center;
-  max-width: 760px;
-  word-break: break-all;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 2px;
+  color: #e6edf3;
+}
+
+.genome-value {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.7rem;
+  color: #58a6ff;
+  text-align: right;
+}
+
+.genome-desc {
+  font-size: 0.65rem;
+  color: #6e7681;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.genome-value.genome-color {
+  color: #a8b4ff;
 }
 
 #offspring-grid {
@@ -164,33 +352,12 @@ main {
   max-width: 760px;
 }
 
-#offspring-grid canvas {
-  width: 100%;
-  aspect-ratio: 1;
-  border: 2px solid #30363d;
-  border-radius: 6px;
-  background: #161b22;
-  cursor: pointer;
-  transition: border-color 0.15s;
-}
-
-#offspring-grid canvas:hover {
-  border-color: #58a6ff;
-}
+/* offspring canvas styles moved to .offspring-card rules above */
 
 .offspring-hint {
   font-size: 0.65rem;
   color: #484f58;
   text-align: center;
-}
-
-footer {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  flex-wrap: wrap;
-  justify-content: center;
 }
 
 button {
@@ -215,7 +382,6 @@ button:disabled {
 }
 
 #generation-counter {
-  font-size: 0.8rem;
   color: #8b949e;
 }
 
@@ -269,57 +435,9 @@ button:disabled {
   color: #3fb950;
 }
 
-/* ── History strip (F1) ────────────────────────────────── */
-
-#history-strip {
-  display: none;
-  flex-direction: row;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  max-width: 840px;
-  width: 100%;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  scrollbar-color: #30363d #0d1117;
-}
-
-.history-thumb {
-  flex-shrink: 0;
-  width: 48px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.15s;
-}
-
-.history-thumb:hover,
-.history-thumb.current {
-  opacity: 1;
-}
-
-.history-thumb.current {
-  filter: drop-shadow(0 0 4px #58a6ff);
-}
-
-.history-thumb img {
-  width: 48px;
-  height: 48px;
-  border: 1px solid #30363d;
-  border-radius: 4px;
-  background: #161b22;
-}
-
-.history-thumb.current img {
-  border-color: #58a6ff;
-}
-
-.history-thumb span {
-  font-size: 0.6rem;
-  color: #8b949e;
+.gene-chip.gene-color {
+  background: #1f1f3d;
+  color: #a8b4ff;
 }
 
 /* ── Collapsible panels ────────────────────────────────── */
@@ -377,6 +495,7 @@ button:disabled {
 }
 
 .gallery-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -385,6 +504,30 @@ button:disabled {
   background: #161b22;
   border: 1px solid #30363d;
   border-radius: 6px;
+}
+
+.gallery-card-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #30363d;
+  color: #8b949e;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  z-index: 1;
+}
+
+.gallery-card-delete:hover {
+  background: #f85149;
+  color: #fff;
 }
 
 .gallery-card img {
@@ -421,6 +564,15 @@ button:disabled {
   padding: 2px 8px;
 }
 
+.btn-breed {
+  color: #d2a8ff !important;
+  border-color: #d2a8ff !important;
+}
+
+.btn-breed:hover {
+  background: rgba(210, 168, 255, 0.15) !important;
+}
+
 .btn-danger {
   color: #f85149 !important;
   border-color: #f85149 !important;
@@ -442,12 +594,20 @@ button:disabled {
 
 #genealogy-panel .panel-content {
   overflow: auto;
-  max-height: 400px;
+  max-height: 500px;
 }
 
 #genealogy-canvas {
   display: block;
   cursor: pointer;
+}
+
+.genealogy-hint {
+  text-align: center;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: #8b949e;
+  padding: 8px 16px;
 }
 
 /* ── Comparison modal (F7) ─────────────────────────────── */
@@ -513,6 +673,237 @@ button:disabled {
   gap: 12px;
 }
 
+/* ── Breed modal ───────────────────────────────────────── */
+
+#breed-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.breed-content {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 780px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.breed-parents {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.breed-parent-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.breed-parent-side h3 {
+  font-size: 0.9rem;
+  color: #58a6ff;
+  font-weight: 500;
+}
+
+.breed-parent-side canvas {
+  border: 2px solid #30363d;
+  border-radius: 8px;
+  background: #0d1117;
+}
+
+.breed-x {
+  font-size: 2rem;
+  color: #d2a8ff;
+  font-weight: 300;
+  line-height: 1;
+  margin-top: 20px;
+}
+
+.breed-offspring-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 140px);
+  gap: 8px;
+  justify-content: center;
+}
+
+.breed-offspring-grid canvas {
+  width: 140px;
+  height: 140px;
+  border: 2px solid #30363d;
+  border-radius: 6px;
+  background: #161b22;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.breed-offspring-grid canvas:hover {
+  border-color: #d2a8ff;
+}
+
+.breed-gene-comparison {
+  width: 100%;
+  flex-shrink: 0;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #30363d #0d1117;
+}
+
+.breed-gene-row {
+  display: grid;
+  grid-template-columns: 55px 160px repeat(10, 60px);
+  align-items: center;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.7rem;
+  color: #8b949e;
+}
+
+.breed-gene-row > span {
+  padding: 3px 6px;
+}
+
+.breed-gene-row > span:nth-child(n+3) {
+  text-align: center;
+}
+
+/* Sticky gene label + description */
+.breed-gene-row > span:first-child,
+.breed-gene-row > span:nth-child(2) {
+  position: sticky;
+  background: #0d1117;
+}
+
+.breed-gene-row > span:first-child {
+  left: 0;
+  z-index: 2;
+  padding-left: 10px;
+}
+
+.breed-gene-row > span:nth-child(2) {
+  left: 55px;
+  z-index: 1;
+}
+
+.breed-gene-differs > span:first-child,
+.breed-gene-differs > span:nth-child(2) {
+  background: #1c2333;
+}
+
+.breed-gene-header {
+  text-transform: uppercase;
+  font-size: 0.6rem;
+  color: #484f58;
+  border-bottom: 1px solid #21262d;
+  font-family: -apple-system, sans-serif;
+  letter-spacing: 0.05em;
+}
+
+.breed-gene-header > span {
+  padding: 5px 6px;
+}
+
+.breed-gene-header > span:first-child {
+  padding-left: 10px;
+}
+
+.breed-gene-differs {
+  background: #1c2333;
+}
+
+.breed-gene-pval {
+  color: #58a6ff;
+}
+
+.breed-gene-mval {
+  color: #d2a8ff;
+}
+
+.breed-gene-from-parent {
+  color: #58a6ff;
+}
+
+.breed-gene-from-mate {
+  color: #d2a8ff;
+}
+
+.breed-gene-mutated-val {
+  color: #3fb950;
+}
+
+.breed-col-highlight {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.breed-gene-desc {
+  font-family: -apple-system, sans-serif;
+  font-size: 0.65rem;
+  color: #6e7681;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.breed-detail-strip {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 3px;
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 6px 10px;
+  min-height: 28px;
+  align-items: center;
+}
+
+.breed-detail-hint {
+  font-size: 0.7rem;
+  font-style: italic;
+  color: #484f58;
+}
+
+.gene-chip.breed-gene-parent {
+  background: rgba(88, 166, 255, 0.1);
+  border-color: #58a6ff;
+  color: #58a6ff;
+}
+
+.gene-chip.breed-gene-mate {
+  background: rgba(210, 168, 255, 0.1);
+  border-color: #d2a8ff;
+  color: #d2a8ff;
+}
+
+.gene-chip.breed-gene-mutated {
+  border-color: #3fb950;
+  box-shadow: 0 0 4px rgba(63, 185, 80, 0.4);
+}
+
+.breed-actions {
+  display: flex;
+  justify-content: center;
+}
+
 /* ── Mutation select (F5) ──────────────────────────────── */
 
 .mutation-label {
@@ -533,8 +924,15 @@ button:disabled {
 /* ── Responsive ────────────────────────────────────────── */
 
 @media (max-width: 600px) {
+  #settings-bar {
+    flex-direction: column;
+    align-items: center;
+  }
   #offspring-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+  .offspring-card .card-icon {
+    opacity: 1;
   }
   .mode-tabs {
     gap: 3px;
