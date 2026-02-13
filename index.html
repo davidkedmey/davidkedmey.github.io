@@ -21,7 +21,6 @@
     <button class="mode-tab" data-mode="4">+ Gradients</button>
     <button class="mode-tab" data-mode="5">Full Dawkins</button>
   </nav>
-  <p id="mode-description"></p>
   <div id="settings-bar">
     <div id="symmetry-controls" class="setting-row" style="display:none">
       <label>Symmetry:
@@ -50,22 +49,23 @@
       </label>
     </div>
   </div>
+  <p id="mode-description"></p>
 
   <main>
     <div id="parent-section">
-      <div id="parent-wrapper">
-        <canvas id="parent" width="240" height="240"></canvas>
-        <button id="btn-animate" title="Watch growth animation">&#9654;</button>
-        <button id="btn-save-parent" class="card-icon" title="Save to gallery">&#11123;</button>
-        <button id="btn-link-parent" class="card-icon" title="Copy link">&#9939;</button>
-      </div>
-      <div id="parent-label">Parent &middot; <span id="generation-counter">Gen 0</span></div>
       <div id="parent-actions">
         <button id="btn-undo" title="Undo last selection (Ctrl+Z)">Undo</button>
         <button id="btn-reset">Reset</button>
         <button id="btn-random">Random</button>
         <button id="btn-interesting" title="Generate a random interesting biomorph (depth 5+)">Interesting</button>
       </div>
+      <div id="parent-wrapper">
+        <canvas id="parent" width="240" height="240"></canvas>
+        <button id="btn-animate" title="Watch growth animation">&#9654;</button>
+        <button id="btn-save-parent" class="card-icon" title="Save to gallery">&#8595;</button>
+        <button id="btn-link-parent" class="card-icon" title="Copy link">&#128279;</button>
+      </div>
+      <div id="parent-label">Parent &middot; <span id="generation-counter">Gen 0</span> &middot; <a id="link-3d" href="3d/" title="View in 3D">3D</a></div>
     </div>
 
     <div id="genome-panel" class="collapsible-panel">

@@ -385,6 +385,20 @@ button:disabled {
   color: #8b949e;
 }
 
+#link-3d {
+  color: #58a6ff;
+  text-decoration: none;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#link-3d:hover {
+  color: #79c0ff;
+  text-decoration: underline;
+}
+
 /* ── Gene chips with tooltips (F6) ─────────────────────── */
 
 .gene-chip {

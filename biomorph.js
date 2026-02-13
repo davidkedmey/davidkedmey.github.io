@@ -1359,6 +1359,10 @@ function updateParent() {
   genCounter.textContent = `Gen ${generation}`;
   updateHash();
 
+  // Update 3D link with current genotype
+  const link3d = document.getElementById('link-3d');
+  if (link3d) link3d.href = '3d/' + encodeState();
+
   // Update genealogy if panel is open
   const genPanel = document.getElementById('genealogy-panel');
   if (genPanel) {
@@ -1401,7 +1405,7 @@ function spawnOffspring() {
     const saveBtn = document.createElement('button');
     saveBtn.className = 'card-icon card-icon-save';
     saveBtn.title = 'Save to gallery';
-    saveBtn.innerHTML = '&#11123;';
+    saveBtn.innerHTML = '&#8595;';
     saveBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       saveChildToGallery(childGenes, childColorGenes, saveBtn);
@@ -1411,7 +1415,7 @@ function spawnOffspring() {
     const linkBtn = document.createElement('button');
     linkBtn.className = 'card-icon card-icon-link';
     linkBtn.title = 'Copy link';
-    linkBtn.innerHTML = '&#9939;';
+    linkBtn.textContent = '\uD83D\uDD17';
     linkBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       copyBiomorphLink(childGenes, childColorGenes, linkBtn);
@@ -1507,6 +1511,12 @@ function init() {
     spawnOffspring();
   } else {
     setMode(1);
+    // Start with a random biomorph so first-time visitors see something
+    parentGenes = randomGenotype();
+    evolutionHistory.reset();
+    pushHistory();
+    updateParent();
+    spawnOffspring();
   }
 
   // Tab clicks
@@ -1670,4 +1680,4 @@ function init() {
   });
 }
 
-init();
+if (document.getElementById('parent')) init();
