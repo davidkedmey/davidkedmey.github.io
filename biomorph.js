@@ -56,7 +56,7 @@ let symmetryType = 'left-right';
 let alternatingAsymmetry = false;
 let radialSymmetry = false;
 let mutationIntensity = 1; // F5: 1=Gentle, 2=Moderate, 3=Wild
-let colorMode = 'none'; // 'none', 'depth', 'angle'
+let colorMode = 'depth'; // 'none', 'depth', 'angle'
 let colorGenes = { hue: 7, spread: 3 }; // hue: 0-11 (30° steps), spread: -6 to 6
 
 // ── Gene tooltips (F6) ──────────────────────────────────────
