@@ -14,25 +14,38 @@ body {
   align-items: center;
 }
 
-header {
-  text-align: center;
-  padding: 24px 16px 8px;
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 580px;
+  padding: 8px 0;
+  position: relative;
 }
 
-h1 {
-  font-size: 1.6rem;
-  font-weight: 600;
-}
-
-.subtitle {
+.top-bar-title {
   font-size: 0.85rem;
+  font-weight: 600;
   color: #8b949e;
-  margin-top: 4px;
 }
 
-#version-tag {
-  font-size: 0.7rem;
-  color: #484f58;
+.top-bar-icon {
+  position: absolute;
+  right: 0;
+  font-size: 1rem;
+  padding: 4px 8px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #161b22;
+  color: #8b949e;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.top-bar-icon:hover {
+  background: #21262d;
+  color: #e6edf3;
 }
 
 /* ── Mode tabs ──────────────────────────────────────────── */
@@ -42,7 +55,7 @@ h1 {
   flex-wrap: wrap;
   justify-content: center;
   gap: 4px;
-  padding: 8px 16px;
+  padding: 4px 16px;
   max-width: 840px;
   width: 100%;
 }
@@ -92,23 +105,58 @@ h1 {
   justify-content: center;
   align-items: center;
   gap: 12px;
-  padding: 4px 16px 8px;
+  padding: 2px 16px 4px;
   max-width: 840px;
   width: 100%;
 }
 
-/* ── Parent actions ────────────────────────────────────── */
+/* ── Action bar ────────────────────────────────────────── */
 
-#parent-actions {
+#action-bar {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
-  gap: 4px;
+  width: 100%;
+  max-width: 760px;
+  padding: 0;
+  gap: 12px;
 }
 
-#parent-actions button {
+.action-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.action-buttons button {
   font-size: 0.7rem;
-  padding: 3px 8px;
+  padding: 5px 10px;
+  opacity: 0.8;
+}
+
+.action-buttons button:hover {
+  opacity: 1;
+}
+
+.random-group {
+  display: flex;
+  gap: 0;
+}
+
+.random-group button {
+  border-radius: 6px 0 0 6px;
+}
+
+.random-group select {
+  font-family: inherit;
+  font-size: 0.75rem;
+  padding: 5px 8px;
+  border: 1px solid #30363d;
+  border-radius: 0 6px 6px 0;
+  border-left: none;
+  background: #21262d;
+  color: #e6edf3;
+  cursor: pointer;
 }
 
 .setting-row {
@@ -143,70 +191,42 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 16px;
+  gap: 6px;
+  padding: 0 16px 16px;
   width: 100%;
   max-width: 840px;
 }
 
-#parent-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
+/* ── Parent card in grid ──────────────────────────────── */
 
-#genome-panel {
-  width: 100%;
-  max-width: 840px;
-}
-
-#parent-wrapper {
+.parent-card {
   position: relative;
-  display: inline-block;
+  background: rgba(31, 111, 235, 0.06);
+  border-radius: 6px;
 }
 
-#parent {
-  border: 2px solid #58a6ff;
-  border-radius: 8px;
-  background: #161b22;
-  cursor: default;
+.parent-card canvas {
+  border-color: #58a6ff !important;
+  cursor: default !important;
 }
 
-#btn-animate {
+.parent-label {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 1px solid rgba(88, 166, 255, 0.4);
-  border-radius: 50%;
-  background: rgba(22, 27, 34, 0.8);
-  color: #58a6ff;
-  font-size: 14px;
-  line-height: 32px;
-  text-align: center;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  top: 2px;
+  left: 0;
+  right: 0;
   z-index: 2;
+  font-size: 0.65rem;
+  color: #58a6ff;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 0;
+  pointer-events: auto;
 }
 
-#btn-animate:hover {
-  background: rgba(31, 111, 235, 0.3);
-  color: #fff;
-}
 
-#btn-animate.animating {
-  color: #f85149;
-  border-color: rgba(248, 81, 73, 0.4);
-}
-
-#btn-animate.animating:hover {
-  background: rgba(248, 81, 73, 0.2);
-}
-
-/* ── Card icon overlays (save / link) ──────────────────── */
+/* ── Card icon overlays ────────────────────────────────── */
 
 .card-icon {
   position: absolute;
@@ -221,7 +241,7 @@ main {
   line-height: 28px;
   text-align: center;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
   z-index: 2;
 }
 
@@ -230,15 +250,6 @@ main {
   color: #fff;
 }
 
-#btn-save-parent {
-  bottom: 8px;
-  right: 40px;
-}
-
-#btn-link-parent {
-  bottom: 8px;
-  right: 8px;
-}
 
 /* ── Offspring card overlays ──────────────────────────── */
 
@@ -260,18 +271,52 @@ main {
   border-color: #58a6ff;
 }
 
-.offspring-card .card-icon {
+.offspring-number {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(22, 27, 34, 0.85);
+  border: 1px solid #30363d;
+  color: #8b949e;
+  font-size: 0.65rem;
+  line-height: 20px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.offspring-card .card-icon,
+.offspring-card .card-icon-animate {
   opacity: 0;
   transition: opacity 0.15s, background 0.15s, color 0.15s;
 }
 
-.offspring-card:hover .card-icon {
+.offspring-card:hover .card-icon,
+.offspring-card:hover .card-icon-animate {
   opacity: 1;
+}
+
+.card-icon-animate {
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.card-icon-animate.animating {
+  color: #f85149;
+  border-color: rgba(248, 81, 73, 0.4);
+}
+
+.card-icon-animate.animating:hover {
+  background: rgba(248, 81, 73, 0.2);
 }
 
 .card-icon-save {
   bottom: 6px;
-  right: 34px;
+  left: 6px;
 }
 
 .card-icon-link {
@@ -279,12 +324,6 @@ main {
   right: 6px;
 }
 
-#parent-label {
-  font-size: 0.75rem;
-  color: #58a6ff;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
 
 /* ── Genome table ──────────────────────────────────────── */
 
@@ -346,19 +385,13 @@ main {
 
 #offspring-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   width: 100%;
-  max-width: 760px;
+  max-width: 580px;
 }
 
 /* offspring canvas styles moved to .offspring-card rules above */
-
-.offspring-hint {
-  font-size: 0.65rem;
-  color: #484f58;
-  text-align: center;
-}
 
 button {
   font-family: inherit;
@@ -935,6 +968,144 @@ button:disabled {
   color: #e6edf3;
 }
 
+/* ── Mate picker modal ─────────────────────────────────── */
+
+#mate-picker-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.mate-picker-content {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 560px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.mate-picker-content h3 {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #e6edf3;
+}
+
+.mate-picker-hint {
+  font-size: 0.75rem;
+  color: #8b949e;
+  font-style: italic;
+  text-align: center;
+}
+
+#mate-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.mate-picker-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  background: #0d1117;
+  border: 2px solid #30363d;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.mate-picker-card:hover {
+  border-color: #8b949e;
+}
+
+.mate-picker-card.selected {
+  border-color: #d2a8ff;
+  background: rgba(210, 168, 255, 0.08);
+}
+
+.mate-picker-card img {
+  width: 72px;
+  height: 72px;
+  border-radius: 4px;
+  background: #161b22;
+}
+
+.mate-picker-card .mate-name {
+  font-size: 0.65rem;
+  color: #8b949e;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+
+.mate-picker-card.selected .mate-name {
+  color: #d2a8ff;
+}
+
+.mate-picker-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.mate-picker-empty {
+  font-size: 0.8rem;
+  color: #8b949e;
+  padding: 16px;
+  text-align: center;
+}
+
+/* ── About modal ──────────────────────────────────────── */
+
+#about-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.about-content {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 400px;
+  width: 90vw;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.about-content h2 { font-size: 1.4rem; }
+.about-subtitle { font-size: 0.85rem; color: #8b949e; font-style: italic; }
+.about-version { font-size: 0.7rem; color: #484f58; }
+.about-content h3 { font-size: 0.9rem; color: #58a6ff; margin-top: 8px; }
+.about-content ul { text-align: left; font-size: 0.8rem; color: #8b949e; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.about-content kbd { background: #21262d; border: 1px solid #30363d; border-radius: 3px; padding: 1px 5px; font-size: 0.75rem; font-family: inherit; }
+.about-credit { font-size: 0.75rem; color: #6e7681; margin-top: 4px; }
+
 /* ── Responsive ────────────────────────────────────────── */
 
 @media (max-width: 600px) {
@@ -942,10 +1113,15 @@ button:disabled {
     flex-direction: column;
     align-items: center;
   }
-  #offspring-grid {
-    grid-template-columns: repeat(3, 1fr);
+  #action-bar {
+    flex-direction: column;
+    align-items: center;
   }
-  .offspring-card .card-icon {
+  #offspring-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .offspring-card .card-icon,
+  .offspring-card .card-icon-animate {
     opacity: 1;
   }
   .mode-tabs {

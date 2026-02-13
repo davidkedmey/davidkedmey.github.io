@@ -7,77 +7,80 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1>Dawkins' Biomorphs</h1>
-    <p class="subtitle">Progressive embryologies from <em>The Evolution of Evolvability</em> (1988)</p>
-    <span id="version-tag">v0.13</span>
+  <header class="top-bar">
+    <span class="top-bar-title">Dawkins' Biomorphs</span>
+    <button id="btn-about" class="top-bar-icon" title="About &amp; Help">⚙</button>
   </header>
 
-  <nav class="mode-tabs">
-    <button class="mode-tab" data-mode="0">Pixel Peppering</button>
-    <button class="mode-tab active" data-mode="1">Basic</button>
-    <button class="mode-tab" data-mode="2">+ Symmetry</button>
-    <button class="mode-tab" data-mode="3">+ Segments</button>
-    <button class="mode-tab" data-mode="4">+ Gradients</button>
-    <button class="mode-tab" data-mode="5">Full Dawkins</button>
-  </nav>
-  <div id="settings-bar">
-    <div id="symmetry-controls" class="setting-row" style="display:none">
-      <label>Symmetry:
-        <select id="symmetry-select">
-          <option value="left-right">Left-right</option>
-          <option value="up-down">Up-down</option>
-          <option value="four-way">Four-way radial</option>
-          <option value="asymmetric">Asymmetric</option>
-        </select>
-      </label>
+  <main>
+    <div id="offspring-grid"></div>
+
+    <div id="action-bar">
+      <div class="action-buttons">
+        <button id="btn-reroll" title="Same parent, new mutations (asexual reproduction)">&#8635; New Brood</button>
+        <button id="btn-breed" title="Cross with saved specimens (sexual reproduction)">&#9891;&#9893; Breed</button>
+        <button id="btn-undo" title="Return to previous generation (Ctrl+Z)">&larr; Back</button>
+        <div class="random-group">
+          <button id="btn-random" title="Start with a random organism">Seed</button>
+          <select id="random-mode" title="Random type">
+            <option value="interesting">Interesting</option>
+            <option value="pure">Pure random</option>
+          </select>
+        </div>
+      </div>
     </div>
-    <div id="mode5-controls" class="setting-row" style="display:none">
-      <label><input type="checkbox" id="alternating-asym"> Alternating asymmetry</label>
-      <label><input type="checkbox" id="radial-sym"> Radial symmetry</label>
+    <nav class="mode-tabs">
+      <button class="mode-tab" data-mode="0">Pixel Peppering</button>
+      <button class="mode-tab active" data-mode="1">Basic</button>
+      <button class="mode-tab" data-mode="2">+ Symmetry</button>
+      <button class="mode-tab" data-mode="3">+ Segments</button>
+      <button class="mode-tab" data-mode="4">+ Gradients</button>
+      <button class="mode-tab" data-mode="5">Full Dawkins</button>
+    </nav>
+    <div id="settings-bar">
+      <div id="symmetry-controls" class="setting-row" style="display:none">
+        <label>Symmetry:
+          <select id="symmetry-select">
+            <option value="left-right">Left-right</option>
+            <option value="up-down">Up-down</option>
+            <option value="four-way">Four-way radial</option>
+            <option value="asymmetric">Asymmetric</option>
+          </select>
+        </label>
+      </div>
+      <div id="mode5-controls" class="setting-row" style="display:none">
+        <label><input type="checkbox" id="alternating-asym"> Alternating asymmetry</label>
+        <label><input type="checkbox" id="radial-sym"> Radial symmetry</label>
+      </div>
+      <div id="color-controls" class="setting-row" style="display:none">
+        <label>Color:
+          <select id="color-mode">
+            <option value="none">None</option>
+            <option value="depth">By depth</option>
+            <option value="angle">By direction</option>
+          </select>
+        </label>
+      </div>
+      <div class="setting-row">
+        <label class="mutation-label">Mutation:
+          <select id="mutation-intensity">
+            <option value="1">Gentle</option>
+            <option value="2">Moderate</option>
+            <option value="3">Wild</option>
+          </select>
+        </label>
+      </div>
     </div>
-    <div id="color-controls" class="setting-row" style="display:none">
-      <label><input type="checkbox" id="color-toggle"> Color by depth</label>
-    </div>
-    <div class="setting-row">
-      <label class="mutation-label">Mutation:
-        <select id="mutation-intensity">
-          <option value="1">Gentle</option>
-          <option value="2">Moderate</option>
-          <option value="3">Wild</option>
-        </select>
-      </label>
+    <p id="mode-description"></p>
+
+  </main>
+
+  <div id="genome-panel" class="collapsible-panel">
+    <button class="panel-toggle">Genome</button>
+    <div class="panel-content" style="display:none">
+      <div id="genome-table"></div>
     </div>
   </div>
-  <p id="mode-description"></p>
-
-  <main>
-    <div id="parent-section">
-      <div id="parent-actions">
-        <button id="btn-undo" title="Undo last selection (Ctrl+Z)">Undo</button>
-        <button id="btn-reset">Reset</button>
-        <button id="btn-random">Random</button>
-        <button id="btn-interesting" title="Generate a random interesting biomorph (depth 5+)">Interesting</button>
-      </div>
-      <div id="parent-wrapper">
-        <canvas id="parent" width="240" height="240"></canvas>
-        <button id="btn-animate" title="Watch growth animation">&#9654;</button>
-        <button id="btn-save-parent" class="card-icon" title="Save to gallery">&#8595;</button>
-        <button id="btn-link-parent" class="card-icon" title="Copy link">&#128279;</button>
-      </div>
-      <div id="parent-label">Parent &middot; <span id="generation-counter">Gen 0</span> &middot; <a id="link-3d" href="3d/" title="View in 3D">3D</a></div>
-    </div>
-
-    <div id="genome-panel" class="collapsible-panel">
-      <button class="panel-toggle">Genome</button>
-      <div class="panel-content" style="display:none">
-        <div id="genome-table"></div>
-      </div>
-    </div>
-
-    <div id="offspring-grid"></div>
-    <p class="offspring-hint">Click to select &middot; Shift+click to compare</p>
-  </main>
 
   <div id="genealogy-panel" class="collapsible-panel">
     <button class="panel-toggle">Genealogy</button>
@@ -110,25 +113,45 @@
     </div>
   </div>
 
+  <div id="mate-picker-modal" style="display:none">
+    <div class="mate-picker-content">
+      <h3>Choose Mates</h3>
+      <p class="mate-picker-hint">Select 1&ndash;4 specimens from your gallery to breed with the current parent</p>
+      <div id="mate-picker-grid"></div>
+      <div class="mate-picker-actions">
+        <button id="mate-picker-confirm" disabled>Breed</button>
+        <button id="mate-picker-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div id="breed-modal" style="display:none">
     <div class="breed-content">
-      <div class="breed-parents">
-        <div class="breed-parent-side">
-          <h3>Parent</h3>
-          <canvas id="breed-parent1" width="200" height="200"></canvas>
-        </div>
-        <span class="breed-x">&times;</span>
-        <div class="breed-parent-side">
-          <h3>Mate</h3>
-          <canvas id="breed-parent2" width="200" height="200"></canvas>
-        </div>
-      </div>
+      <div class="breed-parents" id="breed-parents"></div>
       <div id="breed-gene-comparison" class="breed-gene-comparison"></div>
       <div id="breed-offspring" class="breed-offspring-grid"></div>
       <div id="breed-detail-strip" class="breed-detail-strip"></div>
       <div class="breed-actions">
         <button id="breed-dismiss">Cancel</button>
       </div>
+    </div>
+  </div>
+
+  <div id="about-modal" style="display:none">
+    <div class="about-content">
+      <h2>Dawkins' Biomorphs</h2>
+      <p class="about-subtitle">Progressive embryologies from <em>The Evolution of Evolvability</em> (1988)</p>
+      <span class="about-version">v0.13</span>
+      <h3>How to Play</h3>
+      <ul>
+        <li>Click an offspring or press <kbd>1</kbd>–<kbd>8</kbd> to select it as the next parent</li>
+        <li>Each generation introduces small random mutations</li>
+        <li>Save favourites to the Gallery</li>
+        <li>Breed specimens together with ♀♂ Breed</li>
+        <li>Press <kbd>Ctrl+Z</kbd> to undo</li>
+      </ul>
+      <p class="about-credit">Based on Richard Dawkins' <em>The Evolution of Evolvability</em> (1988)</p>
+      <button id="about-close">Close</button>
     </div>
   </div>
 

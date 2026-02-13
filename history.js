@@ -96,9 +96,10 @@ function captureNodeThumbnail(history, node) {
   if (node.mode === 0) {
     renderPeppering(canvas, node.genes);
   } else {
-    const opts = node.colorEnabled && node.colorGenes
+    const nodeCM = node.colorMode || (node.colorEnabled ? 'depth' : 'none');
+    const opts = nodeCM === 'depth' && node.colorGenes
       ? { colorEnabled: true, colorGenes: node.colorGenes }
-      : undefined;
+      : (nodeCM === 'angle' ? { colorMode: 'angle' } : undefined);
     renderBiomorph(canvas, node.genes, opts);
   }
 

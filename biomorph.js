@@ -40,6 +40,15 @@ const MODE_CONFIGS = {
 
 const NUM_OFFSPRING = 8;
 
+const MODE_NAMES = {
+  0: 'Peppering',
+  1: 'Basic',
+  2: 'Symmetry',
+  3: 'Segments',
+  4: 'Gradients',
+  5: 'Full',
+};
+
 // ── Current state ────────────────────────────────────────────
 
 let currentMode = 1;
@@ -47,7 +56,7 @@ let symmetryType = 'left-right';
 let alternatingAsymmetry = false;
 let radialSymmetry = false;
 let mutationIntensity = 1; // F5: 1=Gentle, 2=Moderate, 3=Wild
-let colorEnabled = false;
+let colorMode = 'none'; // 'none', 'depth', 'angle'
 let colorGenes = { hue: 7, spread: 3 }; // hue: 0-11 (30° steps), spread: -6 to 6
 
 // ── Gene tooltips (F6) ──────────────────────────────────────
@@ -73,7 +82,7 @@ const GENE_TOOLTIPS = {
 const SYM_CODES = { 'left-right': 'lr', 'up-down': 'ud', 'four-way': 'fw', 'asymmetric': 'as' };
 const SYM_DECODE = { lr: 'left-right', ud: 'up-down', fw: 'four-way', as: 'asymmetric' };
 
-function encodeStateFor(genes, mode, sym, altAsym, radSym, mi, gen, colorEn, cGenes) {
+function encodeStateFor(genes, mode, sym, altAsym, radSym, mi, gen, cm, cGenes) {
   const parts = [`m=${mode}`];
 
   if (mode === 0) {
@@ -94,14 +103,15 @@ function encodeStateFor(genes, mode, sym, altAsym, radSym, mi, gen, colorEn, cGe
   }
 
   if (mi !== 1) parts.push(`mi=${mi}`);
-  if (colorEn && cGenes) parts.push(`ce=1&cg=${cGenes.hue},${cGenes.spread}`);
+  if (cm && cm !== 'none') parts.push(`cm=${cm}`);
+  if (cm === 'depth' && cGenes) parts.push(`cg=${cGenes.hue},${cGenes.spread}`);
   parts.push(`gen=${gen}`);
 
   return '#' + parts.join('&');
 }
 
 function encodeState() {
-  return encodeStateFor(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, mutationIntensity, generation, colorEnabled, colorGenes);
+  return encodeStateFor(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, mutationIntensity, generation, colorMode, colorGenes);
 }
 
 function decodeState(hash) {
@@ -137,7 +147,9 @@ function decodeState(hash) {
     }
   }
 
-  let colorEn = params.ce === '1';
+  // Color mode: new cm= param, backward compat with old ce=1
+  let cm = params.cm || 'none';
+  if (!params.cm && params.ce === '1') cm = 'depth';
   let cGenes = { hue: 7, spread: 3 };
   if (params.cg) {
     const parts2 = params.cg.split(',').map(Number);
@@ -152,7 +164,7 @@ function decodeState(hash) {
     radialSym: params.rs === '1',
     mutationIntensity: parseInt(params.mi) || 1,
     generation: parseInt(params.gen) || 0,
-    colorEnabled: colorEn,
+    colorMode: cm,
     colorGenes: cGenes,
   };
 }
@@ -508,6 +520,18 @@ function renderBiomorph(canvas, genes, options) {
       }
       ctx.stroke();
     }
+  } else if (options && options.colorMode === 'angle') {
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    for (const seg of lines) {
+      const angle = Math.atan2(seg.y1 - seg.y0, seg.x1 - seg.x0);
+      const hue = ((angle / Math.PI) * 180 + 180) % 360;
+      ctx.strokeStyle = `hsl(${hue}, 75%, 60%)`;
+      ctx.beginPath();
+      ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
+      ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
+      ctx.stroke();
+    }
   } else {
     ctx.strokeStyle = '#e6edf3';
     ctx.lineWidth = 1.5;
@@ -522,13 +546,16 @@ function renderBiomorph(canvas, genes, options) {
 }
 
 function colorOptions(cGenes) {
-  if (!colorEnabled || currentMode === 0) return undefined;
-  return { colorEnabled: true, colorGenes: cGenes || colorGenes };
+  if (currentMode === 0 || colorMode === 'none') return undefined;
+  if (colorMode === 'depth') return { colorEnabled: true, colorGenes: cGenes || colorGenes };
+  if (colorMode === 'angle') return { colorMode: 'angle' };
+  return undefined;
 }
 
 function pushHistory() {
   const node = evolutionHistory.push(parentGenes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, generation);
-  node.colorEnabled = colorEnabled;
+  node.colorMode = colorMode;
+  node.colorEnabled = colorMode === 'depth';
   node.colorGenes = { hue: colorGenes.hue, spread: colorGenes.spread };
   captureNodeThumbnail(evolutionHistory, node);
   return node;
@@ -543,17 +570,18 @@ function stopAnimation() {
     clearTimeout(animationTimer);
     animationTimer = null;
   }
-  const btn = document.getElementById('btn-animate');
-  if (btn) {
-    btn.innerHTML = '&#9654;'; // ▶
-    btn.classList.remove('animating');
-    btn.title = 'Watch growth animation';
+  if (parentAnimBtn) {
+    parentAnimBtn.innerHTML = '&#9654;'; // ▶
+    parentAnimBtn.classList.remove('animating');
+    parentAnimBtn.title = 'Watch growth animation';
   }
 }
 
+let parentAnimBtn = null; // dynamic — created in spawnOffspring()
+
 function animateGrowth() {
   stopAnimation();
-  if (currentMode === 0) return;
+  if (currentMode === 0 || !parentCanvasRef || !parentAnimBtn) return;
 
   const allLines = drawBiomorph(parentGenes);
   if (allLines.length === 0) return;
@@ -575,7 +603,7 @@ function animateGrowth() {
     depthGroups.push(allLines.filter(s => s.depth >= d));
   }
 
-  const btn = document.getElementById('btn-animate');
+  const btn = parentAnimBtn;
   btn.innerHTML = '&#9209;'; // ⏹
   btn.classList.add('animating');
   btn.title = 'Stop animation';
@@ -593,74 +621,280 @@ function animateGrowth() {
 
     const lines = depthGroups[step];
     const opts = { lines, bbox };
-    if (colorEnabled) {
+    if (colorMode === 'depth') {
       opts.colorEnabled = true;
       opts.colorGenes = colorGenes;
+    } else if (colorMode === 'angle') {
+      opts.colorMode = 'angle';
     }
-    renderBiomorph(parentCanvas, parentGenes, opts);
+    renderBiomorph(parentCanvasRef, parentGenes, opts);
     step++;
-    animationTimer = setTimeout(() => requestAnimationFrame(nextFrame), 180);
+    animationTimer = setTimeout(() => requestAnimationFrame(nextFrame), 280);
   }
 
   requestAnimationFrame(nextFrame);
 }
 
+// ── Offspring animation ──────────────────────────────────────
+
+const offspringAnimations = new WeakMap();
+
+function animateOffspring(canvas, genes, childColorGenes, btn) {
+  // Stop any existing animation on this canvas
+  const existing = offspringAnimations.get(canvas);
+  if (existing) clearTimeout(existing);
+
+  if (currentMode === 0) return;
+
+  const allLines = drawBiomorph(genes);
+  if (allLines.length === 0) return;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const seg of allLines) {
+    minX = Math.min(minX, seg.x0, seg.x1);
+    maxX = Math.max(maxX, seg.x0, seg.x1);
+    minY = Math.min(minY, seg.y0, seg.y1);
+    maxY = Math.max(maxY, seg.y0, seg.y1);
+  }
+  const bbox = { minX, maxX, minY, maxY };
+
+  const maxDepth = Math.max(...allLines.map(s => s.depth));
+  const depthGroups = [];
+  for (let d = maxDepth; d >= 1; d--) {
+    depthGroups.push(allLines.filter(s => s.depth >= d));
+  }
+
+  btn.innerHTML = '&#9209;';
+  btn.classList.add('animating');
+
+  let step = 0;
+  function nextFrame() {
+    if (step >= depthGroups.length) {
+      offspringAnimations.delete(canvas);
+      btn.innerHTML = '&#8635;';
+      btn.classList.remove('animating');
+      return;
+    }
+    const lines = depthGroups[step];
+    const opts = { lines, bbox };
+    if (colorMode === 'depth' && childColorGenes) {
+      opts.colorEnabled = true;
+      opts.colorGenes = childColorGenes;
+    } else if (colorMode === 'angle') {
+      opts.colorMode = 'angle';
+    }
+    renderBiomorph(canvas, genes, opts);
+    step++;
+    const timer = setTimeout(() => requestAnimationFrame(nextFrame), 280);
+    offspringAnimations.set(canvas, timer);
+  }
+
+  requestAnimationFrame(nextFrame);
+}
+
+function stopOffspringAnimation(canvas, genes, childColorGenes) {
+  const timer = offspringAnimations.get(canvas);
+  if (timer) {
+    clearTimeout(timer);
+    offspringAnimations.delete(canvas);
+  }
+  if (currentMode === 0) {
+    renderPeppering(canvas, genes);
+  } else {
+    renderBiomorph(canvas, genes, colorOptions(childColorGenes));
+  }
+}
+
 // ── Sexual reproduction (crossover) ─────────────────────────
 
-function crossover(genes1, genes2) {
+const PARENT_COLORS = [
+  { label: 'Parent', color: '#58a6ff', bg: 'rgba(88, 166, 255, 0.1)' },
+  { label: 'Mate',   color: '#d2a8ff', bg: 'rgba(210, 168, 255, 0.1)' },
+  { label: 'Mate 2', color: '#3fb950', bg: 'rgba(63, 185, 80, 0.1)' },
+  { label: 'Mate 3', color: '#f0883e', bg: 'rgba(240, 136, 62, 0.1)' },
+  { label: 'Mate 4', color: '#f778ba', bg: 'rgba(247, 120, 186, 0.1)' },
+];
+
+function crossoverMulti(parentsList) {
   const config = getConfig();
   const child = new Array(config.geneCount);
   const sources = new Array(config.geneCount);
   for (let i = 0; i < config.geneCount; i++) {
-    const fromParent1 = Math.random() < 0.5;
-    const val = fromParent1 ? genes1[i] : genes2[i];
-    child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], val));
-    sources[i] = fromParent1 ? 1 : 2;
+    const srcIdx = Math.floor(Math.random() * parentsList.length);
+    child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], parentsList[srcIdx][i]));
+    sources[i] = srcIdx + 1; // 1-indexed
   }
   return { genes: child, sources };
 }
 
-function showBreedModal(specimen) {
+function crossoverColorMulti(colorGenesList) {
+  return {
+    hue: colorGenesList[Math.floor(Math.random() * colorGenesList.length)].hue,
+    spread: colorGenesList[Math.floor(Math.random() * colorGenesList.length)].spread,
+  };
+}
+
+// ── Mate picker ─────────────────────────────────────────────
+
+function openMatePicker() {
   if (currentMode === 0) return;
+  const gallery = loadGallery();
+  const modal = document.getElementById('mate-picker-modal');
+  const grid = document.getElementById('mate-picker-grid');
+  const confirmBtn = document.getElementById('mate-picker-confirm');
+  grid.innerHTML = '';
 
-  const modal = document.getElementById('breed-modal');
-
-  // Adapt specimen genes to current mode if different
-  let mateGenes = specimen.genes.slice();
-  if (specimen.mode !== currentMode) {
-    mateGenes = adaptGenes(mateGenes, currentMode);
+  if (gallery.length === 0) {
+    grid.innerHTML = '<p class="mate-picker-empty">No saved specimens. Save biomorphs to your gallery first.</p>';
+    confirmBtn.disabled = true;
+    modal.style.display = 'flex';
+    return;
   }
 
-  const mateColorGenes = specimen.colorGenes || { hue: 7, spread: 3 };
+  const selected = new Set();
 
-  // Render parent (current settings)
-  renderBiomorph(document.getElementById('breed-parent1'), parentGenes, colorOptions());
+  for (const spec of gallery) {
+    const card = document.createElement('div');
+    card.className = 'mate-picker-card';
 
-  // Render mate using its original saved settings so it looks as saved
+    const img = document.createElement('img');
+    img.src = spec.thumbnail;
+    img.draggable = false;
+    card.appendChild(img);
+
+    const name = document.createElement('div');
+    name.className = 'mate-name';
+    name.textContent = spec.name;
+    card.appendChild(name);
+
+    card.addEventListener('click', () => {
+      if (selected.has(spec.id)) {
+        selected.delete(spec.id);
+        card.classList.remove('selected');
+      } else if (selected.size < 4) {
+        selected.add(spec.id);
+        card.classList.add('selected');
+      }
+      confirmBtn.disabled = selected.size === 0;
+      confirmBtn.textContent = selected.size > 0
+        ? `Breed (${selected.size} mate${selected.size > 1 ? 's' : ''})`
+        : 'Breed';
+    });
+
+    grid.appendChild(card);
+  }
+
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = 'Breed';
+  modal.style.display = 'flex';
+
+  // Store handler for confirm
+  confirmBtn.onclick = () => {
+    const specimens = gallery.filter(s => selected.has(s.id));
+    closeMatePicker();
+    if (specimens.length > 0) showBreedModal(specimens);
+  };
+}
+
+function closeMatePicker() {
+  document.getElementById('mate-picker-modal').style.display = 'none';
+  document.getElementById('mate-picker-grid').innerHTML = '';
+}
+
+// ── Breed modal (multi-parent) ──────────────────────────────
+
+function showBreedModal(specimens) {
+  if (currentMode === 0 || specimens.length === 0) return;
+
+  const modal = document.getElementById('breed-modal');
+  const parentsContainer = document.getElementById('breed-parents');
+  parentsContainer.innerHTML = '';
+
+  // Prepare all parent gene arrays and color genes
+  const allParentGenes = [parentGenes];
+  const allColorGenes = [{ hue: colorGenes.hue, spread: colorGenes.spread }];
+
+  // Render current parent
+  const p0Side = document.createElement('div');
+  p0Side.className = 'breed-parent-side';
+  const p0H = document.createElement('h3');
+  p0H.textContent = 'Parent';
+  p0H.style.color = PARENT_COLORS[0].color;
+  p0Side.appendChild(p0H);
+  const p0Canvas = document.createElement('canvas');
+  p0Canvas.width = 200;
+  p0Canvas.height = 200;
+  p0Side.appendChild(p0Canvas);
+  parentsContainer.appendChild(p0Side);
+  renderBiomorph(p0Canvas, parentGenes, colorOptions());
+  p0Canvas.addEventListener('mouseenter', () => highlightBreedColumn('breed-col-p0'));
+  p0Canvas.addEventListener('mouseleave', () => highlightBreedColumn(null));
+
+  // Render each mate
   const savedMode = currentMode;
   const savedSym = symmetryType;
   const savedAltAsym = alternatingAsymmetry;
   const savedRadSym = radialSymmetry;
-  currentMode = specimen.mode;
-  symmetryType = specimen.symmetry || 'left-right';
-  alternatingAsymmetry = specimen.alternatingAsym || false;
-  radialSymmetry = specimen.radialSym || false;
-  const mateColorOpts = specimen.colorEnabled
-    ? { colorEnabled: true, colorGenes: mateColorGenes }
-    : undefined;
-  renderBiomorph(document.getElementById('breed-parent2'), specimen.genes.slice(), mateColorOpts);
+
+  for (let m = 0; m < specimens.length; m++) {
+    const spec = specimens[m];
+
+    // × separator
+    const x = document.createElement('span');
+    x.className = 'breed-x';
+    x.innerHTML = '&times;';
+    parentsContainer.appendChild(x);
+
+    // Adapt genes
+    let mateGenes = spec.genes.slice();
+    if (spec.mode !== savedMode) mateGenes = adaptGenes(mateGenes, savedMode);
+    allParentGenes.push(mateGenes);
+
+    const mateColorGenes = spec.colorGenes || { hue: 7, spread: 3 };
+    allColorGenes.push(mateColorGenes);
+
+    const side = document.createElement('div');
+    side.className = 'breed-parent-side';
+    const h = document.createElement('h3');
+    h.textContent = PARENT_COLORS[m + 1].label;
+    h.style.color = PARENT_COLORS[m + 1].color;
+    side.appendChild(h);
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    side.appendChild(canvas);
+    parentsContainer.appendChild(side);
+
+    // Render mate in its original style
+    currentMode = spec.mode;
+    symmetryType = spec.symmetry || 'left-right';
+    alternatingAsymmetry = spec.alternatingAsym || false;
+    radialSymmetry = spec.radialSym || false;
+    const mateCM = spec.colorMode || (spec.colorEnabled ? 'depth' : 'none');
+    const mateColorOpts = mateCM === 'depth'
+      ? { colorEnabled: true, colorGenes: mateColorGenes }
+      : (mateCM === 'angle' ? { colorMode: 'angle' } : undefined);
+    renderBiomorph(canvas, spec.genes.slice(), mateColorOpts);
+
+    const colIdx = m;
+    canvas.addEventListener('mouseenter', () => highlightBreedColumn('breed-col-p' + (colIdx + 1)));
+    canvas.addEventListener('mouseleave', () => highlightBreedColumn(null));
+  }
+
   currentMode = savedMode;
   symmetryType = savedSym;
   alternatingAsymmetry = savedAltAsym;
   radialSymmetry = savedRadSym;
 
+  const parentCount = allParentGenes.length;
+
   // Generate 8 crossover+mutation offspring
   const offspringData = [];
   for (let i = 0; i < NUM_OFFSPRING; i++) {
-    const { genes: crossed, sources } = crossover(parentGenes, mateGenes);
+    const { genes: crossed, sources } = crossoverMulti(allParentGenes);
     const childGenes = mutate(crossed);
-    const childColorGenes = colorEnabled
-      ? mutateColor(crossoverColor(colorGenes, mateColorGenes))
+    const childColorGenes = colorMode === 'depth'
+      ? mutateColor(crossoverColorMulti(allColorGenes))
       : null;
 
     let mutatedIndex = -1;
@@ -671,8 +905,8 @@ function showBreedModal(specimen) {
     offspringData.push({ childGenes, childColorGenes, sources, mutatedIndex });
   }
 
-  // Render gene comparison table with all offspring
-  renderBreedGeneComparison(parentGenes, mateGenes, offspringData);
+  // Render gene comparison table
+  renderBreedGeneComparison(allParentGenes, offspringData, parentCount);
 
   // Render offspring grid
   const grid = document.getElementById('breed-offspring');
@@ -690,7 +924,7 @@ function showBreedModal(specimen) {
 
     const childIdx = i;
     canvas.addEventListener('mouseenter', () => {
-      renderBreedDetailStrip(childGenes, sources, mutatedIndex);
+      renderBreedDetailStrip(childGenes, sources, mutatedIndex, parentCount);
       highlightBreedColumn('breed-col-child-' + childIdx);
     });
     canvas.addEventListener('mouseleave', () => {
@@ -704,28 +938,28 @@ function showBreedModal(specimen) {
     });
   }
 
-  // Parent/mate canvas hover for column highlighting
-  const p1Canvas = document.getElementById('breed-parent1');
-  const p2Canvas = document.getElementById('breed-parent2');
-  p1Canvas.addEventListener('mouseenter', () => highlightBreedColumn('breed-col-parent'));
-  p1Canvas.addEventListener('mouseleave', () => highlightBreedColumn(null));
-  p2Canvas.addEventListener('mouseenter', () => highlightBreedColumn('breed-col-mate'));
-  p2Canvas.addEventListener('mouseleave', () => highlightBreedColumn(null));
-
   clearBreedDetailStrip();
   modal.style.display = 'flex';
 }
 
-function renderBreedGeneComparison(pGenes, mGenes, offspring) {
+function renderBreedGeneComparison(allParentGenes, offspring, parentCount) {
   const config = getConfig();
   const container = document.getElementById('breed-gene-comparison');
   container.innerHTML = '';
 
+  const totalCols = 2 + parentCount + offspring.length; // label + desc + parents + children
+  const colTemplate = `55px 160px repeat(${parentCount + offspring.length}, 60px)`;
+
   // Header row
   const header = document.createElement('div');
   header.className = 'breed-gene-row breed-gene-header';
-  const cols = ['Gene', 'Description', 'P', 'M'];
-  const colClasses = ['', '', 'breed-col-parent', 'breed-col-mate'];
+  header.style.gridTemplateColumns = colTemplate;
+  const cols = ['Gene', 'Description'];
+  const colClasses = ['', ''];
+  for (let p = 0; p < parentCount; p++) {
+    cols.push(p === 0 ? 'P' : 'M' + (parentCount > 2 && p > 1 ? p : ''));
+    colClasses.push('breed-col-p' + p);
+  }
   for (let c = 0; c < offspring.length; c++) {
     cols.push(String(c + 1));
     colClasses.push('breed-col-child-' + c);
@@ -734,18 +968,20 @@ function renderBreedGeneComparison(pGenes, mGenes, offspring) {
     const span = document.createElement('span');
     if (colClasses[c]) span.className = colClasses[c];
     span.textContent = cols[c];
+    if (c >= 2 && c < 2 + parentCount) span.style.color = PARENT_COLORS[c - 2].color;
     header.appendChild(span);
   }
   container.appendChild(header);
 
   for (let i = 0; i < config.geneCount; i++) {
     const label = config.geneLabels[i];
-    const pVal = i < pGenes.length ? pGenes[i] : 0;
-    const mVal = i < mGenes.length ? mGenes[i] : 0;
-    const differs = pVal !== mVal;
+    // Check if any parent differs
+    const vals = allParentGenes.map(g => i < g.length ? g[i] : 0);
+    const differs = vals.some(v => v !== vals[0]);
 
     const row = document.createElement('div');
     row.className = 'breed-gene-row' + (differs ? ' breed-gene-differs' : '');
+    row.style.gridTemplateColumns = colTemplate;
 
     const labelSpan = document.createElement('span');
     labelSpan.textContent = label;
@@ -756,15 +992,14 @@ function renderBreedGeneComparison(pGenes, mGenes, offspring) {
     descSpan.textContent = GENE_TOOLTIPS[label] || '';
     row.appendChild(descSpan);
 
-    const pSpan = document.createElement('span');
-    pSpan.className = 'breed-col-parent breed-gene-pval';
-    pSpan.textContent = pVal;
-    row.appendChild(pSpan);
-
-    const mSpan = document.createElement('span');
-    mSpan.className = 'breed-col-mate breed-gene-mval';
-    mSpan.textContent = mVal;
-    row.appendChild(mSpan);
+    // Parent values
+    for (let p = 0; p < parentCount; p++) {
+      const pSpan = document.createElement('span');
+      pSpan.className = 'breed-col-p' + p;
+      pSpan.style.color = PARENT_COLORS[p].color;
+      pSpan.textContent = vals[p];
+      row.appendChild(pSpan);
+    }
 
     // Child values
     for (let c = 0; c < offspring.length; c++) {
@@ -774,10 +1009,10 @@ function renderBreedGeneComparison(pGenes, mGenes, offspring) {
       span.className = 'breed-col-child-' + c;
       if (i === child.mutatedIndex) {
         span.classList.add('breed-gene-mutated-val');
-      } else if (child.sources[i] === 1) {
-        span.classList.add('breed-gene-from-parent');
       } else {
-        span.classList.add('breed-gene-from-mate');
+        // Color by which parent the gene came from
+        const srcIdx = child.sources[i] - 1;
+        span.style.color = PARENT_COLORS[srcIdx].color;
       }
       span.textContent = cVal;
       row.appendChild(span);
@@ -796,15 +1031,18 @@ function highlightBreedColumn(colClass) {
   }
 }
 
-function renderBreedDetailStrip(childGenes, sources, mutatedIndex) {
+function renderBreedDetailStrip(childGenes, sources, mutatedIndex, parentCount) {
   const config = getConfig();
   const strip = document.getElementById('breed-detail-strip');
   strip.innerHTML = '';
   for (let i = 0; i < config.geneCount; i++) {
     const chip = document.createElement('span');
-    const parentClass = sources[i] === 1 ? 'breed-gene-parent' : 'breed-gene-mate';
+    const srcIdx = sources[i] - 1;
     const mutClass = i === mutatedIndex ? ' breed-gene-mutated' : '';
-    chip.className = `gene-chip ${parentClass}${mutClass}`;
+    chip.className = `gene-chip${mutClass}`;
+    chip.style.background = PARENT_COLORS[srcIdx].bg;
+    chip.style.borderColor = PARENT_COLORS[srcIdx].color;
+    chip.style.color = PARENT_COLORS[srcIdx].color;
     chip.textContent = `${config.geneLabels[i]}=${childGenes[i]}`;
     strip.appendChild(chip);
   }
@@ -818,6 +1056,7 @@ function clearBreedDetailStrip() {
 function hideBreedModal() {
   const modal = document.getElementById('breed-modal');
   modal.style.display = 'none';
+  document.getElementById('breed-parents').innerHTML = '';
   document.getElementById('breed-offspring').innerHTML = '';
   document.getElementById('breed-gene-comparison').innerHTML = '';
   document.getElementById('breed-detail-strip').innerHTML = '';
@@ -862,9 +1101,10 @@ function generateThumbnail(specimen) {
   alternatingAsymmetry = specimen.alternatingAsym || false;
   radialSymmetry = specimen.radialSym || false;
 
-  const opts = specimen.colorEnabled && specimen.colorGenes
+  const specCM = specimen.colorMode || (specimen.colorEnabled ? 'depth' : 'none');
+  const opts = specCM === 'depth' && specimen.colorGenes
     ? { colorEnabled: true, colorGenes: specimen.colorGenes }
-    : undefined;
+    : (specCM === 'angle' ? { colorMode: 'angle' } : undefined);
   renderBiomorph(canvas, specimen.genes, opts);
 
   currentMode = prevMode;
@@ -913,7 +1153,7 @@ function seedDefaultGallery() {
       name: 'Coral',
       genes: [1, 2, -2, 2, -1, 3, -1, 2, 6, 2, 4, 1, 2],
       mode: 4, symmetry: 'left-right',
-      colorEnabled: true, colorGenes: { hue: 4, spread: 3 },
+      colorMode: 'depth', colorEnabled: true, colorGenes: { hue: 4, spread: 3 },
     },
     {
       name: 'Mandala',
@@ -937,6 +1177,7 @@ function seedDefaultGallery() {
     radialSym: s.radialSym || false,
     generation: 0,
     thumbnail: generateThumbnail(s),
+    colorMode: s.colorMode || 'none',
     colorEnabled: s.colorEnabled || false,
     colorGenes: s.colorGenes || { hue: 7, spread: 3 },
   }));
@@ -957,15 +1198,13 @@ function saveToGallery() {
     radialSym: radialSymmetry,
     generation,
     thumbnail: captureCurrentThumbnail(),
-    colorEnabled,
+    colorMode,
+    colorEnabled: colorMode === 'depth',
     colorGenes: { hue: colorGenes.hue, spread: colorGenes.spread },
   };
   gallery.push(specimen);
   localStorage.setItem(GALLERY_KEY, JSON.stringify(gallery));
   renderGallery();
-
-  // Visual feedback
-  flashIcon(document.getElementById('btn-save-parent'), '#3fb950');
 }
 
 function flashIcon(btn, color) {
@@ -980,9 +1219,9 @@ function saveChildToGallery(childGenes, childColorGenes, iconBtn) {
   const canvas = document.createElement('canvas');
   canvas.width = 80;
   canvas.height = 80;
-  const opts = colorEnabled && childColorGenes
+  const opts = colorMode === 'depth' && childColorGenes
     ? { colorEnabled: true, colorGenes: childColorGenes }
-    : undefined;
+    : (colorMode === 'angle' ? { colorMode: 'angle' } : undefined);
   if (currentMode === 0) {
     renderPeppering(canvas, childGenes);
   } else {
@@ -998,7 +1237,8 @@ function saveChildToGallery(childGenes, childColorGenes, iconBtn) {
     radialSym: radialSymmetry,
     generation,
     thumbnail: canvas.toDataURL('image/png'),
-    colorEnabled,
+    colorMode,
+    colorEnabled: colorMode === 'depth',
     colorGenes: childColorGenes ? { hue: childColorGenes.hue, spread: childColorGenes.spread } : { hue: colorGenes.hue, spread: colorGenes.spread },
   };
   gallery.push(specimen);
@@ -1008,7 +1248,7 @@ function saveChildToGallery(childGenes, childColorGenes, iconBtn) {
 }
 
 function copyBiomorphLink(genes, cGenes, iconBtn) {
-  const hash = encodeStateFor(genes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, mutationIntensity, generation, colorEnabled, cGenes || colorGenes);
+  const hash = encodeStateFor(genes, currentMode, symmetryType, alternatingAsymmetry, radialSymmetry, mutationIntensity, generation, colorMode, cGenes || colorGenes);
   const url = window.location.origin + window.location.pathname + hash;
   navigator.clipboard.writeText(url).then(() => {
     if (iconBtn) flashIcon(iconBtn, '#3fb950');
@@ -1024,7 +1264,7 @@ function copySpecimenLink(specimen, iconBtn) {
     specimen.radialSym || false,
     mutationIntensity,
     specimen.generation || 0,
-    specimen.colorEnabled || false,
+    specimen.colorMode || (specimen.colorEnabled ? 'depth' : 'none'),
     cGenes
   );
   const url = window.location.origin + window.location.pathname + hash;
@@ -1056,7 +1296,7 @@ function loadSpecimen(specimen) {
   alternatingAsymmetry = specimen.alternatingAsym || false;
   radialSymmetry = specimen.radialSym || false;
   generation = specimen.generation || 0;
-  colorEnabled = specimen.colorEnabled || false;
+  colorMode = specimen.colorMode || (specimen.colorEnabled ? 'depth' : 'none');
   if (specimen.colorGenes) colorGenes = { hue: specimen.colorGenes.hue, spread: specimen.colorGenes.spread };
 
   syncUIControls();
@@ -1124,7 +1364,7 @@ function renderGallery() {
       breedBtn.disabled = true;
       breedBtn.title = 'Cannot breed in Pixel Peppering mode';
     }
-    breedBtn.addEventListener('click', () => showBreedModal(spec));
+    breedBtn.addEventListener('click', () => showBreedModal([spec]));
     actions.appendChild(breedBtn);
 
     const linkBtn = document.createElement('button');
@@ -1216,9 +1456,8 @@ function renderGeneDiff(parentG, childG) {
 let parentGenes = originGenotype();
 let generation = 0;
 
-const parentCanvas = document.getElementById('parent');
+let parentCanvasRef = null; // dynamic — created in spawnOffspring()
 const offspringGrid = document.getElementById('offspring-grid');
-const genCounter = document.getElementById('generation-counter');
 
 const evolutionHistory = new EvolutionHistory();
 
@@ -1285,8 +1524,8 @@ function renderGenomeTable(genes, cGenes) {
     }
   }
 
-  // Color genes
-  if (colorEnabled && cGenes) {
+  // Color genes (depth mode only)
+  if (colorMode === 'depth' && cGenes) {
     const header = document.createElement('div');
     header.className = 'genome-group-header';
     header.textContent = 'Color';
@@ -1340,28 +1579,21 @@ function syncUIControls() {
   document.getElementById('alternating-asym').checked = alternatingAsymmetry;
   document.getElementById('radial-sym').checked = radialSymmetry;
   document.getElementById('mutation-intensity').value = mutationIntensity;
-  document.getElementById('btn-interesting').disabled = currentMode === 0;
   document.getElementById('color-controls').style.display = currentMode >= 1 ? 'flex' : 'none';
-  document.getElementById('color-toggle').checked = colorEnabled;
-  document.getElementById('btn-animate').style.display = currentMode >= 1 ? '' : 'none';
+  document.getElementById('color-mode').value = colorMode;
   updateModeDescription();
 }
 
 function updateParent() {
   stopAnimation();
-  if (currentMode === 0) {
-    renderPeppering(parentCanvas, parentGenes);
-    document.getElementById('genome-table').innerHTML = '';
-  } else {
-    renderBiomorph(parentCanvas, parentGenes, colorOptions());
-    renderGenomeTable(parentGenes, colorGenes);
-  }
-  genCounter.textContent = `Gen ${generation}`;
   updateHash();
 
-  // Update 3D link with current genotype
-  const link3d = document.getElementById('link-3d');
-  if (link3d) link3d.href = '3d/' + encodeState();
+  // Update genome panel
+  if (currentMode === 0) {
+    document.getElementById('genome-table').innerHTML = '';
+  } else {
+    renderGenomeTable(parentGenes, colorGenes);
+  }
 
   // Update genealogy if panel is open
   const genPanel = document.getElementById('genealogy-panel');
@@ -1387,14 +1619,91 @@ function selectOffspring(childGenes, childColorGenes) {
 function spawnOffspring() {
   offspringGrid.innerHTML = '';
 
+  // ── Parent card (first in grid) ──
+  const parentCard = document.createElement('div');
+  parentCard.className = 'offspring-card parent-card';
+
+  // Parent label (above canvas)
+  const label = document.createElement('div');
+  label.className = 'parent-label';
+  label.innerHTML = `Parent \u00B7 ${MODE_NAMES[currentMode]} \u00B7 Gen ${generation}`
+    + ` \u00B7 <a id="link-3d" href="3d/${encodeState()}" title="View in 3D">3D</a>`;
+  parentCard.appendChild(label);
+
+  const pCanvas = document.createElement('canvas');
+  pCanvas.width = 180;
+  pCanvas.height = 180;
+  parentCard.appendChild(pCanvas);
+  parentCanvasRef = pCanvas;
+
+  // Parent hover icons (save, play, link)
+  const pSaveBtn = document.createElement('button');
+  pSaveBtn.className = 'card-icon card-icon-save';
+  pSaveBtn.title = 'Save to gallery';
+  pSaveBtn.innerHTML = '&#8595;';
+  pSaveBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    saveToGallery();
+    flashIcon(pSaveBtn, '#3fb950');
+  });
+  parentCard.appendChild(pSaveBtn);
+
+  const pLinkBtn = document.createElement('button');
+  pLinkBtn.className = 'card-icon card-icon-link';
+  pLinkBtn.title = 'Copy link';
+  pLinkBtn.textContent = '\uD83D\uDD17';
+  pLinkBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    copyBiomorphLink(parentGenes, colorGenes, pLinkBtn);
+  });
+  parentCard.appendChild(pLinkBtn);
+
+  if (currentMode !== 0) {
+    const pAnimBtn = document.createElement('button');
+    pAnimBtn.className = 'card-icon card-icon-animate';
+    pAnimBtn.title = 'Watch growth animation';
+    pAnimBtn.innerHTML = '&#9654;';
+    parentAnimBtn = pAnimBtn;
+    pAnimBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (animationTimer !== null) {
+        stopAnimation();
+        // Re-render the full parent
+        renderBiomorph(parentCanvasRef, parentGenes, colorOptions());
+      } else {
+        animateGrowth();
+      }
+    });
+    parentCard.appendChild(pAnimBtn);
+  } else {
+    parentAnimBtn = null;
+  }
+
+  offspringGrid.appendChild(parentCard);
+
+  // Render parent
+  if (currentMode === 0) {
+    renderPeppering(pCanvas, parentGenes);
+  } else {
+    renderBiomorph(pCanvas, parentGenes, colorOptions());
+  }
+
+  // ── 8 Offspring cards ──
+  const offspringData = [];
   for (let i = 0; i < NUM_OFFSPRING; i++) {
     const childGenes = currentMode === 0
       ? pepperingMutate(parentGenes)
       : mutate(parentGenes);
-    const childColorGenes = colorEnabled ? mutateColor(colorGenes) : null;
+    const childColorGenes = colorMode === 'depth' ? mutateColor(colorGenes) : null;
+    offspringData.push({ genes: childGenes, colorGenes: childColorGenes });
 
     const card = document.createElement('div');
     card.className = 'offspring-card';
+
+    const badge = document.createElement('span');
+    badge.className = 'offspring-number';
+    badge.textContent = String(i + 1);
+    card.appendChild(badge);
 
     const canvas = document.createElement('canvas');
     canvas.width = 180;
@@ -1422,6 +1731,24 @@ function spawnOffspring() {
     });
     card.appendChild(linkBtn);
 
+    if (currentMode !== 0) {
+      const animBtn = document.createElement('button');
+      animBtn.className = 'card-icon card-icon-animate';
+      animBtn.title = 'Watch growth animation';
+      animBtn.innerHTML = '&#9654;';
+      animBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (offspringAnimations.has(canvas)) {
+          stopOffspringAnimation(canvas, childGenes, childColorGenes);
+          animBtn.innerHTML = '&#9654;';
+          animBtn.classList.remove('animating');
+        } else {
+          animateOffspring(canvas, childGenes, childColorGenes, animBtn);
+        }
+      });
+      card.appendChild(animBtn);
+    }
+
     offspringGrid.appendChild(card);
 
     if (currentMode === 0) {
@@ -1438,6 +1765,8 @@ function spawnOffspring() {
       selectOffspring(childGenes, childColorGenes);
     });
   }
+
+  window._offspringData = offspringData;
 }
 
 function restoreFromNode(node) {
@@ -1448,7 +1777,7 @@ function restoreFromNode(node) {
   alternatingAsymmetry = node.alternatingAsym;
   radialSymmetry = node.radialSym;
   if (node.colorGenes) {
-    colorEnabled = node.colorEnabled || false;
+    colorMode = node.colorMode || (node.colorEnabled ? 'depth' : 'none');
     colorGenes = { hue: node.colorGenes.hue, spread: node.colorGenes.spread };
   }
   syncUIControls();
@@ -1500,7 +1829,7 @@ function init() {
     radialSymmetry = savedState.radialSym;
     mutationIntensity = savedState.mutationIntensity;
     generation = savedState.generation;
-    colorEnabled = savedState.colorEnabled || false;
+    colorMode = savedState.colorMode || 'none';
     if (savedState.colorGenes) colorGenes = savedState.colorGenes;
 
     syncUIControls();
@@ -1557,27 +1886,31 @@ function init() {
     mutationIntensity = parseInt(e.target.value);
   });
 
-  // Color toggle
-  document.getElementById('color-toggle').addEventListener('change', (e) => {
-    colorEnabled = e.target.checked;
+  // Color mode
+  document.getElementById('color-mode').addEventListener('change', (e) => {
+    colorMode = e.target.value;
     updateParent();
     spawnOffspring();
   });
 
-  // Animation play button
-  document.getElementById('btn-animate').addEventListener('click', () => {
-    if (animationTimer !== null) {
-      stopAnimation();
-      // Re-render the full parent
-      renderBiomorph(parentCanvas, parentGenes, colorOptions());
-    } else {
-      animateGrowth();
-    }
+  // Breed — open mate picker for sexual reproduction
+  document.getElementById('btn-breed').addEventListener('click', () => {
+    openMatePicker();
   });
 
-  // Random Parent
+  // Reroll — regenerate offspring from same parent
+  document.getElementById('btn-reroll').addEventListener('click', () => {
+    spawnOffspring();
+  });
+
+  // Random — respects dropdown (Interesting / Pure random)
   document.getElementById('btn-random').addEventListener('click', () => {
-    parentGenes = currentMode === 0 ? pepperingRandomGenotype() : randomGenotype();
+    const mode = document.getElementById('random-mode').value;
+    if (mode === 'interesting') {
+      parentGenes = currentMode === 0 ? pepperingRandomGenotype() : randomInteresting();
+    } else {
+      parentGenes = currentMode === 0 ? pepperingRandomGenotype() : randomGenotype();
+    }
     generation = 0;
     evolutionHistory.reset();
     pushHistory();
@@ -1585,17 +1918,7 @@ function init() {
     spawnOffspring();
   });
 
-  // Reset to Origin
-  document.getElementById('btn-reset').addEventListener('click', () => {
-    parentGenes = currentMode === 0 ? pepperingOriginGenotype() : originGenotype();
-    generation = 0;
-    evolutionHistory.reset();
-    pushHistory();
-    updateParent();
-    spawnOffspring();
-  });
-
-  // Undo (F1)
+  // Undo
   document.getElementById('btn-undo').addEventListener('click', () => {
     const node = evolutionHistory.undo();
     if (node) {
@@ -1603,25 +1926,6 @@ function init() {
       updateParent();
       spawnOffspring();
     }
-  });
-
-  // Save parent to gallery
-  document.getElementById('btn-save-parent').addEventListener('click', saveToGallery);
-
-  // Copy parent link
-  document.getElementById('btn-link-parent').addEventListener('click', () => {
-    copyBiomorphLink(parentGenes, colorGenes, document.getElementById('btn-link-parent'));
-  });
-
-  // Random Interesting (F4)
-  document.getElementById('btn-interesting').addEventListener('click', () => {
-    if (currentMode === 0) return;
-    parentGenes = randomInteresting();
-    generation = 0;
-    evolutionHistory.reset();
-    pushHistory();
-    updateParent();
-    spawnOffspring();
   });
 
   // Collapsible panels (Gallery + Genealogy)
@@ -1665,9 +1969,26 @@ function init() {
     if (e.target.id === 'breed-modal') hideBreedModal();
   });
 
+  // Mate picker modal
+  document.getElementById('mate-picker-cancel').addEventListener('click', closeMatePicker);
+  document.getElementById('mate-picker-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'mate-picker-modal') closeMatePicker();
+  });
+
+  // About modal
+  document.getElementById('btn-about').addEventListener('click', () => {
+    document.getElementById('about-modal').style.display = 'flex';
+  });
+  document.getElementById('about-close').addEventListener('click', () => {
+    document.getElementById('about-modal').style.display = 'none';
+  });
+  document.getElementById('about-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'about-modal') e.target.style.display = 'none';
+  });
+
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') { hideComparison(); hideBreedModal(); }
+    if (e.key === 'Escape') { hideComparison(); hideBreedModal(); closeMatePicker(); document.getElementById('about-modal').style.display = 'none'; }
     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
       e.preventDefault();
       const node = evolutionHistory.undo();
@@ -1677,7 +1998,16 @@ function init() {
         spawnOffspring();
       }
     }
+    // Number keys 1-8 to select offspring
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key >= '1' && e.key <= '8') {
+      if (document.querySelector('#comparison-modal[style*="flex"], #breed-modal[style*="flex"], #mate-picker-modal[style*="flex"]')) return;
+      if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT' || document.activeElement.tagName === 'TEXTAREA') return;
+      const idx = parseInt(e.key) - 1;
+      if (window._offspringData && window._offspringData[idx]) {
+        selectOffspring(window._offspringData[idx].genes, window._offspringData[idx].colorGenes);
+      }
+    }
   });
 }
 
-if (document.getElementById('parent')) init();
+if (document.getElementById('offspring-grid')) init();
