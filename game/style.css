@@ -7,7 +7,6 @@ body {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  overflow: hidden;
 }
 
 canvas {
@@ -15,14 +14,50 @@ canvas {
   border: 2px solid #333;
 }
 
-#controls {
-  margin-top: 8px;
+#controls-bar {
+  width: 960px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#controls-ref {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  flex: 1;
+}
+
+.key-group {
+  color: #666;
+  font: 11px/1.4 monospace;
+  white-space: nowrap;
+}
+
+.key-group kbd {
+  display: inline-block;
+  background: #1a1a2e;
+  color: #8ab4f8;
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 0 4px;
+  font: bold 10px/1.6 monospace;
+  margin-right: 2px;
+}
+
+.key-group small {
+  color: #555;
+  font-size: 9px;
+  margin-left: -1px;
+  margin-right: 2px;
 }
 
 #new-game {
-  color: #555;
-  font: 12px monospace;
+  color: #444;
+  font: 11px monospace;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 #new-game:hover {
