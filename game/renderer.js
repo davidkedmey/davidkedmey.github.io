@@ -1762,7 +1762,7 @@ function drawSettingsIndicators(ctx, gs) {
       ctx.fillText(followText, CANVAS_W / 2, 6);
       ctx.font = '9px monospace';
       ctx.fillStyle = 'rgba(200,200,200,0.6)';
-      ctx.fillText('[Q] or Arrow keys to stop', CANVAS_W / 2, 20);
+      ctx.fillText('[Q] or [Esc] to stop', CANVAS_W / 2, 20);
     }
   }
 }
