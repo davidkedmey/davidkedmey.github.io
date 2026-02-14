@@ -1050,14 +1050,24 @@ function gameLoop(timestamp) {
     }
   }
 
-  // Spectator mode input: Escape/Q/arrows exit spectator and stop following
-  // (must run before other Escape handlers since justPressed consumes the flag)
+  // Spectator mode input: Space/Enter advance steps, Escape/Q exits
   if (gameState.spectator) {
-    if (input.justPressed('Escape') || input.justPressed('q') || input.justPressed('Q')
-      || input.justPressed('ArrowLeft') || input.justPressed('ArrowRight')
-      || input.justPressed('ArrowUp') || input.justPressed('ArrowDown')) {
+    if (input.justPressed('Escape') || input.justPressed('q') || input.justPressed('Q')) {
       stopSpectator();
       stopFollowNPC();
+    } else if (input.justPressed(' ') || input.justPressed('Enter')
+      || input.justPressed('ArrowRight') || input.justPressed('ArrowDown')) {
+      const spec = gameState.spectator;
+      if (spec.done) {
+        stopSpectator();
+      } else {
+        spec.stepIdx++;
+        if (spec.stepIdx < spec.steps.length) {
+          spec.steps[spec.stepIdx].apply(gameState, spec.actor, spec.lab);
+        } else {
+          spec.done = true;
+        }
+      }
     }
     // Skip normal overlay/world input while spectating
   }
@@ -1222,22 +1232,7 @@ function gameLoop(timestamp) {
     }
   }
 
-  // Spectator step advancement
-  if (gameState.spectator && !gameState.spectator.done) {
-    const spec = gameState.spectator;
-    spec.timer += dt;
-    const step = spec.steps[spec.stepIdx];
-    if (step && spec.timer >= step.duration) {
-      spec.timer -= step.duration;
-      spec.stepIdx++;
-      if (spec.stepIdx < spec.steps.length) {
-        spec.steps[spec.stepIdx].apply(gameState, spec.actor, spec.lab);
-      } else {
-        spec.done = true;
-      }
-    }
-  }
-  // Auto-close spectator when animation completes
+  // Auto-close spectator when done (player pressed through all steps)
   if (gameState.spectator && gameState.spectator.done) {
     stopSpectator();
   }

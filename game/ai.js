@@ -245,7 +245,8 @@ export function updateAITasks(npcStates, dt, gameState, world, wilds, collection
         }
       }
     } else if (task.phase === 'acting') {
-      task.actTimer += dt;
+      // Pause act timer while player is stepping through spectator mode
+      if (!gameState.spectator) task.actTimer += dt;
       state.moving = false;
 
       if (task.actTimer >= task.actDuration) {

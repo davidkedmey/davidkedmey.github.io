@@ -1851,10 +1851,12 @@ function drawSpectatorBanner(ctx, gs) {
     ctx.fillText(gs.spectatorLabel, bx + bw / 2, by + 34);
   }
 
-  // Exit hint
+  // Hints
   ctx.fillStyle = '#7aa8d4'; ctx.font = '11px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('[Space] Next', bx + 12, titleY);
   ctx.textAlign = 'right';
-  ctx.fillText('[Esc] Stop watching', bx + bw - 12, titleY);
+  ctx.fillText('[Esc] Stop', bx + bw - 12, titleY);
   ctx.textAlign = 'left';
 }
 
