@@ -3,8 +3,23 @@
 export function createInput(canvas) {
   const keys = {};
   const pressed = {};
+  let textMode = false;
+  const charBuffer = [];
 
   window.addEventListener('keydown', e => {
+    if (textMode) {
+      e.preventDefault();
+      if (e.key === 'Backspace') {
+        charBuffer.push('\b'); // backspace sentinel
+      } else if (e.key === 'Enter' || e.key === 'Escape') {
+        // Let these through as justPressed for main.js to handle
+        if (!keys[e.key]) pressed[e.key] = true;
+        keys[e.key] = true;
+      } else if (e.key.length === 1) {
+        charBuffer.push(e.key);
+      }
+      return;
+    }
     if (!keys[e.key]) pressed[e.key] = true;
     keys[e.key] = true;
     if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) {
@@ -81,6 +96,13 @@ export function createInput(canvas) {
     consumeMouseRelease() {
       if (mouse.justReleased) { mouse.justReleased = false; return true; }
       return false;
+    },
+    // Text mode for command bar
+    setTextMode(on) { textMode = on; },
+    drainCharBuffer() {
+      const chars = charBuffer.slice();
+      charBuffer.length = 0;
+      return chars;
     },
   };
 }

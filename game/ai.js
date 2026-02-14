@@ -224,6 +224,15 @@ export function updateAITasks(npcStates, dt, gameState, world, wilds, collection
         state.moving = false;
         task.phase = 'acting';
         task.actTimer = 0;
+        // Trigger spectator mode if player is following this NPC
+        if (gameState.followNpcIdx === i && !gameState.spectator && task.type !== 'forage') {
+          const npc = NPCS[i];
+          const result = precomputeSpectatorAction(state, npc, task, gameState, collection);
+          if (result) {
+            task.actDuration = Math.max(task.actDuration, result.totalDuration + 0.5);
+            gameState._pendingSpectator = { npcIdx: i, result };
+          }
+        }
       } else {
         state.moving = true;
         const step = NPC_SPEED * dt;
@@ -487,4 +496,300 @@ export function getNarration(npcId, task) {
   const taskLines = lines[task.type];
   if (!taskLines) return null;
   return taskLines[task.phase] || null;
+}
+
+// ── Spectator mode: pre-compute NPC action + animation steps ──
+
+export function precomputeSpectatorAction(state, npc, task, gameState, collection) {
+  const personality = AI_PERSONALITIES[npc.id];
+  if (!personality) return null;
+
+  switch (task.type) {
+    case 'sell':  return precomputeSell(state, personality, gameState);
+    case 'buy':   return precomputeBuy(state, personality, gameState);
+    case 'breed': return precomputeBreed(state, personality);
+    case 'donate': return precomputeDonate(state);
+    case 'craft': return precomputeCraft(state, task);
+    default:      return null; // forage has no overlay
+  }
+}
+
+function precomputeSell(state, personality, gameState) {
+  // Figure out which items the NPC will sell (same logic as executeSell, but don't mutate)
+  const inv = state.inventory.map(i => ({ ...i })); // shallow copy for display
+  const toSell = [];
+  for (let i = inv.length - 1; i >= 0; i--) {
+    if (inv[i].kind === 'organism') {
+      toSell.push({ idx: i, item: inv[i], price: Math.floor(sellPrice(inv[i]) * NPC_SELL_DISCOUNT) });
+      if (inv.length - toSell.length <= 1) break;
+    }
+  }
+  if (toSell.length === 0) return null;
+
+  const actor = {
+    inventory: inv,
+    wallet: state.wallet || 0,
+    selectedSlot: 0,
+  };
+
+  const steps = [];
+
+  // Step 1: Show inventory side
+  steps.push({
+    duration: 1.0,
+    apply(gs, actor) {
+      gs.shopSide = 1;
+      gs.shopCursor = toSell.length > 0 ? toSell[toSell.length - 1].idx : 0;
+    },
+  });
+
+  // Steps 2+: cursor moves to each item being sold
+  for (const sale of toSell.reverse()) { // show in forward order
+    steps.push({
+      duration: 1.0,
+      apply(gs, actor) {
+        gs.shopCursor = sale.idx;
+        gs.spectatorLabel = `Selling for ${sale.price}g...`;
+      },
+    });
+    steps.push({
+      duration: 0.5,
+      apply(gs, actor) {
+        gs.spectatorLabel = `Sold for ${sale.price}g!`;
+      },
+    });
+  }
+
+  const totalDuration = steps.reduce((s, step) => s + step.duration, 0);
+
+  return {
+    overlay: 'shop',
+    actionLabel: 'Selling',
+    actor,
+    steps,
+    totalDuration,
+  };
+}
+
+function precomputeBuy(state, personality, gameState) {
+  const budget = Math.floor((state.wallet || 0) * personality.buyBudget);
+  const stock = gameState.shopStock || [];
+  const [minDepth, maxDepth] = personality.preferredDepth;
+
+  // Find target item (same logic as executeBuy)
+  let targetIdx = -1;
+  for (let i = stock.length - 1; i >= 0; i--) {
+    const item = stock[i];
+    if (item.kind !== 'organism') continue;
+    const depth = item.genes[8];
+    const price = buyPrice(item);
+    if (depth >= minDepth && depth <= maxDepth && price <= budget && price <= (state.wallet || 0)) {
+      targetIdx = i;
+      break;
+    }
+  }
+
+  if (targetIdx < 0) return null;
+
+  const targetItem = stock[targetIdx];
+  const price = buyPrice(targetItem);
+
+  const actor = {
+    inventory: state.inventory.map(i => ({ ...i })),
+    wallet: state.wallet || 0,
+    selectedSlot: 0,
+  };
+
+  const steps = [
+    {
+      duration: 1.0,
+      apply(gs, actor) {
+        gs.shopSide = 0;
+        gs.shopCursor = targetIdx;
+      },
+    },
+    {
+      duration: 1.0,
+      apply(gs, actor) {
+        gs.shopCursor = targetIdx;
+        gs.spectatorLabel = `Buying for ${price}g...`;
+      },
+    },
+    {
+      duration: 0.5,
+      apply(gs, actor) {
+        gs.spectatorLabel = `Bought for ${price}g!`;
+      },
+    },
+  ];
+
+  return {
+    overlay: 'shop',
+    actionLabel: 'Buying',
+    actor,
+    steps,
+    totalDuration: 2.5,
+  };
+}
+
+function precomputeBreed(state, personality) {
+  const organisms = state.inventory
+    .map((item, idx) => ({ item, idx }))
+    .filter(e => e.item.kind === 'organism');
+
+  if (organisms.length < 2) return null;
+
+  // Find compatible pair
+  let pair = null;
+  for (let i = 0; i < organisms.length - 1 && !pair; i++) {
+    for (let j = i + 1; j < organisms.length; j++) {
+      if (organisms[i].item.mode === organisms[j].item.mode) {
+        pair = [organisms[i], organisms[j]];
+        break;
+      }
+    }
+  }
+  if (!pair) return null;
+
+  const offspring = breed(pair[0].item, pair[1].item);
+  if (offspring.length === 0) return null;
+
+  // Determine which offspring the NPC would pick
+  let pickIdx;
+  if (personality.pickOffspring === 'risky') {
+    pickIdx = offspring.reduce((bi, o, i) => o.genes[8] > offspring[bi].genes[8] ? i : bi, 0);
+  } else {
+    pickIdx = offspring.reduce((bi, o, i) => o.genes[8] < offspring[bi].genes[8] ? i : bi, 0);
+  }
+
+  const actor = {
+    inventory: state.inventory.map(i => ({ ...i })),
+    wallet: state.wallet || 0,
+    selectedSlot: 0,
+  };
+
+  // Build a fake lab state for the renderer
+  const labState = {
+    active: true,
+    step: 'select1',
+    parent1Idx: pair[0].idx,
+    parent2Idx: pair[1].idx,
+    offspring,
+    selectedOffspring: [],
+    maxKeep: 1,
+  };
+
+  const steps = [
+    {
+      duration: 1.5,
+      apply(gs, actor, lab) {
+        lab.step = 'select1';
+        gs.spectatorLabel = 'Selecting parent 1...';
+      },
+    },
+    {
+      duration: 1.5,
+      apply(gs, actor, lab) {
+        lab.step = 'select2';
+        gs.spectatorLabel = 'Selecting parent 2...';
+      },
+    },
+    {
+      duration: 1.5,
+      apply(gs, actor, lab) {
+        lab.step = 'offspring';
+        lab.selectedOffspring = [];
+        gs.spectatorLabel = 'Examining offspring...';
+      },
+    },
+    {
+      duration: 1.0,
+      apply(gs, actor, lab) {
+        lab.selectedOffspring = [pickIdx];
+        gs.spectatorLabel = `Picked offspring ${pickIdx + 1}!`;
+      },
+    },
+  ];
+
+  return {
+    overlay: 'lab',
+    actionLabel: 'Breeding',
+    actor,
+    lab: labState,
+    steps,
+    totalDuration: 5.5,
+  };
+}
+
+function precomputeDonate(state) {
+  const idx = state.inventory.findIndex(i => i.kind === 'organism');
+  if (idx < 0) return null;
+
+  const actor = {
+    inventory: state.inventory.map(i => ({ ...i })),
+    wallet: state.wallet || 0,
+    selectedSlot: idx,
+  };
+
+  const steps = [
+    {
+      duration: 1.0,
+      apply(gs, actor) {
+        actor.selectedSlot = idx;
+        gs.spectatorLabel = 'Browsing collection...';
+      },
+    },
+    {
+      duration: 1.5,
+      apply(gs, actor) {
+        gs.spectatorLabel = 'Donating specimen...';
+      },
+    },
+  ];
+
+  return {
+    overlay: 'museum',
+    actionLabel: 'Donating',
+    actor,
+    steps,
+    totalDuration: 2.5,
+  };
+}
+
+function precomputeCraft(state, task) {
+  const recipe = RECIPES.find(r => r.id === task.data.recipeId);
+  if (!recipe) return null;
+  if (!canCraft(recipe, state.inventory)) return null;
+
+  const actor = {
+    inventory: state.inventory.map(i => ({ ...i })),
+    wallet: state.wallet || 0,
+    selectedSlot: 0,
+  };
+
+  const recipeIdx = RECIPES.indexOf(recipe);
+
+  const steps = [
+    {
+      duration: 1.5,
+      apply(gs, actor) {
+        gs.craftCursor = recipeIdx;
+        gs.spectatorLabel = `Selecting ${recipe.name}...`;
+      },
+    },
+    {
+      duration: 1.0,
+      apply(gs, actor) {
+        gs.spectatorLabel = `Crafting ${recipe.name}!`;
+      },
+    },
+  ];
+
+  return {
+    overlay: 'crafting',
+    actionLabel: 'Crafting',
+    actor,
+    steps,
+    totalDuration: 2.5,
+  };
 }

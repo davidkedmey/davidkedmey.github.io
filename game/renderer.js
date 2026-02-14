@@ -136,14 +136,22 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   // HUD (screen space)
   drawHUD(ctx, gs, player, collection);
 
-  // Overlays
-  if (gs.overlay === 'shop') drawShopOverlay(ctx, gs, player);
-  if (gs.overlay === 'lab') drawLabOverlay(ctx, lab, player);
+  // Command bar (above HUD)
+  drawCommandBar(ctx, gs);
+
+  // Overlays — swap player/lab for spectator actor/lab when spectating
+  const overlayPlayer = gs.spectator ? gs.spectator.actor : player;
+  const overlayLab = gs.spectator ? gs.spectator.lab : lab;
+  if (gs.overlay === 'shop') drawShopOverlay(ctx, gs, overlayPlayer);
+  if (gs.overlay === 'lab') drawLabOverlay(ctx, overlayLab || lab, overlayPlayer);
   if (gs.overlay === 'museum') drawMuseumOverlay(ctx, collection, gs);
   if (gs.overlay === 'trade') drawTradeOverlay(ctx, gs, player, npcStates);
-  if (gs.overlay === 'crafting') drawCraftingOverlay(ctx, gs, player);
+  if (gs.overlay === 'crafting') drawCraftingOverlay(ctx, gs, overlayPlayer);
   if (gs.overlay === 'dawkins') drawDawkinsOverlay(ctx, gs);
   if (gs.overlay === 'help') drawHelpOverlay(ctx);
+
+  // Spectator banner
+  if (gs.spectator) drawSpectatorBanner(ctx, gs);
 
   // Pause overlay (above everything)
   if (gs.paused) drawPauseOverlay(ctx);
@@ -1814,6 +1822,83 @@ function farmLabel(fg) {
 function farmTraitLine(org) {
   const fg = org.farmGenes || { fertility: 2, longevity: 1, vigor: 2 };
   return `F${fg.fertility} L${fg.longevity} V${fg.vigor}`;
+}
+
+function drawSpectatorBanner(ctx, gs) {
+  const spec = gs.spectator;
+  if (!spec) return;
+  // Draw over the panel header area (y=50) — canvas top may be clipped by viewport
+  const bx = 50, by = 50, bw = 860;
+  const hasLabel = !!gs.spectatorLabel;
+  const bannerH = hasLabel ? 46 : 34;
+  // Banner background
+  ctx.fillStyle = '#1a1a3a';
+  ctx.fillRect(bx, by, bw, bannerH);
+  ctx.strokeStyle = '#4a8adf';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx, by, bw, bannerH);
+  // Bottom accent line
+  ctx.beginPath(); ctx.moveTo(bx, by + bannerH); ctx.lineTo(bx + bw, by + bannerH); ctx.stroke();
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#8ab4f8'; ctx.font = 'bold 14px monospace';
+  const titleY = hasLabel ? by + 14 : by + bannerH / 2;
+  ctx.fillText(`Watching ${spec.npcName} \u2014 ${spec.actionLabel}`, bx + bw / 2, titleY);
+
+  // Step label (if set by apply)
+  if (hasLabel) {
+    ctx.fillStyle = '#ffd700'; ctx.font = '12px monospace';
+    ctx.fillText(gs.spectatorLabel, bx + bw / 2, by + 34);
+  }
+
+  // Exit hint
+  ctx.fillStyle = '#7aa8d4'; ctx.font = '11px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText('[Esc] Stop watching', bx + bw - 12, titleY);
+  ctx.textAlign = 'left';
+}
+
+function drawCommandBar(ctx, gs) {
+  const bar = gs.commandBar;
+  if (!bar || !bar.active) return;
+  const barH = 30;
+  const barY = HUD_Y - barH - 6;
+  const barX = 120;
+  const barW = CANVAS_W - 240;
+  // Dark background
+  ctx.fillStyle = 'rgba(10, 10, 30, 0.92)';
+  ctx.beginPath();
+  const r = 6;
+  ctx.moveTo(barX + r, barY);
+  ctx.lineTo(barX + barW - r, barY);
+  ctx.quadraticCurveTo(barX + barW, barY, barX + barW, barY + r);
+  ctx.lineTo(barX + barW, barY + barH - r);
+  ctx.quadraticCurveTo(barX + barW, barY + barH, barX + barW - r, barY + barH);
+  ctx.lineTo(barX + r, barY + barH);
+  ctx.quadraticCurveTo(barX, barY + barH, barX, barY + barH - r);
+  ctx.lineTo(barX, barY + r);
+  ctx.quadraticCurveTo(barX, barY, barX + r, barY);
+  ctx.closePath();
+  ctx.fill();
+  // Border
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // Prompt + text
+  ctx.font = '14px monospace';
+  ctx.fillStyle = '#888';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  const textY = barY + barH / 2;
+  ctx.fillText('>', barX + 10, textY);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(bar.text, barX + 24, textY);
+  // Blinking cursor
+  if (Math.floor(Date.now() / 500) % 2 === 0) {
+    const tw = ctx.measureText(bar.text).width;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(barX + 24 + tw + 1, textY - 7, 2, 14);
+  }
 }
 
 function drawMessage(ctx, text) {

@@ -15,7 +15,7 @@ import { initWildBiomorphs, wildDayTick, getWildOrganism, removeWildOrganism } f
 import { RECIPES, canCraft, executeCraft, useTool, addProductToInventory } from './crafting.js';
 import { createTutorialState, updateTutorial, getTutorialSpeech, TUTORIAL_STEPS, SAGE_TIPS, createSageShowState, updateSageShow, getSageShowSpeech } from './tutorial.js';
 import { buildOwnershipGrid, isPlayerProperty } from './property.js';
-import { aiDayTick, updateAITasks, getNarration } from './ai.js';
+import { aiDayTick, updateAITasks, getNarration, precomputeSpectatorAction } from './ai.js';
 import { loadDawkinsDialogue, createDawkinsState, canStartVisit, startVisit, advanceLine, selectChoice, getCurrentLine, completeVisit } from './dawkins.js';
 import { loadAudioSettings, getAudioSettings, initOnInteraction, toggleMusic, toggleVoice, toggleAutoFollow, startMusic, stopMusic, setMusicMood, speak, stopSpeech, resetLastSpoken } from './audio.js';
 
@@ -107,6 +107,7 @@ const gameState = {
   dayTimer: 0,
   DAY_LENGTH: 30,   // 30 seconds per day (was 10)
   timeSkip: false,   // true when holding T for fast-forward
+  timeSkipSticky: false, // toggled via command bar "time" command
   message: null,
   overlay: null,  // 'shop' | 'lab' | 'museum' | 'trade' | 'inventory' | 'crafting' | null
   shopStock: [],
@@ -124,6 +125,10 @@ const gameState = {
   followNarration: null,   // { text, timer } current narration bubble
   followNarrationCooldown: 0, // prevents rapid narration changes
   followLastTaskKey: null, // tracks task type+phase for change detection
+  // Spectator mode (watching NPC at building)
+  spectator: null,
+  // Command bar
+  commandBar: { active: false, text: '' },
   // Pause
   paused: false,
   // Camera pan (right-click drag)
@@ -799,6 +804,84 @@ function stopFollowNPC() {
   gameState.followLastTaskKey = null;
 }
 
+// ── Spectator Mode ──
+
+function startSpectator(npcIdx, result) {
+  if (!result) return;
+  const npc = NPCS[npcIdx];
+  gameState.spectator = {
+    npcIdx,
+    npcName: npc ? npc.name : '?',
+    overlay: result.overlay,
+    actionLabel: result.actionLabel,
+    steps: result.steps,
+    stepIdx: 0,
+    timer: 0,
+    actor: result.actor,
+    lab: result.lab || null,
+    done: false,
+  };
+  gameState.overlay = result.overlay;
+  // Apply the first step immediately
+  if (result.steps.length > 0) {
+    result.steps[0].apply(gameState, gameState.spectator.actor, gameState.spectator.lab);
+  }
+}
+
+function stopSpectator() {
+  gameState.spectator = null;
+  gameState.spectatorLabel = null;
+  gameState.overlay = null;
+}
+
+// ── Command Parser ──
+
+function executeCommand(raw) {
+  const parts = raw.toLowerCase().split(/\s+/);
+  const cmd = parts[0];
+  const arg = parts.slice(1).join(' ');
+
+  if (cmd === 'follow' || cmd === 'f') {
+    if (!arg) { showMessage('Usage: follow <name>'); return; }
+    // Match NPC name
+    const idx = NPCS.findIndex(n => n.name.toLowerCase() === arg);
+    if (idx < 0) { showMessage(`Unknown NPC: "${arg}"`); return; }
+    if (NPCS[idx].role !== 'farmer') { showMessage(`Can't follow ${NPCS[idx].name} (not a farmer)`); return; }
+    startFollowNPC(idx);
+    showMessage(`Following ${NPCS[idx].name}!`, 2);
+    return;
+  }
+
+  if (cmd === 'stop' || cmd === 'unfollow') {
+    if (gameState.followNpcIdx >= 0) {
+      stopFollowNPC();
+      showMessage('Stopped following.', 1.5);
+    } else {
+      showMessage('Not following anyone.');
+    }
+    return;
+  }
+
+  if (cmd === 'help') {
+    gameState.overlay = gameState.overlay === 'help' ? null : 'help';
+    return;
+  }
+
+  if (cmd === 'inventory' || cmd === 'inv') {
+    gameState.overlay = 'inventory';
+    return;
+  }
+
+  if (cmd === 'time') {
+    gameState.timeSkipSticky = !gameState.timeSkipSticky;
+    gameState.timeSkip = gameState.timeSkipSticky;
+    showMessage(gameState.timeSkipSticky ? 'Fast-forward ON' : 'Fast-forward OFF', 1.5);
+    return;
+  }
+
+  showMessage(`Unknown command: "${cmd}"`);
+}
+
 // ── Game Loop ──
 
 let lastTime = 0;
@@ -883,6 +966,39 @@ function gameLoop(timestamp) {
     return;
   }
 
+  // ── Command bar ──
+  if (gameState.commandBar.active) {
+    // Drain character buffer into command text
+    const chars = input.drainCharBuffer();
+    for (const ch of chars) {
+      if (ch === '\b') {
+        gameState.commandBar.text = gameState.commandBar.text.slice(0, -1);
+      } else {
+        gameState.commandBar.text += ch;
+      }
+    }
+    // Enter submits, Escape cancels
+    if (input.justPressed('Enter')) {
+      const cmd = gameState.commandBar.text.trim();
+      gameState.commandBar.active = false;
+      gameState.commandBar.text = '';
+      input.setTextMode(false);
+      if (cmd) executeCommand(cmd);
+    } else if (input.justPressed('Escape')) {
+      gameState.commandBar.active = false;
+      gameState.commandBar.text = '';
+      input.setTextMode(false);
+    }
+    // Skip all other game input while command bar is open
+    // (still update world, camera, NPCs below)
+  } else {
+    // / key opens command bar (only when no overlay is open)
+    if (!gameState.overlay && input.justPressed('/')) {
+      gameState.commandBar.active = true;
+      gameState.commandBar.text = '';
+      input.setTextMode(true);
+    }
+
   // Inventory slot selection (number keys when no overlay, or specific overlays)
   if (!gameState.overlay) {
     for (let i = 1; i <= 9; i++) {
@@ -891,8 +1007,12 @@ function gameLoop(timestamp) {
     }
   }
 
-  // Time-skip: holding T advances time 3x faster
-  gameState.timeSkip = !gameState.overlay && (input.isDown('t') || input.isDown('T'));
+  // Time-skip: holding T advances time 3x faster (or sticky toggle via command bar)
+  if (!gameState.overlay && (input.isDown('t') || input.isDown('T'))) {
+    gameState.timeSkip = true;
+  } else if (!gameState.timeSkipSticky) {
+    gameState.timeSkip = false;
+  }
 
   // Global toggle keys (work in any context)
   if (input.justPressed('m') || input.justPressed('M')) {
@@ -930,13 +1050,24 @@ function gameLoop(timestamp) {
     }
   }
 
+  // Spectator mode input: Escape/Q/arrows exit spectator and stop following
+  // (must run before other Escape handlers since justPressed consumes the flag)
+  if (gameState.spectator) {
+    if (input.justPressed('Escape') || input.justPressed('q') || input.justPressed('Q')
+      || input.justPressed('ArrowLeft') || input.justPressed('ArrowRight')
+      || input.justPressed('ArrowUp') || input.justPressed('ArrowDown')) {
+      stopSpectator();
+      stopFollowNPC();
+    }
+    // Skip normal overlay/world input while spectating
+  }
+
   // Cancel follow mode on Escape or opening an overlay
   if (gameState.followNpcIdx >= 0 && input.justPressed('Escape')) {
     stopFollowNPC();
   }
-
   // Dispatch to overlay or world
-  if (gameState.overlay === 'help') { if (input.justPressed('Escape')) gameState.overlay = null; }
+  else if (gameState.overlay === 'help') { if (input.justPressed('Escape')) gameState.overlay = null; }
   else if (gameState.overlay === 'inventory') handleInventoryInput();
   else if (gameState.overlay === 'shop') handleShopInput();
   else if (gameState.overlay === 'lab') handleLabInput();
@@ -945,9 +1076,8 @@ function gameLoop(timestamp) {
   else if (gameState.overlay === 'crafting') handleCraftingInput();
   else if (gameState.overlay === 'dawkins') handleDawkinsInput();
   else {
-    // Arrow keys cancel follow mode and reset camera pan
+    // Arrow keys reset camera pan (but do NOT cancel follow mode)
     if (input.ArrowLeft || input.ArrowRight || input.ArrowUp || input.ArrowDown) {
-      if (gameState.followNpcIdx >= 0) stopFollowNPC();
       gameState.cameraPanOffset.x = 0;
       gameState.cameraPanOffset.y = 0;
       gameState.cameraPanTimer = 0;
@@ -958,10 +1088,9 @@ function gameLoop(timestamp) {
       gameState.overlay = 'inventory';
   }
 
-  // Cancel follow mode when overlay opens
-  if (gameState.overlay && gameState.followNpcIdx >= 0) {
-    stopFollowNPC();
-  }
+  } // end: command bar not active
+
+  // (Follow mode persists through overlays — only explicit Escape/Q/stop cancels it)
 
   // Camera — follow NPC or player
   if (gameState.followNpcIdx >= 0) {
@@ -1039,6 +1168,13 @@ function gameLoop(timestamp) {
   // Update AI tasks (drives NPC walking to buildings)
   updateAITasks(npcStates, dt, gameState, world, wilds, collection);
 
+  // Pick up pending spectator request from AI
+  if (gameState._pendingSpectator) {
+    const { npcIdx, result } = gameState._pendingSpectator;
+    gameState._pendingSpectator = null;
+    startSpectator(npcIdx, result);
+  }
+
   // Update NPCs (skip guide during tutorial or show-walk)
   const skipGuide = tutActive || sageShowState.phase === 'walking';
   updateNPCs(npcStates, world, dt, skipGuide);
@@ -1084,6 +1220,26 @@ function gameLoop(timestamp) {
         }
       }
     }
+  }
+
+  // Spectator step advancement
+  if (gameState.spectator && !gameState.spectator.done) {
+    const spec = gameState.spectator;
+    spec.timer += dt;
+    const step = spec.steps[spec.stepIdx];
+    if (step && spec.timer >= step.duration) {
+      spec.timer -= step.duration;
+      spec.stepIdx++;
+      if (spec.stepIdx < spec.steps.length) {
+        spec.steps[spec.stepIdx].apply(gameState, spec.actor, spec.lab);
+      } else {
+        spec.done = true;
+      }
+    }
+  }
+  // Auto-close spectator when animation completes
+  if (gameState.spectator && gameState.spectator.done) {
+    stopSpectator();
   }
 
   // Day cycle (with time-skip multiplier)
