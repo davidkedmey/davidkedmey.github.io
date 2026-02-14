@@ -1,0 +1,1363 @@
+{
+  "meta": {
+    "title": "The Evolution of Evolvability",
+    "npc": "R. Dawkins",
+    "location": "Dawkins' Study",
+    "description": "The player visits Richard Dawkins in his Oxford study across 10 visits. He sits at his original Macintosh, walks the player through how he created biomorphs, and ultimately arrives at a deep insight about evolution itself. Interactive breeding moments let the player experience what Dawkins experienced.",
+    "total_visits": 10,
+    "total_lines": 248,
+    "source": "Dawkins, R. (1988). 'The Evolution of Evolvability.' Artificial Life, SFI Studies in the Sciences of Complexity."
+  },
+  "visits": [
+    {
+      "id": "visit_01",
+      "title": "Artificial Life",
+      "summary": "Dawkins introduces himself, explains why he built biomorphs, and lays out Weismann's principle.",
+      "unlock": null,
+      "lines": [
+        {
+          "id": "d001",
+          "speaker": "dawkins",
+          "text": "Ah, come in! I was just tinkering with something on the Mac.",
+          "tone": "warm",
+          "gesture": "beckons from desk"
+        },
+        {
+          "id": "d002",
+          "speaker": "dawkins",
+          "text": "You know, a title like 'The Evolution of Evolvability' ought to be anathema to a radical neo-Darwinian like me.",
+          "tone": "playful",
+          "gesture": "leans back"
+        },
+        {
+          "id": "d003",
+          "speaker": "dawkins",
+          "text": "But I've been led to think differently. All because of creating computer models of artificial life.",
+          "tone": "reflective",
+          "gesture": "glances at Mac"
+        },
+        {
+          "id": "d004",
+          "speaker": "dawkins",
+          "text": "Not as a formal model of real life, mind you. As a generator of insight.",
+          "tone": "precise",
+          "gesture": "raises finger"
+        },
+        {
+          "id": "d005",
+          "speaker": "dawkins",
+          "text": "I created a world of two-dimensional artificial organisms on the screen. I call them biomorphs.",
+          "tone": "fond",
+          "gesture": "turns to Mac",
+          "screen": "basic_biomorph"
+        },
+        {
+          "id": "d006",
+          "speaker": "dawkins",
+          "text": "Borrowed the word from Desmond Morris \u2014 he used it for the animal-like shapes in his surrealistic paintings.",
+          "tone": "aside",
+          "gesture": "waves hand"
+        },
+        {
+          "id": "d007",
+          "speaker": "dawkins",
+          "text": "My main objective was to reduce to the barest minimum the extent to which I designed them.",
+          "tone": "emphatic",
+          "gesture": "leans forward"
+        },
+        {
+          "id": "d008",
+          "speaker": "dawkins",
+          "text": "I wanted the biology to emerge. All I would design was the conditions under which it might emerge.",
+          "tone": "emphatic",
+          "gesture": null
+        },
+        {
+          "id": "d009",
+          "speaker": "dawkins",
+          "text": "The process of emergence was to be evolution by the Darwinian process: random mutation followed by nonrandom survival.",
+          "tone": "methodical",
+          "gesture": null
+        },
+        {
+          "id": "d010",
+          "speaker": "dawkins",
+          "text": "But before any Darwinian process can get going, there has to be a bare minimum of conditions. And these I had to engineer.",
+          "tone": "methodical",
+          "gesture": null
+        },
+        {
+          "id": "d011",
+          "speaker": "dawkins",
+          "text": "First: there must be replicators. Entities capable of self-replication, like DNA molecules.",
+          "tone": "lecturing",
+          "gesture": "counts on fingers"
+        },
+        {
+          "id": "d012",
+          "speaker": "dawkins",
+          "text": "Second \u2014 and this is our main concern \u2014 there must be an embryology.",
+          "tone": "emphasizing",
+          "gesture": "counts on fingers"
+        },
+        {
+          "id": "d013",
+          "speaker": "dawkins",
+          "text": "The genes must influence the development of a phenotype. Some replicators must be more successful than others. The type of embryology we choose is crucial.",
+          "tone": "building",
+          "gesture": null
+        },
+        {
+          "id": "d014",
+          "speaker": "dawkins",
+          "text": "That is, in fact, the key message of everything I want to tell you.",
+          "tone": "serious",
+          "gesture": "looks at player"
+        },
+        {
+          "id": "d015",
+          "speaker": "dawkins",
+          "text": "Now, the fundamental principle of embryology in real life was formulated by Weismann.",
+          "tone": "lecturing",
+          "gesture": "stands, moves to bookshelf"
+        },
+        {
+          "id": "d016",
+          "speaker": "dawkins",
+          "text": "The key point is this: in every generation, only genes are handed on to the next generation.",
+          "tone": "precise",
+          "gesture": "draws vertical arrow in air"
+        },
+        {
+          "id": "d017",
+          "speaker": "dawkins",
+          "text": "In every generation, those genes influence the phenotype. And the phenotype determines whether the genes survive to be copied again.",
+          "tone": "precise",
+          "gesture": "draws horizontal arrow"
+        },
+        {
+          "id": "d018",
+          "speaker": "dawkins",
+          "text": "Any individual born inherits genes that have succeeded in building a long series of successful phenotypes. Failed phenotypes don't pass on their genes.",
+          "tone": "matter-of-fact",
+          "gesture": null
+        },
+        {
+          "id": "d019",
+          "speaker": "dawkins",
+          "text": "That's natural selection. It's why organisms are well adapted. It's why we're all here.",
+          "tone": "warm",
+          "gesture": "spreads hands"
+        },
+        {
+          "id": "d020",
+          "speaker": "dawkins",
+          "text": "But here's what people miss. Genes do two quite distinct things.",
+          "tone": "conspiratorial",
+          "gesture": "leans forward"
+        },
+        {
+          "id": "d021",
+          "speaker": "dawkins",
+          "text": "They participate in embryology \u2014 building the phenotype. And they participate in genetics \u2014 getting themselves copied.",
+          "tone": "precise",
+          "gesture": null
+        },
+        {
+          "id": "d022",
+          "speaker": "dawkins",
+          "text": "There is a radical separation between genetics and embryology. Even some geneticists don't fully realise it.",
+          "tone": "pointed",
+          "gesture": null
+        },
+        {
+          "id": "d023",
+          "speaker": "dawkins",
+          "text": "Consider: you could do perfectly respectable embryology on a single individual. Genetics on a single individual would be meaningless.",
+          "tone": "teaching",
+          "gesture": null
+        },
+        {
+          "id": "d024",
+          "speaker": "dawkins",
+          "text": "So I resolved to maintain that separation in my artificial life.",
+          "tone": "determined",
+          "gesture": "turns back to Mac"
+        },
+        {
+          "id": "d025",
+          "speaker": "dawkins",
+          "text": "I wrote the program around two strictly separate procedures: Reproduce and Develop.",
+          "tone": "methodical",
+          "gesture": "types briefly",
+          "screen": "reproduce_develop_diagram"
+        },
+        {
+          "id": "d026",
+          "speaker": "dawkins",
+          "text": "Develop draws the phenotype. A human chooser picks the best one. Reproduce copies its genes with mutations to breed the next litter.",
+          "tone": "explanatory",
+          "gesture": null
+        },
+        {
+          "id": "d027",
+          "speaker": "dawkins",
+          "text": "A model of artificial selection, mind you \u2014 like breeding cattle. Darwin himself used that as a metaphor for natural selection.",
+          "tone": "aside",
+          "gesture": null
+        },
+        {
+          "id": "d028",
+          "speaker": "dawkins",
+          "text": "But come back tomorrow and I'll show you what I put inside Develop. That's where it gets interesting.",
+          "tone": "teasing",
+          "gesture": "grins"
+        }
+      ]
+    },
+    {
+      "id": "visit_02",
+      "title": "The Embryology Problem",
+      "summary": "Dawkins explains why naive pixel-peppering fails and why he needed recursion.",
+      "unlock": "visit_01",
+      "lines": [
+        {
+          "id": "d029",
+          "speaker": "dawkins",
+          "text": "Good, you're back. Now \u2014 what shall we write inside the procedure Develop?",
+          "tone": "eager",
+          "gesture": "at Mac"
+        },
+        {
+          "id": "d030",
+          "speaker": "dawkins",
+          "text": "Genetics is straightforward. Copying genes from parent to child, introducing random errors \u2014 that's easy.",
+          "tone": "dismissive",
+          "gesture": "waves hand"
+        },
+        {
+          "id": "d031",
+          "speaker": "dawkins",
+          "text": "It's embryology we have to think about carefully. How do genes build a body?",
+          "tone": "probing",
+          "gesture": "looks at player"
+        },
+        {
+          "id": "d032",
+          "speaker": "dawkins",
+          "text": "The first naive idea: maximum generality. The Mac screen is 85,000 pixels. Give each pixel its own gene, value 1 or 0.",
+          "tone": "setting-up",
+          "gesture": "gestures at screen"
+        },
+        {
+          "id": "d033",
+          "speaker": "dawkins",
+          "text": "Any conceivable picture can be represented. Any pixel can mutate. In theory, you could breed anything from anything.",
+          "tone": "building",
+          "gesture": null
+        },
+        {
+          "id": "d034",
+          "speaker": "player_choice",
+          "text": null,
+          "options": [
+            {"label": "That sounds great!", "response": "d035a"},
+            {"label": "There's a catch, isn't there.", "response": "d035b"}
+          ]
+        },
+        {
+          "id": "d035a",
+          "speaker": "dawkins",
+          "text": "Ha! Only in theory. In practice, we'd be waiting till kingdom come.",
+          "tone": "amused",
+          "gesture": "laughs"
+        },
+        {
+          "id": "d035b",
+          "speaker": "dawkins",
+          "text": "Precisely. In practice, we'd be waiting till kingdom come.",
+          "tone": "approving",
+          "gesture": "points at player"
+        },
+        {
+          "id": "d036",
+          "speaker": "dawkins",
+          "text": "This 'pixel-peppering' would produce a very boring kind of artificial life. Zero-order embryology, I call it.",
+          "tone": "disdainful",
+          "gesture": null,
+          "screen": "random_pixels"
+        },
+        {
+          "id": "d037",
+          "speaker": "dawkins",
+          "text": "The trouble is the astronomical number of nonsense patterns. The biological-looking ones are lost in a sea of static.",
+          "tone": "explanatory",
+          "gesture": null
+        },
+        {
+          "id": "d038",
+          "speaker": "dawkins",
+          "text": "So we need constraints. Constrained embryologies are better not because they have greater generality, but because they have less.",
+          "tone": "paradoxical",
+          "gesture": "raises finger"
+        },
+        {
+          "id": "d039",
+          "speaker": "dawkins",
+          "text": "Fewer phenotypes. Fewer genes. But each gene controls a more powerful drawing operation than colouring a single pixel.",
+          "tone": "building",
+          "gesture": null
+        },
+        {
+          "id": "d040",
+          "speaker": "dawkins",
+          "text": "We could draw random lines instead of random pixels. Slight improvement. Or use mathematical formulas \u2014 polynomials whose coefficients are genes.",
+          "tone": "considering",
+          "gesture": null,
+          "screen": "constrained_examples"
+        },
+        {
+          "id": "d041",
+          "speaker": "dawkins",
+          "text": "Or we could enforce bilateral symmetry. Most animals are bilaterally symmetrical, after all.",
+          "tone": "considering",
+          "gesture": null
+        },
+        {
+          "id": "d042",
+          "speaker": "dawkins",
+          "text": "But though these are improvements, I didn't tarry long over them.",
+          "tone": "impatient",
+          "gesture": "waves dismissively"
+        },
+        {
+          "id": "d043",
+          "speaker": "dawkins",
+          "text": "Right from the start, I had a strong intuitive conviction about the kind of embryology I wanted.",
+          "tone": "quiet intensity",
+          "gesture": "pauses"
+        },
+        {
+          "id": "d044",
+          "speaker": "dawkins",
+          "text": "I wished for recursion.",
+          "tone": "reverent",
+          "gesture": "looks at player"
+        },
+        {
+          "id": "d045",
+          "speaker": "dawkins",
+          "text": "Partly because of the generality of power that recursive algorithms have. Computer scientists know this well.",
+          "tone": "explanatory",
+          "gesture": null
+        },
+        {
+          "id": "d046",
+          "speaker": "dawkins",
+          "text": "And partly because real embryology can, to a large extent, be thought of in terms of recursion. The same local rules applied over and over.",
+          "tone": "connecting",
+          "gesture": null
+        },
+        {
+          "id": "d047",
+          "speaker": "dawkins",
+          "text": "Let me show you the procedure I ended up with. It's called Tree.",
+          "tone": "eager",
+          "gesture": "turns to Mac"
+        }
+      ]
+    },
+    {
+      "id": "visit_03",
+      "title": "The Tree",
+      "summary": "Dawkins shows the recursive Tree procedure, explains the 9 genes, and demonstrates breeding.",
+      "unlock": "visit_02",
+      "lines": [
+        {
+          "id": "d048",
+          "speaker": "dawkins",
+          "text": "Right, where were we? The Tree procedure. Let me show you.",
+          "tone": "businesslike",
+          "gesture": "at Mac, typing"
+        },
+        {
+          "id": "d049",
+          "speaker": "dawkins",
+          "text": "Tree takes a starting position, a length, a direction, and two arrays \u2014 dx and dy \u2014 that specify the shape.",
+          "tone": "technical",
+          "gesture": "pointing at code",
+          "screen": "tree_code"
+        },
+        {
+          "id": "d050",
+          "speaker": "dawkins",
+          "text": "The beautiful thing: Tree calls itself. Recursively. It branches, and each branch branches, until the depth reaches zero.",
+          "tone": "admiring",
+          "gesture": null
+        },
+        {
+          "id": "d051",
+          "speaker": "dawkins",
+          "text": "Watch what happens when I run it.",
+          "tone": "eager",
+          "gesture": "types, hits return",
+          "screen": "tree_drawing_animation"
+        },
+        {
+          "id": "d052",
+          "speaker": "dawkins",
+          "text": "See how it draws? Each little branch follows the same local rules. No grand blueprint for the whole body.",
+          "tone": "delighted",
+          "gesture": "points at screen"
+        },
+        {
+          "id": "d053",
+          "speaker": "dawkins",
+          "text": "Real embryology is quite like this. Each cell obeys local instructions for dividing and differentiating. When all the local instructions are obeyed together, a body results.",
+          "tone": "connecting",
+          "gesture": null
+        },
+        {
+          "id": "d054",
+          "speaker": "dawkins",
+          "text": "The individual twigs don't 'realise' they're part of an elaborate pattern. That's the beauty of it.",
+          "tone": "philosophical",
+          "gesture": null
+        },
+        {
+          "id": "d055",
+          "speaker": "dawkins",
+          "text": "Now, what determines the shape? The dx and dy arrays, and the starting depth. These are what the genes control.",
+          "tone": "methodical",
+          "gesture": null
+        },
+        {
+          "id": "d056",
+          "speaker": "dawkins",
+          "text": "You might think we'd need 16 genes \u2014 8 for dx, 8 for dy. But I added a constraint: bilateral symmetry.",
+          "tone": "building",
+          "gesture": null
+        },
+        {
+          "id": "d057",
+          "speaker": "dawkins",
+          "text": "Certain dx and dy values are constrained to equal each other, sometimes with opposite sign. It collapses to just 9 genes.",
+          "tone": "satisfied",
+          "gesture": null
+        },
+        {
+          "id": "d058",
+          "speaker": "dawkins",
+          "text": "Genes 1 to 3 control horizontal spread. Genes 4 to 8 control vertical shape. Gene 9 controls the depth \u2014 the number of branchings.",
+          "tone": "precise",
+          "gesture": null,
+          "interactive": {
+            "type": "gene_explorer",
+            "prompt": "Here \u2014 try the sliders. Drag each gene and watch what it does to the biomorph."
+          }
+        },
+        {
+          "id": "d059",
+          "speaker": "dawkins",
+          "text": "A procedure called Plug translates the 9 genes into the dx and dy arrays. Then Tree draws the result. Simple as that.",
+          "tone": "satisfied",
+          "gesture": null
+        },
+        {
+          "id": "d060",
+          "speaker": "dawkins",
+          "text": "Now for the breeding. Reproduce creates a litter of mutant offspring. Each gene might randomly nudge up or down by one.",
+          "tone": "explanatory",
+          "gesture": null,
+          "screen": "breeding_screen"
+        },
+        {
+          "id": "d061",
+          "speaker": "dawkins",
+          "text": "Develop draws each one. I choose the most interesting. Its genes go into Reproduce. The cycle continues.",
+          "tone": "rhythmic",
+          "gesture": null
+        },
+        {
+          "id": "d062",
+          "speaker": "dawkins",
+          "text": "As the generations go by, the forms evolve gradually in front of me. True evolution by Darwinian selection.",
+          "tone": "quiet wonder",
+          "gesture": null
+        },
+        {
+          "id": "d063",
+          "speaker": "dawkins",
+          "text": "Want to have a go? Try breeding something that looks like an insect.",
+          "tone": "inviting",
+          "gesture": "slides Mac toward player",
+          "interactive": {
+            "type": "breeding_sandbox",
+            "mode": "basic",
+            "prompt": "Click any offspring to select it as the new parent."
+          }
+        }
+      ]
+    },
+    {
+      "id": "visit_04",
+      "title": "Astonishing Morphologies",
+      "summary": "Dawkins reveals the surprising diversity that emerged and reflects on cumulative selection.",
+      "unlock": "visit_03",
+      "lines": [
+        {
+          "id": "d064",
+          "speaker": "dawkins",
+          "text": "I have to tell you \u2014 when I first started breeding, something happened that I did not expect.",
+          "tone": "building suspense",
+          "gesture": "sits forward"
+        },
+        {
+          "id": "d065",
+          "speaker": "dawkins",
+          "text": "I'd deliberately not given much thought to the precise recursive algorithm. I wanted things to emerge rather than be designed.",
+          "tone": "explaining",
+          "gesture": null
+        },
+        {
+          "id": "d066",
+          "speaker": "dawkins",
+          "text": "I had the feeling it shouldn't really matter how the genes affected development, provided it was some kind of recursive drawing rule.",
+          "tone": "casual",
+          "gesture": null
+        },
+        {
+          "id": "d067",
+          "speaker": "dawkins",
+          "text": "In the event, my intuition proved to have been a considerable underestimate.",
+          "tone": "pause for effect",
+          "gesture": "pauses"
+        },
+        {
+          "id": "d068",
+          "speaker": "dawkins",
+          "text": "I was genuinely astonished.",
+          "tone": "emotional",
+          "gesture": "looks at player"
+        },
+        {
+          "id": "d069",
+          "speaker": "dawkins",
+          "text": "Astonished and delighted at the richness of morphological types that emerged before my eyes as I bred.",
+          "tone": "wonder",
+          "gesture": null,
+          "screen": "portfolio_basic"
+        },
+        {
+          "id": "d070",
+          "speaker": "dawkins",
+          "text": "Look at these. Notice how many look like real animals. They evolved under the selective influence of a zoologist's eye, so perhaps it's not surprising.",
+          "tone": "showing off",
+          "gesture": "points at gallery"
+        },
+        {
+          "id": "d071",
+          "speaker": "dawkins",
+          "text": "Not particular animals that actually exist. But several wouldn't look out of place in a zoological textbook.",
+          "tone": "marvelling",
+          "gesture": null
+        },
+        {
+          "id": "d072",
+          "speaker": "dawkins",
+          "text": "Some I bred to resemble other things. The spitfire there. The silver coffeepot.",
+          "tone": "amused",
+          "gesture": "points"
+        },
+        {
+          "id": "d073",
+          "speaker": "dawkins",
+          "text": "This is the power of gradual cumulative selection. Step by tiny step, complex forms emerge from simple rules.",
+          "tone": "satisfied",
+          "gesture": null
+        },
+        {
+          "id": "d074",
+          "speaker": "dawkins",
+          "text": "But the rest of what I want to tell you is about what happened when I made the embryology more elaborate.",
+          "tone": "transition",
+          "gesture": null
+        },
+        {
+          "id": "d075",
+          "speaker": "dawkins",
+          "text": "Having arrived at our recursive embryology and found it good \u2014 are there any judicious relaxations we can make?",
+          "tone": "probing",
+          "gesture": null
+        },
+        {
+          "id": "d076",
+          "speaker": "dawkins",
+          "text": "We must resist the temptation to build in known biological details. Our watchword is that as much as possible must emerge.",
+          "tone": "firm",
+          "gesture": "raises finger"
+        },
+        {
+          "id": "d077",
+          "speaker": "dawkins",
+          "text": "But we can make use of general biological principles. Come back tomorrow and I'll show you the first one.",
+          "tone": "teasing",
+          "gesture": "grins"
+        }
+      ]
+    },
+    {
+      "id": "visit_05",
+      "title": "Symmetry",
+      "summary": "Dawkins relaxes the symmetry constraint, introducing asymmetry and new planes of symmetry.",
+      "unlock": "visit_04",
+      "lines": [
+        {
+          "id": "d078",
+          "speaker": "dawkins",
+          "text": "Symmetry. That's our first enrichment.",
+          "tone": "announcing",
+          "gesture": "at Mac"
+        },
+        {
+          "id": "d079",
+          "speaker": "dawkins",
+          "text": "The basic program forces bilateral symmetry on every biomorph. What if we relax that?",
+          "tone": "probing",
+          "gesture": null
+        },
+        {
+          "id": "d080",
+          "speaker": "dawkins",
+          "text": "A new gene, just two values, on and off, which switches bilateral symmetry on or off. Allowing asymmetrical biomorphs.",
+          "tone": "methodical",
+          "gesture": null
+        },
+        {
+          "id": "d081",
+          "speaker": "dawkins",
+          "text": "Not very interesting by itself, perhaps. But it interacts with other relaxations in ways I couldn't have predicted.",
+          "tone": "hinting",
+          "gesture": null
+        },
+        {
+          "id": "d082",
+          "speaker": "dawkins",
+          "text": "And left-right isn't the only plane of symmetry. Think about up-down symmetry. Or full four-way radial symmetry.",
+          "tone": "expanding",
+          "gesture": null,
+          "screen": "symmetry_variations"
+        },
+        {
+          "id": "d083",
+          "speaker": "dawkins",
+          "text": "A new gene can switch on up-down symmetry. Give it a third value and you get four-way radial symmetry \u2014 like a starfish.",
+          "tone": "building",
+          "gesture": "gestures radially"
+        },
+        {
+          "id": "d084",
+          "speaker": "dawkins",
+          "text": "Now combine left-right asymmetry with up-down symmetry. Here I had a decision to make.",
+          "tone": "storytelling",
+          "gesture": null
+        },
+        {
+          "id": "d085",
+          "speaker": "dawkins",
+          "text": "Do we achieve up-down symmetry by mirror reflection? Or by rotation? I chose rotation, somewhat arbitrarily.",
+          "tone": "honest",
+          "gesture": null
+        },
+        {
+          "id": "d086",
+          "speaker": "dawkins",
+          "text": "That arbitrary decision will turn out to matter enormously. Remember it.",
+          "tone": "foreshadowing",
+          "gesture": "looks at player meaningfully"
+        },
+        {
+          "id": "d087",
+          "speaker": "dawkins",
+          "text": "These symmetry genes seem to have the power to add rich emergent properties without the programmer having built in contrived design.",
+          "tone": "satisfied",
+          "gesture": null
+        },
+        {
+          "id": "d088",
+          "speaker": "dawkins",
+          "text": "Here \u2014 try breeding with symmetry controls. Switch between modes mid-breeding and watch what becomes reachable.",
+          "tone": "inviting",
+          "gesture": "slides Mac over",
+          "interactive": {
+            "type": "breeding_sandbox",
+            "mode": "symmetry",
+            "prompt": "Try switching symmetries mid-breeding. Notice how new forms become reachable."
+          }
+        }
+      ]
+    },
+    {
+      "id": "visit_06",
+      "title": "Segmentation",
+      "summary": "Dawkins adds body segments, drawing the analogy to millipedes and vertebrates.",
+      "unlock": "visit_05",
+      "lines": [
+        {
+          "id": "d089",
+          "speaker": "dawkins",
+          "text": "Symmetry isn't the only general principle from real zoology we can borrow. Today: segmentation.",
+          "tone": "announcing",
+          "gesture": "at Mac"
+        },
+        {
+          "id": "d090",
+          "speaker": "dawkins",
+          "text": "Three of the most successful phyla \u2014 vertebrates, arthropods, annelids \u2014 organise their bodies along segmental lines.",
+          "tone": "lecturing",
+          "gesture": null
+        },
+        {
+          "id": "d091",
+          "speaker": "dawkins",
+          "text": "Segments are repeated modules, running from head to tail like trucks in a train.",
+          "tone": "vivid",
+          "gesture": "traces line in air"
+        },
+        {
+          "id": "d092",
+          "speaker": "dawkins",
+          "text": "A millipede really is rather like a train. You can imagine the developmental program building one segment, then running it in a repeat loop.",
+          "tone": "charmed",
+          "gesture": null
+        },
+        {
+          "id": "d093",
+          "speaker": "dawkins",
+          "text": "The invention of segmentation was one of the major innovations in the history of life. Made at least twice, independently.",
+          "tone": "awed",
+          "gesture": null
+        },
+        {
+          "id": "d094",
+          "speaker": "dawkins",
+          "text": "Once in the vertebrate lineage. Once in the ancestor of annelids and arthropods.",
+          "tone": "precise",
+          "gesture": null
+        },
+        {
+          "id": "d095",
+          "speaker": "dawkins",
+          "text": "So I added it to the biomorph program. One new gene for segment count, another for distance between segments.",
+          "tone": "practical",
+          "gesture": "types",
+          "screen": "segmentation_series"
+        },
+        {
+          "id": "d096",
+          "speaker": "dawkins",
+          "text": "The basic program generates a single segment. Then we run it in a repeat loop. Just like a millipede.",
+          "tone": "satisfied",
+          "gesture": null
+        },
+        {
+          "id": "d097",
+          "speaker": "dawkins",
+          "text": "Have a go. Try breeding a millipede.",
+          "tone": "inviting",
+          "gesture": "slides Mac over",
+          "interactive": {
+            "type": "breeding_sandbox",
+            "mode": "segmentation",
+            "prompt": "Your creatures can now have body segments. Try breeding a millipede."
+          }
+        }
+      ]
+    },
+    {
+      "id": "visit_07",
+      "title": "Gradients and Botany",
+      "summary": "Dawkins adds segmental gradients and alternating asymmetry, discovering botanical forms.",
+      "unlock": "visit_06",
+      "lines": [
+        {
+          "id": "d098",
+          "speaker": "dawkins",
+          "text": "Now, a millipede's segments all look the same. But many segmented animals taper.",
+          "tone": "observational",
+          "gesture": "at Mac"
+        },
+        {
+          "id": "d099",
+          "speaker": "dawkins",
+          "text": "Broader at the front, narrower at the back. Or narrow at each end and broad in the middle, like a woodlouse.",
+          "tone": "descriptive",
+          "gesture": "shapes with hands"
+        },
+        {
+          "id": "d100",
+          "speaker": "dawkins",
+          "text": "It's as though the developmental repeat loop includes scaling factors that increment or decrement each pass through.",
+          "tone": "technical",
+          "gesture": null
+        },
+        {
+          "id": "d101",
+          "speaker": "dawkins",
+          "text": "So I allowed for gradients affecting each of the nine basic genes separately. One gradient per gene.",
+          "tone": "methodical",
+          "gesture": null,
+          "screen": "gradient_demo"
+        },
+        {
+          "id": "d102",
+          "speaker": "dawkins",
+          "text": "The results are striking. Compare the old portfolio to the new one \u2014 segmentation has added enormously to the ecological interest.",
+          "tone": "delighted",
+          "gesture": "points at screen"
+        },
+        {
+          "id": "d103",
+          "speaker": "dawkins",
+          "text": "An embryological innovation allowing the evolution of a whole new range of types. Just as we conjecture happened in real life.",
+          "tone": "connecting",
+          "gesture": null
+        },
+        {
+          "id": "d104",
+          "speaker": "dawkins",
+          "text": "But those animals are all symmetrical. What happens if we combine segmentation with asymmetry?",
+          "tone": "probing",
+          "gesture": null
+        },
+        {
+          "id": "d105",
+          "speaker": "dawkins",
+          "text": "Here I introduced another arbitrary constraint. I decreed that successive segments should alternate their asymmetry.",
+          "tone": "admitting",
+          "gesture": null
+        },
+        {
+          "id": "d106",
+          "speaker": "dawkins",
+          "text": "Not repeating the same one-sidedness, but flipping it each segment. Left, right, left, right.",
+          "tone": "demonstrating",
+          "gesture": "waves hand side to side"
+        },
+        {
+          "id": "d107",
+          "speaker": "dawkins",
+          "text": "I did it partly to recreate symmetry at the whole-body level. And partly to make the biomorphs more botanically interesting.",
+          "tone": "honest",
+          "gesture": null
+        },
+        {
+          "id": "d108",
+          "speaker": "dawkins",
+          "text": "Many plants send off alternating buds, you see. And the results are \u2014 well, look for yourself.",
+          "tone": "eager",
+          "gesture": "turns screen",
+          "screen": "botanical_portfolio"
+        },
+        {
+          "id": "d109",
+          "speaker": "dawkins",
+          "text": "Botanists would have a field day with these. That one could be any number of plant species. This one looks like an inflorescence.",
+          "tone": "delighted",
+          "gesture": "pointing"
+        },
+        {
+          "id": "d110",
+          "speaker": "dawkins",
+          "text": "When I was breeding them, I frequently had plants in my mind. See the hockey stick? The DNA helix? A dollar sign?",
+          "tone": "playful",
+          "gesture": null
+        },
+        {
+          "id": "d111",
+          "speaker": "dawkins",
+          "text": "Try it with the full set of controls. Gradients, symmetry, segmentation \u2014 the whole lot.",
+          "tone": "inviting",
+          "gesture": "slides Mac over",
+          "interactive": {
+            "type": "breeding_sandbox",
+            "mode": "gradients",
+            "prompt": "Gradients make each segment slightly different. Watch how forms taper and flow."
+          }
+        }
+      ]
+    },
+    {
+      "id": "visit_08",
+      "title": "Limits of Embryology",
+      "summary": "Dawkins shows echinoderms, the alphabet challenge, and introduces the paper's central argument.",
+      "unlock": "visit_07",
+      "lines": [
+        {
+          "id": "d112",
+          "speaker": "dawkins",
+          "text": "Now I want to show you something that reveals the limits of all this.",
+          "tone": "shift in mood",
+          "gesture": "serious expression"
+        },
+        {
+          "id": "d113",
+          "speaker": "dawkins",
+          "text": "Look at my 'echinoderm' portfolio. Radially symmetrical, segmented, with gradients.",
+          "tone": "showing",
+          "gesture": "turns screen",
+          "screen": "echinoderm_portfolio"
+        },
+        {
+          "id": "d114",
+          "speaker": "dawkins",
+          "text": "Any zoologist will instantly spot the trouble.",
+          "tone": "leading",
+          "gesture": "looks at player"
+        },
+        {
+          "id": "d115",
+          "speaker": "player_choice",
+          "text": null,
+          "options": [
+            {"label": "Four-way symmetry, not five?", "response": "d116a"},
+            {"label": "They don't look like real echinoderms?", "response": "d116b"}
+          ]
+        },
+        {
+          "id": "d116a",
+          "speaker": "dawkins",
+          "text": "Exactly! Four-way radial symmetry, not five-way. The program simply can't produce five-way symmetry. It's not in the embryology.",
+          "tone": "approving",
+          "gesture": "points"
+        },
+        {
+          "id": "d116b",
+          "speaker": "dawkins",
+          "text": "Well, specifically \u2014 they have four-way symmetry instead of five. Real echinoderms are pentaradial. My program can't do five.",
+          "tone": "clarifying",
+          "gesture": null
+        },
+        {
+          "id": "d117",
+          "speaker": "dawkins",
+          "text": "Huge vistas of evolutionary possibility may be kept waiting indefinitely for a major, releasing change in embryology.",
+          "tone": "profound",
+          "gesture": null
+        },
+        {
+          "id": "d118",
+          "speaker": "dawkins",
+          "text": "Which brings me to the alphabet. If we can breed animals, why not arbitrary shapes?",
+          "tone": "pivot",
+          "gesture": null
+        },
+        {
+          "id": "d119",
+          "speaker": "dawkins",
+          "text": "I tried to sign my name in biomorph script. Bred each letter by wandering through Biomorph Land until something looked right, then selectively perfecting it.",
+          "tone": "storytelling",
+          "gesture": null,
+          "screen": "alphabet"
+        },
+        {
+          "id": "d120",
+          "speaker": "dawkins",
+          "text": "Some letters are perfect. I and N \u2014 easy. S and A \u2014 a little cold but passable.",
+          "tone": "reviewing",
+          "gesture": "pointing at letters"
+        },
+        {
+          "id": "d121",
+          "speaker": "dawkins",
+          "text": "D is pretty horrible. And K? I despair of ever breeding a proper K.",
+          "tone": "frustrated",
+          "gesture": "shakes head"
+        },
+        {
+          "id": "d122",
+          "speaker": "dawkins",
+          "text": "I had to fake the K in my name by turning part of an H. An obvious kludge.",
+          "tone": "self-deprecating",
+          "gesture": null
+        },
+        {
+          "id": "d123",
+          "speaker": "dawkins",
+          "text": "Want to try? See if you can breed a K. I couldn't.",
+          "tone": "challenging",
+          "gesture": "slides Mac",
+          "interactive": {
+            "type": "breeding_sandbox",
+            "mode": "alphabet_challenge",
+            "prompt": "Dawkins couldn't breed a proper K. Can you?"
+          }
+        },
+        {
+          "id": "d124",
+          "speaker": "dawkins",
+          "text": "And that is the point.",
+          "tone": "pivot \u2014 dead serious",
+          "gesture": "pauses, looks at player"
+        },
+        {
+          "id": "d125",
+          "speaker": "dawkins",
+          "text": "There are some things that certain kinds of embryology cannot do. Or cannot easily do.",
+          "tone": "key insight",
+          "gesture": null
+        },
+        {
+          "id": "d126",
+          "speaker": "dawkins",
+          "text": "The alphabet dramatises it. Some letter-shapes are easy, almost inevitable. Others are difficult. Others are near-impossible.",
+          "tone": "driving home",
+          "gesture": null
+        },
+        {
+          "id": "d127",
+          "speaker": "dawkins",
+          "text": "The problems are determined by the particular embryology the program employs. A different embryology \u2014 a different subset of the alphabet becomes easy.",
+          "tone": "building to thesis",
+          "gesture": null
+        },
+        {
+          "id": "d128",
+          "speaker": "dawkins",
+          "text": "Think about what that means for real life. Come back tomorrow. I want to tell you the real argument.",
+          "tone": "serious",
+          "gesture": null
+        }
+      ]
+    },
+    {
+      "id": "visit_09",
+      "title": "Evolutionary Watersheds",
+      "summary": "Dawkins distinguishes genetic system changes from evolutionary watersheds and argues for the latter's importance.",
+      "unlock": "visit_08",
+      "lines": [
+        {
+          "id": "d129",
+          "speaker": "dawkins",
+          "text": "Right. The real argument. Sit down.",
+          "tone": "serious",
+          "gesture": "pulls up chair for player"
+        },
+        {
+          "id": "d130",
+          "speaker": "dawkins",
+          "text": "Certain kinds of embryology find it difficult to generate certain kinds of organism. That's what all the biomorph work illustrates.",
+          "tone": "summarising",
+          "gesture": null
+        },
+        {
+          "id": "d131",
+          "speaker": "dawkins",
+          "text": "It's a powerful analogy for something in real biology. But which principle, exactly? There are two main candidates.",
+          "tone": "building",
+          "gesture": null
+        },
+        {
+          "id": "d132",
+          "speaker": "dawkins",
+          "text": "First, we need a distinction. There are ordinary changes within an existing genetic system \u2014 one allele replaced by another at the same locus.",
+          "tone": "careful",
+          "gesture": null
+        },
+        {
+          "id": "d133",
+          "speaker": "dawkins",
+          "text": "Like industrial melanism \u2014 a gene for blackness spreading through moth populations. Standard evolutionary change.",
+          "tone": "illustrating",
+          "gesture": null
+        },
+        {
+          "id": "d134",
+          "speaker": "dawkins",
+          "text": "But there are also changes to the genetic system itself. Different numbers of chromosomes. Humans and chimps have different systems \u2014 you can't precisely identify matching loci.",
+          "tone": "building",
+          "gesture": null
+        },
+        {
+          "id": "d135",
+          "speaker": "dawkins",
+          "text": "Now, the changes I've been showing you \u2014 adding symmetry genes, segmentation, gradients \u2014 those are changes to the genetic system. Going from 9 genes to 13.",
+          "tone": "connecting",
+          "gesture": null
+        },
+        {
+          "id": "d136",
+          "speaker": "dawkins",
+          "text": "But I want to argue that this is incidental. It's not the analogy I want to draw.",
+          "tone": "redirecting",
+          "gesture": "waves hand"
+        },
+        {
+          "id": "d137",
+          "speaker": "dawkins",
+          "text": "Changes in genetic system are fairly commonplace. Changes in chromosome number are nearly as common as new species forming. Hundreds of millions of times.",
+          "tone": "dismissive",
+          "gesture": null
+        },
+        {
+          "id": "d138",
+          "speaker": "dawkins",
+          "text": "No. What I want to argue is that there's another class of innovation. Very rare on the geological timescale.",
+          "tone": "building intensity",
+          "gesture": "leans forward"
+        },
+        {
+          "id": "d139",
+          "speaker": "dawkins",
+          "text": "I call them evolutionary watersheds.",
+          "tone": "key term",
+          "gesture": "pauses"
+        },
+        {
+          "id": "d140",
+          "speaker": "dawkins",
+          "text": "The invention of segmentation is a watershed. Occurred perhaps only twice in all of history.",
+          "tone": "awed",
+          "gesture": null
+        },
+        {
+          "id": "d141",
+          "speaker": "dawkins",
+          "text": "What's interesting about a watershed isn't whether it coincided with a change in chromosome number. What's interesting is that it opens floodgates to future evolution.",
+          "tone": "key insight",
+          "gesture": null
+        },
+        {
+          "id": "d142",
+          "speaker": "dawkins",
+          "text": "I conjecture that the first segmented animal was a freak. A double body where its parents had a single body.",
+          "tone": "vivid",
+          "gesture": null
+        },
+        {
+          "id": "d143",
+          "speaker": "dawkins",
+          "text": "It probably survived by the skin of its teeth. A double body isn't obviously better adapted. Quite the contrary.",
+          "tone": "building",
+          "gesture": null
+        },
+        {
+          "id": "d144",
+          "speaker": "dawkins",
+          "text": "But here's what matters: its success or failure as an individual is relatively unimportant.",
+          "tone": "emphatic",
+          "gesture": "leans forward"
+        },
+        {
+          "id": "d145",
+          "speaker": "dawkins",
+          "text": "What matters is that its descendant lineages were champion radiators. They radiated, speciated, gave rise to whole new phyla.",
+          "tone": "crescendo",
+          "gesture": null
+        },
+        {
+          "id": "d146",
+          "speaker": "dawkins",
+          "text": "Whether or not segmentation helped that first individual survive, it represented a change to embryology that was pregnant with evolutionary potential.",
+          "tone": "thesis statement",
+          "gesture": null
+        },
+        {
+          "id": "d147",
+          "speaker": "dawkins",
+          "text": "Let that sink in. We'll finish the argument tomorrow.",
+          "tone": "deliberate pause",
+          "gesture": null
+        }
+      ]
+    },
+    {
+      "id": "visit_10",
+      "title": "The Evolution of Evolvability",
+      "summary": "Dawkins arrives at the paper's central thesis: evolution selects for evolvability itself.",
+      "unlock": "visit_09",
+      "lines": [
+        {
+          "id": "d148",
+          "speaker": "dawkins",
+          "text": "Today I want to finish the argument. The most important idea I've come to through all this work.",
+          "tone": "grave",
+          "gesture": "seated, no Mac"
+        },
+        {
+          "id": "d149",
+          "speaker": "dawkins",
+          "text": "Not all watersheds are as dramatic as segmentation. But there may be many changes in embryology that are, to a lesser extent, evolutionarily pregnant.",
+          "tone": "careful",
+          "gesture": null
+        },
+        {
+          "id": "d150",
+          "speaker": "dawkins",
+          "text": "Rank embryologies by their evolutionary potential. Then imagine adaptive radiations giving way to adaptive radiations, over geological time.",
+          "tone": "building",
+          "gesture": null
+        },
+        {
+          "id": "d151",
+          "speaker": "dawkins",
+          "text": "There is a kind of ratchet. Changes in embryology that happen to be evolutionarily fertile tend to last.",
+          "tone": "key mechanism",
+          "gesture": null
+        },
+        {
+          "id": "d152",
+          "speaker": "dawkins",
+          "text": "The embryologies that characterise the forms of life we actually see? Those are the ones that were good at evolving.",
+          "tone": "building",
+          "gesture": null
+        },
+        {
+          "id": "d153",
+          "speaker": "dawkins",
+          "text": "This is not the same as saying embryologies that produce healthy individuals last. Though that's true too.",
+          "tone": "distinguishing",
+          "gesture": "raises finger"
+        },
+        {
+          "id": "d154",
+          "speaker": "dawkins",
+          "text": "I'm talking about a kind of higher-level selection. A selection not for survivability, but for evolvability.",
+          "tone": "thesis",
+          "gesture": "pauses for effect"
+        },
+        {
+          "id": "d155",
+          "speaker": "dawkins",
+          "text": "Now, I know this sounds dangerously close to things I've argued against. It's all too easy for this argument to be used loosely.",
+          "tone": "self-aware",
+          "gesture": null
+        },
+        {
+          "id": "d156",
+          "speaker": "dawkins",
+          "text": "Sydney Brenner once ridiculed the idea of foresight in evolution. A molecule retained because it might be useful in the future.",
+          "tone": "setting up",
+          "gesture": null
+        },
+        {
+          "id": "d157",
+          "speaker": "dawkins",
+          "text": "'It might come in handy in the Cretaceous!'",
+          "tone": "mimicking, amused",
+          "gesture": "laughs"
+        },
+        {
+          "id": "d158",
+          "speaker": "dawkins",
+          "text": "I hope I won't be taken as saying anything like that. Evolution has no foresight.",
+          "tone": "firm",
+          "gesture": null
+        },
+        {
+          "id": "d159",
+          "speaker": "dawkins",
+          "text": "But with hindsight \u2014 those evolutionary changes in embryology that look as though they were planned with foresight are the ones that dominate successful forms of life.",
+          "tone": "careful, building",
+          "gesture": null
+        },
+        {
+          "id": "d160",
+          "speaker": "dawkins",
+          "text": "Not foresight. Hindsight.",
+          "tone": "crystallising",
+          "gesture": "pauses"
+        },
+        {
+          "id": "d161",
+          "speaker": "dawkins",
+          "text": "Perhaps natural selection favors not just successful phenotypes, but a tendency to evolve. An eagerness to radiate.",
+          "tone": "speculative",
+          "gesture": null
+        },
+        {
+          "id": "d162",
+          "speaker": "dawkins",
+          "text": "I used to disparage 'species selection' because it's single-step selection, not cumulative. And only cumulative selection builds real complexity.",
+          "tone": "honest",
+          "gesture": null
+        },
+        {
+          "id": "d163",
+          "speaker": "dawkins",
+          "text": "But selection among embryologies for evolvability \u2014 this may qualify as cumulative.",
+          "tone": "realising",
+          "gesture": null
+        },
+        {
+          "id": "d164",
+          "speaker": "dawkins",
+          "text": "Because after a given innovation has been favoured for its evolutionary properties, it provides a different basis for new innovations.",
+          "tone": "building",
+          "gesture": null
+        },
+        {
+          "id": "d165",
+          "speaker": "dawkins",
+          "text": "Evolvability ratchets up. Each watershed makes the next watershed possible.",
+          "tone": "crescendo",
+          "gesture": null
+        },
+        {
+          "id": "d166",
+          "speaker": "dawkins",
+          "text": "The tendency to evolve \u2014 to throw up variation, to radiate, to be pregnant with evolutionary potential \u2014 that is a species-level property worth selecting for.",
+          "tone": "philosophical",
+          "gesture": null
+        },
+        {
+          "id": "d167",
+          "speaker": "dawkins",
+          "text": "The world is dominated by phyla, classes and orders whose embryology equipped them to diverge and inherit the earth.",
+          "tone": "grand",
+          "gesture": null
+        },
+        {
+          "id": "d168",
+          "speaker": "dawkins",
+          "text": "I've always been dimly aware of this. But it's the biomorph program that really drummed it into my innermost convictions.",
+          "tone": "personal",
+          "gesture": "glances at Mac"
+        },
+        {
+          "id": "d169",
+          "speaker": "dawkins",
+          "text": "Writing it. Playing with it. And above all, modifying it \u2014 watching how changes in embryology opened or closed evolutionary possibility.",
+          "tone": "reflective",
+          "gesture": null
+        },
+        {
+          "id": "d170",
+          "speaker": "dawkins",
+          "text": "What started as an educational exercise \u2014 I was trying to teach other people \u2014 ended up teaching something to myself about real life.",
+          "tone": "warm, concluding",
+          "gesture": "smiles"
+        },
+        {
+          "id": "d171",
+          "speaker": "dawkins",
+          "text": "There could be less worthy uses of artificial life.",
+          "tone": "quiet satisfaction",
+          "gesture": "leans back"
+        },
+        {
+          "id": "d172",
+          "speaker": "dawkins",
+          "text": "The Mac is yours whenever you want it. Go breed something I haven't seen yet.",
+          "tone": "warm farewell",
+          "gesture": "gestures at Mac",
+          "interactive": {
+            "type": "breeding_sandbox",
+            "mode": "full",
+            "prompt": "You now have the complete embryology. What can you evolve?"
+          }
+        }
+      ]
+    }
+  ]
+}

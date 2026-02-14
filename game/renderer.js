@@ -1,0 +1,1829 @@
+// All canvas drawing: tiles, organisms, player, HUD, menus, overlays
+
+import { TILE, COLS, ROWS, TILE_SIZE, BUILDINGS } from './world.js';
+import { facingTile } from './player.js';
+import { getSprite } from './organisms.js';
+import { sellPrice, buyPrice } from './economy.js';
+import { NPCS } from './npcs.js';
+import { MATERIAL_TYPES, analyzeBiomorph } from './materials.js';
+import { RECIPES, canCraft } from './crafting.js';
+import { getCurrentLine } from './dawkins.js';
+import { PROPERTIES, getOwner } from './property.js';
+import { getTaskLabel } from './ai.js';
+
+export const CANVAS_W = 960;
+export const CANVAS_H = 768;
+const VIEW_H = CANVAS_H - TILE_SIZE; // 720 — viewport above HUD
+const HUD_Y = VIEW_H;
+const INV_SLOT = 38;
+const WORLD_W = COLS * TILE_SIZE;
+const WORLD_H = ROWS * TILE_SIZE;
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function grassColor(col, row) {
+  const h = ((col * 7 + row * 13) % 5);
+  return `rgb(60, ${0x70 + h * 3}, 50)`;
+}
+
+// ── Camera ──
+
+export function updateCamera(cam, player, dt) {
+  const tx = player.x - CANVAS_W / 2;
+  const ty = player.y - VIEW_H / 2;
+  cam.x += (tx - cam.x) * Math.min(1, 6 * dt); // smooth follow
+  cam.y += (ty - cam.y) * Math.min(1, 6 * dt);
+  cam.x = clamp(cam.x, 0, WORLD_W - CANVAS_W);
+  cam.y = clamp(cam.y, 0, WORLD_H - VIEW_H);
+}
+
+// ── Main render ──
+
+export function render(ctx, world, player, gs, planted, collection, lab, npcStates, cam, wilds) {
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+
+  if (gs.phase === 'title') { drawTitle(ctx, gs); return; }
+  if (gs.phase === 'intro') { drawIntro(ctx, gs); return; }
+  if (gs.overlay === 'inventory') { drawInventoryOverlay(ctx, gs, player); return; }
+
+  const cx = cam.x, cy = cam.y;
+
+  // Clip viewport (don't draw into HUD)
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, CANVAS_W, VIEW_H);
+  ctx.clip();
+
+  drawTiles(ctx, world, cx, cy, wilds);
+  drawPropertyBorders(ctx, cx, cy);
+  drawBuildings(ctx, collection, cx, cy, gs.dawkinsState);
+
+  // NPC planted organisms
+  if (npcStates) {
+    for (const ns of npcStates) {
+      for (const org of ns.planted) {
+        if (org.tileCol == null) continue;
+        const sx = org.tileCol * TILE_SIZE - cx + 2;
+        const sy = org.tileRow * TILE_SIZE - cy + 2;
+        if (sx > -TILE_SIZE && sx < CANVAS_W && sy > -TILE_SIZE && sy < VIEW_H) {
+          ctx.drawImage(getSprite(org, TILE_SIZE - 4), sx, sy);
+        }
+      }
+    }
+  }
+
+  // Player planted organisms
+  if (planted) {
+    for (const org of planted) {
+      if (org.tileCol == null) continue;
+      const sx = org.tileCol * TILE_SIZE - cx + 2;
+      const sy = org.tileRow * TILE_SIZE - cy + 2;
+      if (sx > -TILE_SIZE && sx < CANVAS_W && sy > -TILE_SIZE && sy < VIEW_H) {
+        ctx.drawImage(getSprite(org, TILE_SIZE - 4), sx, sy);
+        if (org.stage === 'mature') {
+          ctx.fillStyle = 'rgba(255,220,50,0.8)';
+          ctx.beginPath();
+          ctx.arc(sx + TILE_SIZE - 8, sy - 2 + 4, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
+  // Facing tile highlight
+  if (!gs.overlay) {
+    const ft = facingTile(player);
+    if (ft.col >= 0 && ft.col < COLS && ft.row >= 0 && ft.row < ROWS) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(ft.col * TILE_SIZE - cx + 2, ft.row * TILE_SIZE - cy + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+    }
+  }
+
+  // NPCs
+  if (npcStates) drawNPCs(ctx, npcStates, cx, cy);
+
+  // Player
+  drawPlayer(ctx, player, cx, cy);
+
+  // Day/night tint
+  drawDayNight(ctx, gs);
+
+  ctx.restore(); // unclip
+
+  // Tutorial speech bubble (above Sage, in world space)
+  if (gs.currentTutorialSpeech && npcStates) {
+    const sageState = npcStates.find(s => s.id === 'sage');
+    if (sageState) {
+      drawSpeechBubble(ctx, gs.currentTutorialSpeech, sageState.x - cx, sageState.y - cy);
+    }
+  }
+
+  // Follow mode narration bubble (above followed NPC, in world space)
+  if (gs.followNarration && gs.followNpcIdx >= 0 && npcStates) {
+    const followState = npcStates[gs.followNpcIdx];
+    if (followState) {
+      drawSpeechBubble(ctx, gs.followNarration.text, followState.x - cx, followState.y - cy);
+    }
+  }
+
+  // Prompts (above HUD, in world space)
+  if (!gs.overlay) {
+    drawBuildingPrompt(ctx, player, collection, cx, cy);
+    drawNPCPrompt(ctx, player, npcStates, cx, cy, gs);
+  }
+
+  // HUD (screen space)
+  drawHUD(ctx, gs, player, collection);
+
+  // Overlays
+  if (gs.overlay === 'shop') drawShopOverlay(ctx, gs, player);
+  if (gs.overlay === 'lab') drawLabOverlay(ctx, lab, player);
+  if (gs.overlay === 'museum') drawMuseumOverlay(ctx, collection, gs);
+  if (gs.overlay === 'trade') drawTradeOverlay(ctx, gs, player, npcStates);
+  if (gs.overlay === 'crafting') drawCraftingOverlay(ctx, gs, player);
+  if (gs.overlay === 'dawkins') drawDawkinsOverlay(ctx, gs);
+  if (gs.overlay === 'help') drawHelpOverlay(ctx);
+
+  // Pause overlay (above everything)
+  if (gs.paused) drawPauseOverlay(ctx);
+
+  // Settings indicators (above overlays so they're visible)
+  if (!gs.overlay || gs.overlay === 'dawkins') {
+    drawSettingsIndicators(ctx, gs);
+  }
+
+  if (gs.message) drawMessage(ctx, gs.message.text);
+}
+
+// ── Intro ──
+
+function drawTitle(ctx, gs) {
+  ctx.fillStyle = '#0a0a12';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Title
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#c8e6c8';
+  ctx.font = 'bold 36px Georgia, serif';
+  ctx.fillText('Biomorph Farm', CANVAS_W / 2, CANVAS_H / 2 - 100);
+
+  ctx.fillStyle = '#8a9a7a';
+  ctx.font = 'italic 14px Georgia, serif';
+  ctx.fillText('Inspired by Richard Dawkins\' "The Evolution of Evolvability" (1988)', CANVAS_W / 2, CANVAS_H / 2 - 60);
+
+  // Menu options
+  const options = ['New Game'];
+  if (gs.hasSave) options.push('Continue');
+  const startY = CANVAS_H / 2 + 10;
+
+  for (let i = 0; i < options.length; i++) {
+    const y = startY + i * 44;
+    const selected = i === gs.titleCursor;
+    ctx.font = selected ? 'bold 20px monospace' : '18px monospace';
+    ctx.fillStyle = selected ? '#fff' : '#666';
+    const arrow = selected ? '\u25b6  ' : '   ';
+    ctx.fillText(arrow + options[i], CANVAS_W / 2, y);
+  }
+
+  // Hint
+  ctx.font = '11px monospace';
+  ctx.fillStyle = '#555';
+  ctx.fillText('[Up/Down] select   [Space] confirm', CANVAS_W / 2, CANVAS_H / 2 + 120);
+
+  // What's New overlay
+  if (gs.showWhatsNew) {
+    drawWhatsNew(ctx);
+  }
+}
+
+function drawWhatsNew(ctx) {
+  const w = 500, h = 280;
+  const x = (CANVAS_W - w) / 2, y = (CANVAS_H - h) / 2;
+
+  // Backdrop
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Panel
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = '#4a6a4a';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, h);
+
+  // Header
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#c8e6c8';
+  ctx.font = 'bold 18px Georgia, serif';
+  ctx.fillText("What's New — v7", CANVAS_W / 2, y + 30);
+
+  // Bullet points
+  ctx.textAlign = 'left';
+  ctx.font = '13px monospace';
+  ctx.fillStyle = '#aac8aa';
+  const lines = [
+    "Fern and Moss now have their own cottages and farms",
+    "Watch them walk to the Shop, Lab, and Museum",
+    "Each farmer has a wallet — they buy, sell, and breed",
+    "Property borders mark who owns what land",
+    "You can't plow or plant on their property",
+    "Wild trees won't spread into owned land",
+  ];
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillStyle = '#6a9a6a';
+    ctx.fillText('\u2022', x + 24, y + 70 + i * 28);
+    ctx.fillStyle = '#aac8aa';
+    ctx.fillText(lines[i], x + 40, y + 70 + i * 28);
+  }
+
+  // Dismiss hint
+  ctx.textAlign = 'center';
+  ctx.fillStyle = `rgba(200,200,200,${0.4 + Math.sin(Date.now() / 500) * 0.3})`;
+  ctx.font = '12px monospace';
+  ctx.fillText('[Space] dismiss', CANVAS_W / 2, y + h - 20);
+}
+
+function drawIntro(ctx, gs) {
+  ctx.fillStyle = '#0a0a12';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  const pw = 560, ph = 340;
+  const px = (CANVAS_W - pw) / 2, py = (CANVAS_H - ph) / 2 - 20;
+  const alpha = Math.min(1, gs.introFade);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#f5e6c8'; ctx.fillRect(px, py, pw, ph);
+  ctx.strokeStyle = '#c4a87a'; ctx.lineWidth = 3; ctx.strokeRect(px, py, pw, ph);
+  ctx.fillStyle = 'rgba(180,150,100,0.3)';
+  ctx.fillRect(px, py, pw, 4); ctx.fillRect(px, py + ph - 4, pw, 4);
+
+  const pages = [
+    ["An old letter, folded many times..."],
+    ['"Dear friend,', '', "If you're reading this, it means my", 'research station on Biomorph Island', 'is finally in your hands."'],
+    ['"For decades, I studied the creatures here \u2014', 'biomorphs, we call them. They grow from', 'seeds, shaped by invisible genes.', '', 'Each generation, they change. Sometimes', 'beautifully. Sometimes strangely.', 'Always surprisingly."'],
+    ['"The farm is modest. The shop will buy', 'what you grow. The museum awaits your', "discoveries. And when you're ready, the", 'breeding lab will unlock possibilities', 'I only dreamed of."'],
+    ['"Your neighbors Fern and Moss are good', "folk \u2014 they've been tending biomorphs", 'here for years. Watch what they grow.', "Trade with them. You'll learn a lot.\""],
+    ['"Your task is simple:', 'grow, discover, evolve."', '', '', 'With great anticipation,', 'Professor R. Dawkins'],
+  ];
+  const page = Math.min(gs.introPage, pages.length - 1);
+  const lines = pages[page];
+  ctx.fillStyle = '#3a2a1a'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let i = 0; i < lines.length; i++) {
+    ctx.font = (page === 0 || (page === 5 && i >= 4)) ? 'italic 16px Georgia, serif' : '15px Georgia, serif';
+    ctx.fillText(lines[i], CANVAS_W / 2, py + 40 + i * 34);
+  }
+  ctx.fillStyle = '#8a7a5a'; ctx.font = '12px monospace';
+  ctx.fillText(`${page + 1} / ${pages.length}`, CANVAS_W / 2, py + ph - 30);
+  ctx.globalAlpha = 1;
+  const isLast = page === pages.length - 1;
+  ctx.fillStyle = `rgba(200,200,200,${0.4 + Math.sin(Date.now() / 500) * 0.3})`;
+  ctx.font = '13px monospace';
+  ctx.fillText(isLast ? '[Space] Begin your journey' : '[Space] Continue  \u00B7  [Esc] Skip', CANVAS_W / 2, py + ph + 30);
+}
+
+// ── Day/Night tint ──
+
+function drawDayNight(ctx, gs) {
+  const t = gs.dayTimer / gs.DAY_LENGTH; // 0..1
+  // Dawn (0-0.15), Day (0.15-0.6), Dusk (0.6-0.8), Night (0.8-1.0)
+  let alpha = 0, r = 0, g = 0, b = 20;
+  if (t < 0.1) {
+    // Dawn — orange tint fading
+    alpha = 0.15 * (1 - t / 0.1);
+    r = 80; g = 40; b = 10;
+  } else if (t < 0.6) {
+    alpha = 0; // full daylight
+  } else if (t < 0.8) {
+    // Dusk — warm then dark
+    const d = (t - 0.6) / 0.2;
+    alpha = d * 0.25;
+    r = Math.floor(60 * (1 - d)); g = Math.floor(20 * (1 - d)); b = Math.floor(40 * d + 20);
+  } else {
+    // Night
+    const n = (t - 0.8) / 0.2;
+    alpha = 0.25 + n * 0.15;
+    r = 0; g = 0; b = 30;
+  }
+  if (alpha > 0) {
+    ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+    ctx.fillRect(0, 0, CANVAS_W, VIEW_H);
+  }
+}
+
+// ── Tiles ──
+
+function drawTiles(ctx, world, cx, cy, wilds) {
+  const startCol = Math.max(0, Math.floor(cx / TILE_SIZE));
+  const endCol = Math.min(COLS, Math.ceil((cx + CANVAS_W) / TILE_SIZE) + 1);
+  const startRow = Math.max(0, Math.floor(cy / TILE_SIZE));
+  const endRow = Math.min(ROWS, Math.ceil((cy + VIEW_H) / TILE_SIZE) + 1);
+
+  for (let row = startRow; row < endRow; row++) {
+    for (let col = startCol; col < endCol; col++) {
+      const tile = world[row][col];
+      const x = col * TILE_SIZE - cx, y = row * TILE_SIZE - cy;
+      switch (tile) {
+        case TILE.GRASS:
+          ctx.fillStyle = grassColor(col, row);
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          ctx.fillStyle = 'rgba(255,255,255,0.04)';
+          ctx.fillRect(x + ((col*3+row*7)%12)+6, y + ((col*11+row*5)%16)+4, 2, 4);
+          ctx.fillRect(x + ((col*9+row*3)%20)+16, y + ((col*5+row*11)%20)+14, 2, 3);
+          break;
+        case TILE.DIRT:
+          ctx.fillStyle = '#7a6340';
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1;
+          for (let ly = 6; ly < TILE_SIZE; ly += 8) {
+            ctx.beginPath(); ctx.moveTo(x+4, y+ly); ctx.lineTo(x+TILE_SIZE-4, y+ly); ctx.stroke();
+          }
+          break;
+        case TILE.PATH:
+          ctx.fillStyle = '#c4a87a';
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1;
+          ctx.strokeRect(x+0.5, y+0.5, TILE_SIZE-1, TILE_SIZE-1);
+          ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+          ctx.beginPath();
+          ctx.moveTo(x+TILE_SIZE/2, y); ctx.lineTo(x+TILE_SIZE/2, y+TILE_SIZE);
+          ctx.moveTo(x, y+TILE_SIZE/2); ctx.lineTo(x+TILE_SIZE, y+TILE_SIZE/2);
+          ctx.stroke();
+          break;
+        case TILE.WATER:
+          ctx.fillStyle = '#2a5a8a';
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          ctx.fillStyle = 'rgba(100,180,255,0.15)';
+          const wx = (col*17+row*11)%20, wy = (col*7+row*19)%16;
+          ctx.fillRect(x+wx+4, y+wy+6, 14, 2);
+          ctx.fillRect(x+((wx+22)%30)+2, y+((wy+18)%28)+4, 10, 2);
+          break;
+        case TILE.BUILDING:
+          ctx.fillStyle = '#555';
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          break;
+        case TILE.FENCE: {
+          // Grass background
+          ctx.fillStyle = grassColor(col, row);
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          // Wooden post pattern
+          ctx.fillStyle = '#8B6914';
+          ctx.fillRect(x + 6, y + 8, 6, TILE_SIZE - 12);
+          ctx.fillRect(x + TILE_SIZE - 12, y + 8, 6, TILE_SIZE - 12);
+          // Horizontal rails
+          ctx.fillStyle = '#a07818';
+          ctx.fillRect(x + 4, y + 14, TILE_SIZE - 8, 4);
+          ctx.fillRect(x + 4, y + TILE_SIZE - 18, TILE_SIZE - 8, 4);
+          break;
+        }
+        case TILE.TREE: {
+          // Grass background
+          ctx.fillStyle = grassColor(col, row);
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          // Render wild biomorph if available, otherwise fallback to generic tree
+          const wildOrg = wilds && wilds.get(`${col},${row}`);
+          if (wildOrg) {
+            ctx.drawImage(getSprite(wildOrg, TILE_SIZE - 4), x + 2, y + 2);
+          } else {
+            // Fallback: generic green circle tree
+            ctx.fillStyle = '#6a5030';
+            ctx.fillRect(x + 20, y + 28, 8, 18);
+            ctx.fillStyle = '#3a6a2a';
+            ctx.beginPath();
+            ctx.arc(x + 24, y + 20, 16, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#4a7a3a';
+            ctx.beginPath();
+            ctx.arc(x + 20, y + 16, 10, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          break;
+        }
+      }
+      // Property tint overlay
+      const owner = getOwner(col, row);
+      if (owner) {
+        const prop = PROPERTIES.find(p => p.id === owner);
+        if (prop) {
+          ctx.fillStyle = prop.tint;
+          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+        }
+      }
+    }
+  }
+}
+
+// ── Property borders ──
+
+function drawPropertyBorders(ctx, cx, cy) {
+  for (const prop of PROPERTIES) {
+    const b = prop.bounds;
+    const x = b.minCol * TILE_SIZE - cx;
+    const y = b.minRow * TILE_SIZE - cy;
+    const w = (b.maxCol - b.minCol + 1) * TILE_SIZE;
+    const h = (b.maxRow - b.minRow + 1) * TILE_SIZE;
+    ctx.strokeStyle = prop.borderColor;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(x, y, w, h);
+    ctx.setLineDash([]);
+  }
+}
+
+// ── Buildings ──
+
+function drawBuildings(ctx, collection, cx, cy, dawkinsState) {
+  for (const b of BUILDINGS) {
+    const bx = b.x * TILE_SIZE - cx, by = b.y * TILE_SIZE - cy;
+    const bw = b.w * TILE_SIZE, bh = b.h * TILE_SIZE;
+    if (bx + bw < 0 || bx > CANVAS_W || by + bh < 0 || by > VIEW_H) continue;
+    ctx.fillStyle = b.color; ctx.fillRect(bx, by, bw, bh);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(bx, by, bw, 6);
+    const dw = 14, dh = 18;
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    if (b.doorSide === 'bottom') ctx.fillRect(bx+bw/2-dw/2, by+bh-dh, dw, dh);
+    else ctx.fillRect(bx+bw/2-dw/2, by, dw, dh);
+    // Study gets shorter name to fit
+    const displayName = b.id === 'study' ? 'Study' : b.name;
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(displayName, bx+bw/2, by+bh/2);
+    if (b.id === 'lab' && collection && !collection.labUnlocked) {
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(bx, by, bw, bh);
+      ctx.fillStyle = '#f66'; ctx.font = '12px monospace';
+      ctx.fillText('LOCKED', bx+bw/2, by+bh/2+14);
+    }
+    // Dawkins visit-available indicator
+    if (b.id === 'study' && dawkinsState && dawkinsState.completedVisits < 10) {
+      ctx.fillStyle = '#ffd700'; ctx.font = 'bold 16px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText('!', bx + bw/2, by - 2);
+    }
+  }
+}
+
+// ── NPCs ──
+
+function drawNPCs(ctx, npcStates, cx, cy) {
+  for (let i = 0; i < npcStates.length; i++) {
+    const s = npcStates[i]; const npc = NPCS[i];
+    const size = 24, half = size / 2;
+    const sx = s.x - cx, sy = s.y - cy;
+    if (sx < -30 || sx > CANVAS_W + 30 || sy < -30 || sy > VIEW_H + 30) continue;
+    const x = sx - half, y = sy - half;
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    ctx.beginPath(); ctx.ellipse(sx, sy+half+2, half*0.7, 3, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = npc.color; ctx.fillRect(x, y, size, size);
+    ctx.strokeStyle = npc.accent; ctx.lineWidth = 2; ctx.strokeRect(x, y, size, size);
+    // Eyes
+    ctx.fillStyle = '#222'; const ec = 3;
+    switch (s.facing) {
+      case 'down':  ctx.fillRect(sx-ec-1,sy+1,3,3); ctx.fillRect(sx+ec-1,sy+1,3,3); break;
+      case 'up':    ctx.fillRect(sx-ec-1,sy-4,3,3); ctx.fillRect(sx+ec-1,sy-4,3,3); break;
+      case 'left':  ctx.fillRect(sx-5,sy-ec,3,3); ctx.fillRect(sx-5,sy+ec,3,3); break;
+      case 'right': ctx.fillRect(sx+3,sy-ec,3,3); ctx.fillRect(sx+3,sy+ec,3,3); break;
+    }
+    // Name tag with wallet
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    const nameStr = s.wallet > 0 ? `${npc.name} ${s.wallet}g` : npc.name;
+    const nw = ctx.measureText(nameStr).width;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(sx-nw/2-3, y-14, nw+6, 13);
+    ctx.fillStyle = npc.color; ctx.fillText(npc.name, sx - (s.wallet > 0 ? ctx.measureText(` ${s.wallet}g`).width/2 : 0), y-3);
+    if (s.wallet > 0) {
+      ctx.fillStyle = '#ffd700';
+      ctx.fillText(` ${s.wallet}g`, sx + ctx.measureText(npc.name).width/2, y-3);
+    }
+    // Task indicator
+    const taskLabel = getTaskLabel(s.task);
+    if (taskLabel) {
+      const arrow = `\u2192 ${taskLabel}`;
+      const tw = ctx.measureText(arrow).width;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(sx-tw/2-3, y-26, tw+6, 12);
+      ctx.fillStyle = '#fff'; ctx.textBaseline = 'bottom';
+      ctx.fillText(arrow, sx, y-15);
+    }
+  }
+}
+
+function drawNPCPrompt(ctx, player, npcStates, cx, cy, gs) {
+  if (!npcStates) return;
+  for (let i = 0; i < npcStates.length; i++) {
+    const s = npcStates[i]; const npc = NPCS[i];
+    // Skip prompts for the NPC we're currently following (HUD already shows controls)
+    if (gs && gs.followNpcIdx === i) continue;
+
+    const dist = Math.hypot(player.x - s.x, player.y - s.y);
+    if (dist < TILE_SIZE * 2.5) {
+      const tx = s.x - cx;
+      let ty = s.y - cy - 30;
+
+      // Main interaction prompt (Space)
+      if (dist < TILE_SIZE * 1.8) {
+        const label = npc.role === 'farmer' && s.inventory.length > 0 ? `Trade with ${npc.name}` : `Talk to ${npc.name}`;
+        const text = `[Space] ${label}`;
+        ctx.font = 'bold 10px monospace'; const tw = ctx.measureText(text).width;
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(tx-tw/2-5, ty-8, tw+10, 18);
+        ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(text, tx, ty);
+        ty -= 20;
+      }
+
+      // Follow prompt (Q) — farmers only, not already following anyone
+      if (npc.role === 'farmer' && gs && gs.followNpcIdx < 0) {
+        const followText = `[Q] Follow ${npc.name}`;
+        ctx.font = 'bold 10px monospace'; const fw = ctx.measureText(followText).width;
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(tx-fw/2-5, ty-8, fw+10, 18);
+        ctx.fillStyle = '#aad4ff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(followText, tx, ty);
+      }
+    }
+  }
+}
+
+// ── Player ──
+
+function drawPlayer(ctx, p, cx, cy) {
+  const size = 28, half = size / 2;
+  const sx = p.x - cx, sy = p.y - cy;
+  const x = sx - half, y = sy - half;
+  ctx.fillStyle = 'rgba(0,0,0,0.2)';
+  ctx.beginPath(); ctx.ellipse(sx, sy+half+2, half*0.8, 4, 0, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#e8c170'; ctx.fillRect(x, y, size, size);
+  ctx.strokeStyle = '#b8914a'; ctx.lineWidth = 2; ctx.strokeRect(x, y, size, size);
+  ctx.fillStyle = '#d44'; ctx.beginPath();
+  switch (p.facing) {
+    case 'up':    ctx.moveTo(sx,y-4); ctx.lineTo(sx-5,y+2); ctx.lineTo(sx+5,y+2); break;
+    case 'down':  ctx.moveTo(sx,y+size+4); ctx.lineTo(sx-5,y+size-2); ctx.lineTo(sx+5,y+size-2); break;
+    case 'left':  ctx.moveTo(x-4,sy); ctx.lineTo(x+2,sy-5); ctx.lineTo(x+2,sy+5); break;
+    case 'right': ctx.moveTo(x+size+4,sy); ctx.lineTo(x+size-2,sy-5); ctx.lineTo(x+size-2,sy+5); break;
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+// ── Building prompt ──
+
+function drawBuildingPrompt(ctx, player, collection, cx, cy) {
+  for (const b of BUILDINGS) {
+    const bcx = (b.x + b.w/2) * TILE_SIZE, bcy = (b.y + b.h/2) * TILE_SIZE;
+    if (Math.hypot(player.x - bcx, player.y - bcy) < TILE_SIZE * 2.5) {
+      let label = b.name;
+      if (b.id === 'lab' && collection && !collection.labUnlocked) label = 'Lab (Locked)';
+      if (b.id === 'house') label = 'Craft';
+      if (b.id === 'study') label = "Dawkins' Study";
+      if (b.id === 'fern_house') label = "Fern's Cottage";
+      if (b.id === 'moss_house') label = "Moss's Cottage";
+      const text = (b.id === 'fern_house' || b.id === 'moss_house') ? label : `[Space] ${label}`;
+      const tx = bcx - cx, ty = b.y * TILE_SIZE - cy - 12;
+      ctx.font = 'bold 11px monospace'; const tw = ctx.measureText(text).width;
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(tx-tw/2-6, ty-9, tw+12, 20);
+      ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(text, tx, ty);
+    }
+  }
+}
+
+// ── HUD ──
+
+function drawHUD(ctx, gs, player, collection) {
+  ctx.fillStyle = '#12122a'; ctx.fillRect(0, HUD_Y, CANVAS_W, TILE_SIZE);
+  ctx.fillStyle = '#2a2a4a'; ctx.fillRect(0, HUD_Y, CANVAS_W, 2);
+  const midY = HUD_Y + TILE_SIZE / 2;
+
+  // Day + bar
+  ctx.fillStyle = '#ccc'; ctx.font = 'bold 13px monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(`Day ${gs.day}`, 8, midY - 10);
+  ctx.fillStyle = '#2a2a3a'; ctx.fillRect(8, midY+2, 50, 5);
+  ctx.fillStyle = '#e8b030'; ctx.fillRect(8, midY+2, 50*(gs.dayTimer/gs.DAY_LENGTH), 5);
+  // Time-skip indicator
+  if (gs.timeSkip) {
+    ctx.fillStyle = '#ffa'; ctx.font = 'bold 9px monospace';
+    ctx.fillText('>>>', 62, midY + 2);
+  }
+
+  // Wallet
+  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 16px monospace';
+  ctx.fillText(`${player.wallet}g`, 68, midY);
+
+  // Inventory
+  const inv = player.inventory;
+  const maxSlots = 9;
+  const totalW = maxSlots * (INV_SLOT + 2);
+  const slotX0 = (CANVAS_W - totalW) / 2;
+  const slotY = HUD_Y + 5;
+  for (let i = 0; i < maxSlots; i++) {
+    const sx = slotX0 + i * (INV_SLOT + 2);
+    const sel = i === player.selectedSlot;
+    ctx.fillStyle = sel ? 'rgba(255,220,50,0.15)' : 'rgba(255,255,255,0.04)';
+    ctx.fillRect(sx, slotY, INV_SLOT, INV_SLOT);
+    ctx.strokeStyle = sel ? '#ffd700' : '#3a3a5a';
+    ctx.lineWidth = sel ? 2 : 1;
+    ctx.strokeRect(sx, slotY, INV_SLOT, INV_SLOT);
+    ctx.fillStyle = sel ? '#ffd700' : '#555';
+    ctx.font = '8px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(String(i + 1), sx + 2, slotY + 1);
+    if (i < inv.length) {
+      const item = inv[i];
+      if (item.kind === 'material') {
+        drawMaterialSlot(ctx, item, sx, slotY, INV_SLOT);
+      } else if (item.kind === 'tool') {
+        drawToolSlot(ctx, item, sx, slotY, INV_SLOT);
+      } else if (item.kind === 'product') {
+        drawProductSlot(ctx, item, sx, slotY, INV_SLOT);
+      } else {
+        ctx.drawImage(getSprite(item, 28), sx + 5, slotY + 7);
+      }
+    }
+  }
+
+  // Selected item info
+  if (player.selectedSlot < inv.length) {
+    const item = inv[player.selectedSlot];
+    if (item.kind === 'material') {
+      drawMaterialHUDInfo(ctx, item, midY);
+    } else if (item.kind === 'tool') {
+      drawToolHUDInfo(ctx, item, midY);
+    } else if (item.kind === 'product') {
+      drawProductHUDInfo(ctx, item, midY);
+    } else {
+      const fg = item.farmGenes || { fertility: 2, longevity: 1, vigor: 2 };
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#aaa'; ctx.font = '11px monospace';
+      ctx.fillText(`M${item.mode} D${item.genes[8]}`, CANVAS_W - 100, midY - 12);
+      ctx.fillStyle = '#ffd700'; ctx.font = 'bold 11px monospace';
+      ctx.fillText(`~${sellPrice(item)}g`, CANVAS_W - 100, midY + 1);
+      ctx.fillStyle = '#888'; ctx.font = '10px monospace';
+      ctx.fillText(item.stage, CANVAS_W - 100, midY + 13);
+      ctx.fillStyle = '#7c7'; ctx.font = '10px monospace';
+      ctx.fillText(`F${fg.fertility} L${fg.longevity} V${fg.vigor}`, CANVAS_W - 10, midY - 12);
+      ctx.fillStyle = '#666'; ctx.font = '9px monospace';
+      ctx.fillText(farmLabel(fg), CANVAS_W - 10, midY + 1);
+      ctx.fillStyle = '#555'; ctx.font = '9px monospace';
+      ctx.fillText('[I] inventory', CANVAS_W - 10, midY + 13);
+    }
+  } else {
+    ctx.fillStyle = '#444'; ctx.font = '10px monospace';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText('empty', CANVAS_W - 10, midY);
+  }
+
+  if (collection && collection.discovered.size > 0) {
+    ctx.fillStyle = '#6af'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(`${collection.discovered.size} spp`, 8, midY + 14);
+  }
+
+  // Help / Pause hints
+  ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('[H] Help  [P] Pause', 8, HUD_Y + TILE_SIZE - 8);
+}
+
+// Draw a material item in a HUD slot
+function drawMaterialSlot(ctx, item, sx, sy, size) {
+  const mt = MATERIAL_TYPES[item.materialType];
+  if (!mt) return;
+  // Colored background square
+  ctx.fillStyle = mt.color;
+  ctx.globalAlpha = 0.3;
+  ctx.fillRect(sx + 4, sy + 6, size - 8, size - 12);
+  ctx.globalAlpha = 1;
+  // Icon letter
+  ctx.fillStyle = mt.color;
+  ctx.font = 'bold 16px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(mt.icon, sx + size / 2, sy + size / 2 - 1);
+  // Quantity
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 9px monospace';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+  ctx.fillText(String(item.quantity), sx + size - 3, sy + size - 1);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+}
+
+// Draw material info in the right side of HUD
+function drawMaterialHUDInfo(ctx, item, midY) {
+  const mt = MATERIAL_TYPES[item.materialType];
+  if (!mt) return;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = mt.color; ctx.font = 'bold 11px monospace';
+  ctx.fillText(`${mt.name} x${item.quantity}`, CANVAS_W - 100, midY - 12);
+  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 11px monospace';
+  ctx.fillText(`~${sellPrice(item)}g`, CANVAS_W - 100, midY + 1);
+  ctx.fillStyle = '#888'; ctx.font = '9px monospace';
+  ctx.fillText(`H:${item.sourceHardness} F:${item.sourceFlexibility}`, CANVAS_W - 10, midY - 12);
+  ctx.fillStyle = '#555'; ctx.font = '9px monospace';
+  ctx.fillText('[I] inventory', CANVAS_W - 10, midY + 13);
+}
+
+// ── Inventory overlay ──
+
+function drawInventoryOverlay(ctx, gs, player) {
+  ctx.fillStyle = '#0a0a18'; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  const ox = 60, oy = 40, ow = 840, oh = 680;
+  ctx.fillStyle = '#14142a'; ctx.fillRect(ox, oy, ow, oh);
+  ctx.strokeStyle = '#3a3a5a'; ctx.lineWidth = 2; ctx.strokeRect(ox, oy, ow, oh);
+  // Title bar
+  ctx.fillStyle = '#1e1e3e'; ctx.fillRect(ox, oy, ow, 38);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 16px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('Inventory', ox + ow/2, oy + 19);
+  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 14px monospace'; ctx.textAlign = 'right';
+  ctx.fillText(`${player.wallet}g`, ox + ow - 14, oy + 19);
+
+  // Grid on left
+  const gridX = ox + 24, gridY = oy + 58;
+  const CELL = 68, cols = 3;
+  drawItemCells(ctx, player.inventory, 9, cols, CELL, gridX, gridY, player.selectedSlot, true);
+
+  // Detail panel on right
+  const detX = gridX + cols * (CELL + 4) + 24;
+  const detY = oy + 56;
+  const detW = ox + ow - detX - 20;
+  const detH = oh - 100;
+  ctx.fillStyle = '#0e0e1e'; ctx.fillRect(detX, detY, detW, detH);
+  ctx.strokeStyle = '#2a2a3a'; ctx.lineWidth = 1; ctx.strokeRect(detX, detY, detW, detH);
+
+  if (player.selectedSlot < player.inventory.length) {
+    const item = player.inventory[player.selectedSlot];
+    if (item.kind === 'material') {
+      drawMaterialDetail(ctx, item, detX, detY, detW, detH);
+    } else if (item.kind === 'tool') {
+      drawToolDetail(ctx, item, detX, detY, detW, detH);
+    } else if (item.kind === 'product') {
+      drawProductDetail(ctx, item, detX, detY, detW, detH);
+    } else {
+      drawOrganismDetail(ctx, item, detX, detY, detW, detH);
+    }
+  } else {
+    ctx.fillStyle = '#444'; ctx.font = '14px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(player.inventory.length === 0 ? 'Inventory empty' : 'Select an item', detX + detW/2, detY + detH/2);
+  }
+  // Footer
+  ctx.fillStyle = '#555'; ctx.font = '11px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('[Arrows] navigate  [Esc] close', ox + ow/2, oy + oh - 10);
+}
+
+// Draw organism detail in inventory overlay
+function drawOrganismDetail(ctx, item, detX, detY, detW, detH) {
+  const fg = item.farmGenes || { fertility: 2, longevity: 1, vigor: 2 };
+  // Large sprite
+  const spriteSize = Math.min(180, detW - 40);
+  ctx.drawImage(getSprite(item, spriteSize), detX + (detW - spriteSize) / 2, detY + 12);
+  let iy = detY + spriteSize + 24;
+  // Title
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 16px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(`Mode ${item.mode} Biomorph`, detX + detW/2, iy); iy += 24;
+  ctx.fillStyle = '#aaa'; ctx.font = '12px monospace';
+  ctx.fillText(`Depth ${item.genes[8]}  \u2022  ${item.stage}`, detX + detW/2, iy); iy += 26;
+  // Farm traits
+  ctx.textAlign = 'left';
+  const traitX = detX + 16;
+  ctx.fillStyle = '#7c7'; ctx.font = '12px monospace';
+  ctx.fillText(`Fertility: ${fg.fertility}  (${fg.fertility === 1 ? 'rare' : fg.fertility >= 3 ? 'abundant' : 'normal'})`, traitX, iy); iy += 18;
+  ctx.fillText(`Longevity: ${fg.longevity}  (${fg.longevity === 1 ? 'annual' : fg.longevity === 3 ? 'perennial' : 'biennial'})`, traitX, iy); iy += 18;
+  ctx.fillText(`Vigor: ${fg.vigor}  (${fg.vigor === 1 ? 'slow' : fg.vigor === 3 ? 'fast' : 'normal'})`, traitX, iy); iy += 22;
+  // Color
+  ctx.fillStyle = '#888';
+  ctx.fillText(`Hue: ${item.colorGenes?.hue ?? '?'}  Spread: ${item.colorGenes?.spread ?? '?'}`, traitX, iy); iy += 22;
+  // Yields preview
+  const analysis = analyzeBiomorph(item.genes);
+  ctx.fillStyle = '#b8a040'; ctx.font = 'bold 11px monospace';
+  ctx.fillText('Yields:', traitX, iy); iy += 16;
+  ctx.font = '11px monospace';
+  const yields = [];
+  if (analysis.wood > 0) yields.push(`${analysis.wood} wood`);
+  if (analysis.fiber > 0) yields.push(`${analysis.fiber} fiber`);
+  if (analysis.fruit > 0) yields.push(`${analysis.fruit} fruit`);
+  if (analysis.resin > 0) yields.push(`${analysis.resin} resin`);
+  ctx.fillStyle = '#998';
+  ctx.fillText(yields.length > 0 ? yields.join(', ') : 'none', traitX, iy); iy += 16;
+  ctx.fillStyle = '#776'; ctx.font = '9px monospace';
+  ctx.fillText(`hardness: ${analysis.hardness}  flex: ${analysis.flexibility}`, traitX, iy); iy += 20;
+  // Genes
+  ctx.fillStyle = '#666'; ctx.font = '10px monospace';
+  const geneStr = item.genes.slice(0, 9).map((g, i) => `g${i+1}:${g}`).join(' ');
+  ctx.fillText(geneStr, traitX, iy); iy += 22;
+  // Value
+  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 16px monospace';
+  ctx.fillText(`~${sellPrice(item)}g`, traitX, iy);
+  ctx.fillStyle = '#888'; ctx.font = '11px monospace';
+  ctx.fillText(`  (buy: ${buyPrice(item)}g)`, traitX + 90, iy + 2);
+}
+
+// Draw material detail in inventory overlay
+function drawMaterialDetail(ctx, item, detX, detY, detW, detH) {
+  const mt = MATERIAL_TYPES[item.materialType];
+  if (!mt) return;
+
+  // Large icon
+  ctx.fillStyle = mt.color;
+  ctx.globalAlpha = 0.2;
+  ctx.fillRect(detX + detW/2 - 60, detY + 20, 120, 120);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = mt.color;
+  ctx.font = 'bold 64px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(mt.icon, detX + detW/2, detY + 80);
+
+  let iy = detY + 160;
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 18px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(`${mt.name} x${item.quantity}`, detX + detW/2, iy); iy += 30;
+
+  ctx.textAlign = 'left';
+  const traitX = detX + 16;
+  ctx.fillStyle = '#aaa'; ctx.font = '12px monospace';
+  ctx.fillText(`Hardness: ${item.sourceHardness}`, traitX, iy); iy += 20;
+  ctx.fillText(`Flexibility: ${item.sourceFlexibility}`, traitX, iy); iy += 30;
+
+  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 18px monospace';
+  ctx.fillText(`~${sellPrice(item)}g`, traitX, iy);
+}
+
+// ── Item Grid Helper ──
+
+function drawItemCells(ctx, items, maxSlots, cols, cellSize, x, y, selectedIdx, isActive) {
+  for (let i = 0; i < maxSlots; i++) {
+    const gc = i % cols, gr = Math.floor(i / cols);
+    const cx = x + gc * (cellSize + 4);
+    const cy = y + gr * (cellSize + 4);
+    const sel = i === selectedIdx;
+    ctx.fillStyle = sel && isActive ? 'rgba(255,220,50,0.12)' : 'rgba(255,255,255,0.03)';
+    ctx.fillRect(cx, cy, cellSize, cellSize);
+    ctx.strokeStyle = sel && isActive ? '#ffd700' : '#2a2a3a';
+    ctx.lineWidth = sel && isActive ? 2 : 1;
+    ctx.strokeRect(cx, cy, cellSize, cellSize);
+    ctx.fillStyle = '#444'; ctx.font = '9px monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(String(i + 1), cx + 3, cy + 2);
+    if (i < items.length) {
+      const item = items[i];
+      if (item.kind === 'material') {
+        drawMaterialSlot(ctx, item, cx, cy, cellSize);
+      } else if (item.kind === 'tool') {
+        drawToolSlot(ctx, item, cx, cy, cellSize);
+      } else if (item.kind === 'product') {
+        drawProductSlot(ctx, item, cx, cy, cellSize);
+      } else {
+        const spriteSize = cellSize - 20;
+        ctx.drawImage(getSprite(item, spriteSize), cx + 10, cy + 4);
+      }
+      ctx.fillStyle = '#aaa'; ctx.font = '9px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(`${sellPrice(item)}g`, cx + cellSize/2, cy + cellSize - 2);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    }
+  }
+}
+
+// ── Shop ──
+
+function drawShopOverlay(ctx, gs, player) {
+  overlayBg(ctx);
+  const ox = 50, oy = 50, ow = 860, oh = 640;
+  drawPanel(ctx, ox, oy, ow, oh, "Chip's Shop");
+  // Wallet
+  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 14px monospace';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(`${player.wallet}g`, ox + ow - 14, oy + 17);
+
+  const midX = ox + ow / 2;
+  const panelTop = oy + 48;
+  const CELL = 68, cols = 3;
+  const side = gs.shopSide || 0;
+
+  // Left: FOR SALE
+  ctx.fillStyle = side === 0 ? '#ffd700' : '#888';
+  ctx.font = 'bold 13px monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(side === 0 ? '\u25B8 FOR SALE' : '  FOR SALE', ox + 24, panelTop);
+  const shopGridX = ox + 34, shopGridY = panelTop + 24;
+  drawItemCells(ctx, gs.shopStock, Math.max(gs.shopStock.length, 3), cols, CELL,
+    shopGridX, shopGridY, side === 0 ? gs.shopCursor : -1, side === 0);
+
+  // Right: YOUR ITEMS
+  ctx.fillStyle = side === 1 ? '#ffd700' : '#888';
+  ctx.font = 'bold 13px monospace'; ctx.textAlign = 'left';
+  ctx.fillText(side === 1 ? '\u25B8 YOUR ITEMS' : '  YOUR ITEMS', midX + 24, panelTop);
+  const invGridX = midX + 34, invGridY = panelTop + 24;
+  drawItemCells(ctx, player.inventory, 9, cols, CELL,
+    invGridX, invGridY, side === 1 ? gs.shopCursor : -1, side === 1);
+
+  // Divider
+  ctx.fillStyle = '#2a2a4a'; ctx.fillRect(midX - 1, panelTop - 4, 2, 260);
+
+  // Detail area
+  const detY = panelTop + 270;
+  ctx.fillStyle = '#0e0e1e'; ctx.fillRect(ox + 12, detY, ow - 24, 140);
+  ctx.strokeStyle = '#2a2a3a'; ctx.lineWidth = 1; ctx.strokeRect(ox + 12, detY, ow - 24, 140);
+
+  const items = side === 0 ? gs.shopStock : player.inventory;
+  const idx = gs.shopCursor;
+  if (idx >= 0 && idx < items.length) {
+    const item = items[idx];
+    if (item.kind === 'material') {
+      // Material detail in shop
+      const mt = MATERIAL_TYPES[item.materialType];
+      if (mt) {
+        ctx.fillStyle = mt.color; ctx.font = 'bold 40px monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(mt.icon, ox + 80, detY + 70);
+        const infoX = ox + 160;
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(`${mt.name} x${item.quantity}`, infoX, detY + 14);
+        ctx.fillStyle = '#888'; ctx.font = '11px monospace';
+        ctx.fillText(`Hardness: ${item.sourceHardness}  Flex: ${item.sourceFlexibility}`, infoX, detY + 36);
+        const priceX = ox + ow - 200;
+        const price = sellPrice(item);
+        ctx.fillStyle = '#ffd700'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(`SELL ${price}g`, priceX, detY + 30);
+      }
+    } else if (item.kind === 'tool') {
+      // Tool detail in shop
+      const names = { hoe: 'Hoe', spear: 'Spear', axe: 'Axe' };
+      const color = TOOL_COLORS[item.toolType] || '#888';
+      ctx.fillStyle = color; ctx.font = 'bold 40px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(TOOL_LETTERS[item.toolType] || '?', ox + 80, detY + 70);
+      const infoX = ox + 160;
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(names[item.toolType] || item.toolType, infoX, detY + 14);
+      ctx.fillStyle = '#888'; ctx.font = '11px monospace';
+      ctx.fillText(`Durability: ${item.durability}/${item.maxDurability}`, infoX, detY + 36);
+      const priceX = ox + ow - 200;
+      const price = sellPrice(item);
+      ctx.fillStyle = '#ffd700'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(`SELL ${price}g`, priceX, detY + 30);
+    } else if (item.kind === 'product') {
+      // Product detail in shop
+      const names = { fence: 'Fence', preserves: 'Preserves' };
+      const color = PRODUCT_COLORS[item.productType] || '#888';
+      ctx.fillStyle = color; ctx.font = 'bold 40px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(PRODUCT_ICONS[item.productType] || '?', ox + 80, detY + 70);
+      const infoX = ox + 160;
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(`${names[item.productType] || item.productType} x${item.quantity}`, infoX, detY + 14);
+      const priceX = ox + ow - 200;
+      const price = sellPrice(item);
+      ctx.fillStyle = '#ffd700'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(`SELL ${price}g`, priceX, detY + 30);
+    } else {
+      const fg = item.farmGenes || { fertility: 2, longevity: 1, vigor: 2 };
+      ctx.drawImage(getSprite(item, 110), ox + 28, detY + 12);
+      const infoX = ox + 160;
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(`Mode ${item.mode}  Depth ${item.genes[8]}`, infoX, detY + 14);
+      ctx.fillStyle = '#7c7'; ctx.font = '12px monospace';
+      ctx.fillText(`F${fg.fertility} L${fg.longevity} V${fg.vigor}  \u2014  ${farmLabel(fg)}`, infoX, detY + 36);
+      ctx.fillStyle = '#888'; ctx.font = '11px monospace';
+      ctx.fillText(`Hue: ${item.colorGenes?.hue ?? '?'}  Spread: ${item.colorGenes?.spread ?? '?'}`, infoX, detY + 56);
+      // Price + action
+      const priceX = ox + ow - 200;
+      if (side === 0) {
+        const price = buyPrice(item);
+        ctx.fillStyle = player.wallet >= price ? '#ffd700' : '#f66';
+        ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(`BUY ${price}g`, priceX, detY + 30);
+        if (player.wallet < price) {
+          ctx.fillStyle = '#f66'; ctx.font = '11px monospace';
+          ctx.fillText('Not enough gold', priceX, detY + 56);
+        }
+      } else {
+        const price = sellPrice(item);
+        ctx.fillStyle = '#ffd700'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
+        ctx.fillText(`SELL ${price}g`, priceX, detY + 30);
+      }
+    }
+  } else {
+    ctx.fillStyle = '#444'; ctx.font = '13px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(
+      items.length === 0 ? (side === 0 ? 'Sold out! Come back tomorrow.' : 'Inventory empty') : 'Select an item',
+      ox + ow/2, detY + 70
+    );
+  }
+  // Footer
+  ctx.fillStyle = '#555'; ctx.font = '11px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('[Left/Right] switch  [Up/Down] select  [Space] buy/sell  [Esc] close', ox+ow/2, oy+oh-10);
+}
+
+// ── Lab ──
+
+function drawLabOverlay(ctx, lab, player) {
+  overlayBg(ctx);
+  const ox = 100, oy = 50, ow = 760, oh = 620;
+  drawPanel(ctx, ox, oy, ow, oh, 'Breeding Lab');
+  const cy = oy + 50;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  if (lab.step === 'select1') {
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace';
+    ctx.fillText('Select Parent 1  [press 1-9]', ox+20, cy);
+    drawInvGrid(ctx, player.inventory, player.selectedSlot, ox+20, cy+30, null, null);
+  } else if (lab.step === 'select2') {
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace';
+    ctx.fillText('Select Parent 2  [must be same mode]', ox+20, cy);
+    drawInvGrid(ctx, player.inventory, player.selectedSlot, ox+20, cy+30, lab.parent1Idx, '#58a6ff');
+  } else if (lab.step === 'offspring') {
+    ctx.fillStyle = '#aaa'; ctx.font = '12px monospace'; ctx.fillText('Parents:', ox+20, cy);
+    if (lab.parent1Idx < player.inventory.length) ctx.drawImage(getSprite(player.inventory[lab.parent1Idx], 52), ox+20, cy+18);
+    ctx.fillStyle = '#888'; ctx.font = '18px monospace'; ctx.fillText('\u00D7', ox+78, cy+34);
+    if (lab.parent2Idx < player.inventory.length) ctx.drawImage(getSprite(player.inventory[lab.parent2Idx], 52), ox+96, cy+18);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px monospace';
+    ctx.fillText('Pick 1-2 offspring, then [Space] to keep:', ox+20, cy+82);
+    for (let i = 0; i < lab.offspring.length; i++) {
+      const cx2 = ox + 20 + i * 175, cy2 = cy + 108;
+      const picked = lab.selectedOffspring.includes(i);
+      if (picked) {
+        ctx.fillStyle = 'rgba(80,200,80,0.12)'; ctx.fillRect(cx2-4, cy2-4, 164, 150);
+        ctx.strokeStyle = '#5c5'; ctx.lineWidth = 2; ctx.strokeRect(cx2-4, cy2-4, 164, 150);
+      }
+      ctx.drawImage(getSprite(lab.offspring[i], 100), cx2+28, cy2);
+      ctx.fillStyle = '#e0e0e0'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(`[${i+1}] D${lab.offspring[i].genes[8]} ${farmTraitLine(lab.offspring[i])}`, cx2+78, cy2+106);
+      ctx.fillStyle = '#7c7'; ctx.font = '9px monospace';
+      ctx.fillText(farmLabel(lab.offspring[i].farmGenes), cx2+78, cy2+120);
+      ctx.textAlign = 'left';
+    }
+  }
+  ctx.fillStyle = '#666'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('[Esc] close', ox+ow/2, oy+oh-18);
+}
+
+// ── Museum ──
+
+function drawMuseumOverlay(ctx, collection, gs) {
+  overlayBg(ctx);
+  const ox = 100, oy = 50, ow = 760, oh = 620;
+  drawPanel(ctx, ox, oy, ow, oh, 'Museum');
+  const cy = oy + 45;
+  ctx.fillStyle = '#aaa'; ctx.font = '12px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(`${collection.donated.length} specimens  \u00B7  ${collection.discovered.size} species`, ox+20, cy);
+  ctx.fillStyle = '#8af';
+  ctx.fillText(`Modes: ${collection.unlockedModes.join(', ')}  \u00B7  Sold: ${collection.totalSold}  \u00B7  Bred: ${collection.totalBred}`, ox+20, cy+18);
+  const gridX = ox + 20, gridY = cy + 44, cell = 68, cols = 9;
+  const scroll = gs.museumScroll || 0;
+  for (let i = scroll * cols; i < Math.min(collection.donated.length, (scroll + 7) * cols); i++) {
+    const d = collection.donated[i];
+    const gi = i - scroll * cols;
+    const gc = gi % cols, gr = Math.floor(gi / cols);
+    const cx2 = gridX + gc * (cell+3), cy2 = gridY + gr * (cell+3);
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fillRect(cx2, cy2, cell, cell);
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 1; ctx.strokeRect(cx2, cy2, cell, cell);
+    const fake = { kind:'organism', id:`m${i}`, genes:d.genes, mode:d.mode, colorGenes:d.colorGenes, farmGenes:d.farmGenes, stage:'mature', growthProgress:d.genes[8], matureDays:d.genes[8] };
+    ctx.drawImage(getSprite(fake, cell - 8), cx2 + 4, cy2 + 4);
+  }
+  if (collection.donated.length === 0) {
+    ctx.fillStyle = '#555'; ctx.font = '14px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('No specimens. [Space] to donate selected item.', ox+ow/2, gridY+50);
+  }
+  ctx.fillStyle = '#666'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('[Space] donate  [Up/Down] scroll  [Esc] close', ox+ow/2, oy+oh-18);
+}
+
+// ── Trade ──
+
+function drawTradeOverlay(ctx, gs, player, npcStates) {
+  overlayBg(ctx);
+  const ns = npcStates[gs.tradeNpcIdx]; const npc = NPCS[gs.tradeNpcIdx];
+  if (!ns || !npc) return;
+  const ox = 140, oy = 80, ow = 680, oh = 520;
+  drawPanel(ctx, ox, oy, ow, oh, `Trade with ${npc.name}`);
+  const colW = (ow - 60) / 2;
+  const leftX = ox + 20, rightX = ox + ow/2 + 10, topY = oy + 50;
+
+  ctx.fillStyle = npc.color; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(`${npc.name}'s Items`, leftX, topY);
+  const npcSel = gs.tradeCursor === 0;
+  for (let i = 0; i < ns.inventory.length; i++) {
+    const iy = topY + 24 + i * 64;
+    const sel = npcSel && gs.tradeNpcSlot === i;
+    if (sel) { ctx.fillStyle = 'rgba(255,220,50,0.1)'; ctx.fillRect(leftX-4, iy-2, colW, 60); }
+    ctx.drawImage(getSprite(ns.inventory[i], 44), leftX, iy);
+    ctx.fillStyle = '#e0e0e0'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(`M${ns.inventory[i].mode} D${ns.inventory[i].genes[8]} ${farmTraitLine(ns.inventory[i])}`, leftX+50, iy+8);
+    ctx.fillStyle = '#7c7'; ctx.font = '9px monospace'; ctx.fillText(farmLabel(ns.inventory[i].farmGenes), leftX+50, iy+22);
+    ctx.fillStyle = '#ffd700'; ctx.font = '11px monospace'; ctx.fillText(`~${sellPrice(ns.inventory[i])}g`, leftX+50, iy+36);
+    if (sel) { ctx.fillStyle = '#ffd700'; ctx.fillText('\u25B6', leftX-12, iy+14); }
+  }
+  if (ns.inventory.length === 0) { ctx.fillStyle = '#555'; ctx.font = '12px monospace'; ctx.fillText('Nothing to trade', leftX, topY+30); }
+
+  ctx.fillStyle = '#888'; ctx.font = '24px monospace'; ctx.textAlign = 'center'; ctx.fillText('\u21C4', ox+ow/2, topY+100);
+
+  ctx.fillStyle = '#e8c170'; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('Your Items', rightX, topY);
+  const plSel = gs.tradeCursor === 1;
+  for (let i = 0; i < Math.min(player.inventory.length, 7); i++) {
+    const iy = topY + 24 + i * 64;
+    const sel = plSel && gs.tradePlayerSlot === i;
+    if (sel) { ctx.fillStyle = 'rgba(255,220,50,0.1)'; ctx.fillRect(rightX-4, iy-2, colW, 60); }
+    const item = player.inventory[i];
+    if (item.kind === 'material') {
+      const mt = MATERIAL_TYPES[item.materialType];
+      if (mt) {
+        ctx.fillStyle = mt.color; ctx.font = 'bold 28px monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(mt.icon, rightX + 22, iy + 22);
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillStyle = '#e0e0e0'; ctx.font = '11px monospace';
+        ctx.fillText(`${mt.name} x${item.quantity}`, rightX+50, iy+8);
+        ctx.fillStyle = '#ffd700'; ctx.font = '11px monospace';
+        ctx.fillText(`~${sellPrice(item)}g`, rightX+50, iy+22);
+      }
+    } else if (item.kind === 'tool') {
+      const names = { hoe: 'Hoe', spear: 'Spear', axe: 'Axe' };
+      ctx.fillStyle = TOOL_COLORS[item.toolType] || '#888'; ctx.font = 'bold 28px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(TOOL_LETTERS[item.toolType] || '?', rightX + 22, iy + 22);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillStyle = '#e0e0e0'; ctx.font = '11px monospace';
+      ctx.fillText(names[item.toolType] || item.toolType, rightX+50, iy+8);
+      ctx.fillStyle = '#888'; ctx.font = '9px monospace';
+      ctx.fillText(`${item.durability}/${item.maxDurability}`, rightX+50, iy+22);
+      ctx.fillStyle = '#ffd700'; ctx.font = '11px monospace';
+      ctx.fillText(`~${sellPrice(item)}g`, rightX+50, iy+36);
+    } else if (item.kind === 'product') {
+      const names = { fence: 'Fence', preserves: 'Preserves' };
+      ctx.fillStyle = PRODUCT_COLORS[item.productType] || '#888'; ctx.font = 'bold 28px monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(PRODUCT_ICONS[item.productType] || '?', rightX + 22, iy + 22);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillStyle = '#e0e0e0'; ctx.font = '11px monospace';
+      ctx.fillText(`${names[item.productType]} x${item.quantity}`, rightX+50, iy+8);
+      ctx.fillStyle = '#ffd700'; ctx.font = '11px monospace';
+      ctx.fillText(`~${sellPrice(item)}g`, rightX+50, iy+22);
+    } else {
+      ctx.drawImage(getSprite(item, 44), rightX, iy);
+      ctx.fillStyle = '#e0e0e0'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+      ctx.fillText(`M${item.mode} D${item.genes[8]} ${farmTraitLine(item)}`, rightX+50, iy+8);
+      ctx.fillStyle = '#7c7'; ctx.font = '9px monospace'; ctx.fillText(farmLabel(item.farmGenes), rightX+50, iy+22);
+      ctx.fillStyle = '#ffd700'; ctx.font = '11px monospace'; ctx.fillText(`~${sellPrice(item)}g`, rightX+50, iy+36);
+    }
+    if (sel) { ctx.fillStyle = '#ffd700'; ctx.fillText('\u25B6', rightX-12, iy+14); }
+  }
+  if (player.inventory.length === 0) { ctx.fillStyle = '#555'; ctx.font = '12px monospace'; ctx.fillText('Inventory empty', rightX, topY+30); }
+
+  ctx.fillStyle = '#666'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('[L/R] side  [U/D] select  [Space] swap  [Esc] close', ox+ow/2, oy+oh-18);
+}
+
+// ── Crafting Overlay ──
+
+function drawCraftingOverlay(ctx, gs, player) {
+  overlayBg(ctx);
+  const ox = 80, oy = 50, ow = 800, oh = 650;
+  drawPanel(ctx, ox, oy, ow, oh, 'Crafting Table');
+
+  const leftW = 280;
+  const listX = ox + 16, listY = oy + 50;
+  const rightX = ox + leftW + 24;
+  const rightW = ow - leftW - 48;
+
+  // Left panel: recipe list
+  ctx.fillStyle = '#0e0e1e';
+  ctx.fillRect(listX, listY, leftW, oh - 80);
+  ctx.strokeStyle = '#2a2a3a'; ctx.lineWidth = 1;
+  ctx.strokeRect(listX, listY, leftW, oh - 80);
+
+  for (let i = 0; i < RECIPES.length; i++) {
+    const recipe = RECIPES[i];
+    const craftable = canCraft(recipe, player.inventory);
+    const sel = i === gs.craftCursor;
+    const ry = listY + 8 + i * 56;
+
+    if (sel) {
+      ctx.fillStyle = 'rgba(255,220,50,0.1)';
+      ctx.fillRect(listX + 2, ry - 4, leftW - 4, 52);
+    }
+
+    ctx.fillStyle = sel ? '#ffd700' : (craftable ? '#ccc' : '#555');
+    ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(recipe.name, listX + 12, ry);
+
+    ctx.fillStyle = sel ? '#aaa' : (craftable ? '#888' : '#444');
+    ctx.font = '10px monospace';
+    ctx.fillText(recipe.desc, listX + 12, ry + 18);
+
+    // Craftable indicator
+    if (craftable) {
+      ctx.fillStyle = '#5c5'; ctx.font = 'bold 10px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('READY', listX + leftW - 10, ry + 4);
+      ctx.textAlign = 'left';
+    }
+
+    // Output kind
+    ctx.fillStyle = recipe.outputKind === 'tool' ? '#6af' : '#fa6';
+    ctx.font = '9px monospace';
+    ctx.fillText(recipe.outputKind === 'tool' ? 'TOOL' : `PRODUCT x${recipe.productQty}`, listX + 12, ry + 34);
+  }
+
+  // Right panel: selected recipe detail
+  const recipe = RECIPES[gs.craftCursor];
+  if (recipe) {
+    ctx.fillStyle = '#0e0e1e';
+    ctx.fillRect(rightX, listY, rightW, oh - 80);
+    ctx.strokeStyle = '#2a2a3a'; ctx.lineWidth = 1;
+    ctx.strokeRect(rightX, listY, rightW, oh - 80);
+
+    let iy = listY + 16;
+    const cx = rightX + 20;
+
+    // Recipe name
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 20px monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(recipe.name, cx, iy); iy += 30;
+
+    // Description
+    ctx.fillStyle = '#aaa'; ctx.font = '12px monospace';
+    ctx.fillText(recipe.desc, cx, iy); iy += 28;
+
+    // Output type
+    const outputLabel = recipe.outputKind === 'tool'
+      ? `Creates: ${recipe.toolType} (tool)`
+      : `Creates: ${recipe.productType} x${recipe.productQty}`;
+    ctx.fillStyle = recipe.outputKind === 'tool' ? '#6af' : '#fa6';
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText(outputLabel, cx, iy); iy += 32;
+
+    // Inputs header
+    ctx.fillStyle = '#ccc'; ctx.font = 'bold 13px monospace';
+    ctx.fillText('Materials needed:', cx, iy); iy += 22;
+
+    for (const req of recipe.inputs) {
+      const mat = player.inventory.find(item => item.kind === 'material' && item.materialType === req.type);
+      const have = mat ? mat.quantity : 0;
+      const met = have >= req.qty;
+      ctx.fillStyle = met ? '#5c5' : '#f55';
+      ctx.font = '12px monospace';
+      const NAMES = { wood: 'Wood', fiber: 'Fiber', fruit: 'Fruit', resin: 'Resin' };
+      ctx.fillText(`${met ? '\u2713' : '\u2717'} ${NAMES[req.type] || req.type}: ${have}/${req.qty}`, cx + 8, iy);
+      iy += 20;
+    }
+
+    // Quality gate
+    if (recipe.qualityGate) {
+      iy += 8;
+      const gate = recipe.qualityGate;
+      const mat = player.inventory.find(item => item.kind === 'material' && item.materialType === gate.material);
+      const val = mat ? (mat[gate.trait] || 0) : 0;
+      const met = val >= gate.min;
+      const NAMES = { wood: 'Wood', fiber: 'Fiber', fruit: 'Fruit', resin: 'Resin' };
+      const traitName = gate.trait === 'sourceHardness' ? 'hardness' : 'flexibility';
+      ctx.fillStyle = met ? '#5c5' : '#f55';
+      ctx.font = '12px monospace';
+      ctx.fillText(`${met ? '\u2713' : '\u2717'} ${NAMES[gate.material]} ${traitName}: ${val.toFixed(2)} (need ${gate.min})`, cx + 8, iy);
+      iy += 20;
+    }
+
+    // Tool durability preview
+    if (recipe.outputKind === 'tool') {
+      iy += 16;
+      const woodMat = player.inventory.find(item => item.kind === 'material' && item.materialType === 'wood');
+      const h = woodMat ? (woodMat.sourceHardness || 0) : 0;
+      const BASE_DUR = { hoe: 15, spear: 12, axe: 8 };
+      const dur = (BASE_DUR[recipe.toolType] || 10) + Math.floor(h * 10);
+      ctx.fillStyle = '#888'; ctx.font = '11px monospace';
+      ctx.fillText(`Durability: ${dur} uses`, cx, iy); iy += 16;
+      ctx.fillStyle = '#666'; ctx.font = '9px monospace';
+      ctx.fillText(`(base ${BASE_DUR[recipe.toolType]} + hardness bonus)`, cx, iy);
+    }
+  }
+
+  // Footer
+  ctx.fillStyle = '#555'; ctx.font = '11px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('[Up/Down] select  [Space] craft  [S] save  [Esc] close', ox + ow/2, oy + oh - 10);
+}
+
+// ── Tool/Product Slot Renderers ──
+
+const TOOL_COLORS = { hoe: '#8B6914', spear: '#708090', axe: '#B0B0B0' };
+const TOOL_LETTERS = { hoe: 'H', spear: 'S', axe: 'A' };
+
+function drawToolSlot(ctx, tool, sx, sy, size) {
+  const color = TOOL_COLORS[tool.toolType] || '#888';
+  // Background
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.2;
+  ctx.fillRect(sx + 4, sy + 4, size - 8, size - 14);
+  ctx.globalAlpha = 1;
+  // Letter icon
+  ctx.fillStyle = color;
+  ctx.font = 'bold 18px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(TOOL_LETTERS[tool.toolType] || '?', sx + size / 2, sy + size / 2 - 4);
+  // Durability bar
+  const barX = sx + 4, barY = sy + size - 7, barW = size - 8, barH = 3;
+  const ratio = tool.durability / tool.maxDurability;
+  ctx.fillStyle = '#333';
+  ctx.fillRect(barX, barY, barW, barH);
+  ctx.fillStyle = ratio > 0.5 ? '#5c5' : ratio > 0.2 ? '#cc5' : '#f55';
+  ctx.fillRect(barX, barY, barW * ratio, barH);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+}
+
+const PRODUCT_COLORS = { fence: '#8B6914', preserves: '#B03030' };
+const PRODUCT_ICONS = { fence: '#', preserves: 'P' };
+
+function drawProductSlot(ctx, product, sx, sy, size) {
+  const color = PRODUCT_COLORS[product.productType] || '#888';
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.25;
+  ctx.fillRect(sx + 4, sy + 6, size - 8, size - 12);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = color;
+  ctx.font = 'bold 16px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(PRODUCT_ICONS[product.productType] || '?', sx + size / 2, sy + size / 2 - 1);
+  // Quantity
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 9px monospace';
+  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+  ctx.fillText(String(product.quantity), sx + size - 3, sy + size - 1);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+}
+
+// ── Tool/Product HUD Info ──
+
+function drawToolHUDInfo(ctx, tool, midY) {
+  const names = { hoe: 'Hoe', spear: 'Spear', axe: 'Axe' };
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = TOOL_COLORS[tool.toolType] || '#888';
+  ctx.font = 'bold 11px monospace';
+  ctx.fillText(names[tool.toolType] || tool.toolType, CANVAS_W - 100, midY - 12);
+  // Durability bar text
+  const ratio = tool.durability / tool.maxDurability;
+  const filled = Math.round(ratio * 8);
+  const bar = '[' + '|'.repeat(filled) + '.'.repeat(8 - filled) + ']';
+  ctx.fillStyle = ratio > 0.5 ? '#5c5' : ratio > 0.2 ? '#cc5' : '#f55';
+  ctx.font = '11px monospace';
+  ctx.fillText(bar, CANVAS_W - 10, midY - 12);
+  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 11px monospace';
+  ctx.fillText(`~${sellPrice(tool)}g`, CANVAS_W - 100, midY + 1);
+  ctx.fillStyle = '#888'; ctx.font = '9px monospace';
+  ctx.fillText(`${tool.durability}/${tool.maxDurability}`, CANVAS_W - 10, midY + 1);
+  ctx.fillStyle = '#555'; ctx.font = '9px monospace';
+  ctx.fillText('[I] inventory', CANVAS_W - 10, midY + 13);
+}
+
+function drawProductHUDInfo(ctx, product, midY) {
+  const names = { fence: 'Fence', preserves: 'Preserves' };
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = PRODUCT_COLORS[product.productType] || '#888';
+  ctx.font = 'bold 11px monospace';
+  ctx.fillText(`${names[product.productType] || product.productType} x${product.quantity}`, CANVAS_W - 100, midY - 12);
+  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 11px monospace';
+  ctx.fillText(`~${sellPrice(product)}g`, CANVAS_W - 100, midY + 1);
+  ctx.fillStyle = '#555'; ctx.font = '9px monospace';
+  ctx.fillText('[I] inventory', CANVAS_W - 10, midY + 13);
+}
+
+// ── Tool/Product Detail Panels ──
+
+function drawToolDetail(ctx, tool, detX, detY, detW, detH) {
+  const names = { hoe: 'Hoe', spear: 'Spear', axe: 'Axe' };
+  const descs = {
+    hoe: 'Plows 2 tiles at once',
+    spear: 'Forages materials from wild trees',
+    axe: 'Chops wild trees for 2x materials',
+  };
+  const color = TOOL_COLORS[tool.toolType] || '#888';
+
+  // Large icon
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.15;
+  ctx.fillRect(detX + detW/2 - 60, detY + 20, 120, 120);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = color;
+  ctx.font = 'bold 64px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(TOOL_LETTERS[tool.toolType] || '?', detX + detW/2, detY + 80);
+
+  let iy = detY + 160;
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 18px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(names[tool.toolType] || tool.toolType, detX + detW/2, iy); iy += 26;
+
+  ctx.fillStyle = '#aaa'; ctx.font = '12px monospace';
+  ctx.fillText(descs[tool.toolType] || '', detX + detW/2, iy); iy += 30;
+
+  // Durability bar
+  ctx.textAlign = 'left';
+  const traitX = detX + 16;
+  ctx.fillStyle = '#ccc'; ctx.font = '12px monospace';
+  ctx.fillText(`Durability: ${tool.durability} / ${tool.maxDurability}`, traitX, iy); iy += 20;
+
+  const barX = traitX, barW = detW - 32, barH = 8;
+  const ratio = tool.durability / tool.maxDurability;
+  ctx.fillStyle = '#333'; ctx.fillRect(barX, iy, barW, barH);
+  ctx.fillStyle = ratio > 0.5 ? '#5c5' : ratio > 0.2 ? '#cc5' : '#f55';
+  ctx.fillRect(barX, iy, barW * ratio, barH);
+  iy += 24;
+
+  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 18px monospace';
+  ctx.fillText(`~${sellPrice(tool)}g`, traitX, iy);
+}
+
+function drawProductDetail(ctx, product, detX, detY, detW, detH) {
+  const names = { fence: 'Fence', preserves: 'Preserves' };
+  const descs = {
+    fence: 'Placeable barrier tile',
+    preserves: 'High sell value trade good',
+  };
+  const color = PRODUCT_COLORS[product.productType] || '#888';
+
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.15;
+  ctx.fillRect(detX + detW/2 - 60, detY + 20, 120, 120);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = color;
+  ctx.font = 'bold 64px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(PRODUCT_ICONS[product.productType] || '?', detX + detW/2, detY + 80);
+
+  let iy = detY + 160;
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 18px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(`${names[product.productType] || product.productType} x${product.quantity}`, detX + detW/2, iy); iy += 26;
+
+  ctx.fillStyle = '#aaa'; ctx.font = '12px monospace';
+  ctx.fillText(descs[product.productType] || '', detX + detW/2, iy); iy += 30;
+
+  ctx.textAlign = 'left';
+  const traitX = detX + 16;
+  ctx.fillStyle = '#ffd700'; ctx.font = 'bold 18px monospace';
+  ctx.fillText(`~${sellPrice(product)}g`, traitX, iy);
+}
+
+// ── Speech Bubble ──
+
+function drawSpeechBubble(ctx, text, screenX, screenY) {
+  ctx.font = '12px monospace';
+  // Word-wrap to ~200px
+  const maxW = 200;
+  const words = text.split(' ');
+  const lines = [];
+  let current = '';
+  for (const w of words) {
+    const test = current ? current + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW) {
+      if (current) lines.push(current);
+      current = w;
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+
+  const lineH = 16;
+  const pad = 10;
+  const bubbleW = Math.min(maxW + pad * 2, Math.max(...lines.map(l => ctx.measureText(l).width)) + pad * 2);
+  const bubbleH = lines.length * lineH + pad * 2;
+  const bx = screenX - bubbleW / 2;
+  const by = screenY - 30 - bubbleH;
+
+  // Background
+  ctx.fillStyle = 'rgba(34, 34, 34, 0.88)';
+  const r = 6;
+  ctx.beginPath();
+  ctx.moveTo(bx + r, by);
+  ctx.lineTo(bx + bubbleW - r, by);
+  ctx.quadraticCurveTo(bx + bubbleW, by, bx + bubbleW, by + r);
+  ctx.lineTo(bx + bubbleW, by + bubbleH - r);
+  ctx.quadraticCurveTo(bx + bubbleW, by + bubbleH, bx + bubbleW - r, by + bubbleH);
+  ctx.lineTo(bx + r, by + bubbleH);
+  ctx.quadraticCurveTo(bx, by + bubbleH, bx, by + bubbleH - r);
+  ctx.lineTo(bx, by + r);
+  ctx.quadraticCurveTo(bx, by, bx + r, by);
+  ctx.closePath();
+  ctx.fill();
+
+  // Triangle pointer
+  ctx.beginPath();
+  ctx.moveTo(screenX - 6, by + bubbleH);
+  ctx.lineTo(screenX, by + bubbleH + 8);
+  ctx.lineTo(screenX + 6, by + bubbleH);
+  ctx.closePath();
+  ctx.fill();
+
+  // Text
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], screenX, by + pad + i * lineH);
+  }
+}
+
+// ── Dawkins Overlay ──
+
+function drawDawkinsOverlay(ctx, gs) {
+  const ds = gs.dawkinsState;
+  if (!ds || !ds.currentVisit) return;
+
+  overlayBg(ctx);
+
+  const ox = 120, oy = 60, ow = 720, oh = 600;
+
+  // Background — warm study tones
+  ctx.fillStyle = '#3a2a1a';
+  ctx.fillRect(ox, oy, ow, oh);
+  ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 2;
+  ctx.strokeRect(ox, oy, ow, oh);
+
+  // Header bar
+  ctx.fillStyle = '#2a1a0a';
+  ctx.fillRect(ox, oy, ow, 40);
+  ctx.fillStyle = '#f0e8d8'; ctx.font = 'bold 15px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const visitNum = ds.completedVisits + 1;
+  ctx.fillText(`Visit ${visitNum}: ${ds.currentVisit.title}`, ox + ow / 2, oy + 20);
+
+  const line = getCurrentLine(ds);
+  const contentY = oy + 56;
+  const contentH = oh - 56 - 40; // minus header and footer
+
+  if (!line) return;
+
+  if (ds.choiceActive && line.speaker === 'player_choice' && line.options) {
+    // Player choice mode
+    ctx.fillStyle = '#d4c8a8'; ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('Choose your response:', ox + 40, contentY + 20);
+
+    for (let i = 0; i < line.options.length; i++) {
+      const optY = contentY + 60 + i * 40;
+      const sel = i === ds.choiceCursor;
+      if (sel) {
+        ctx.fillStyle = 'rgba(240,232,216,0.1)';
+        ctx.fillRect(ox + 30, optY - 4, ow - 60, 32);
+      }
+      ctx.fillStyle = sel ? '#ffd700' : '#d4c8a8';
+      ctx.font = sel ? 'bold 14px monospace' : '14px monospace';
+      ctx.fillText(sel ? '\u25B8 ' + line.options[i].label : '  ' + line.options[i].label, ox + 40, optY + 4);
+    }
+
+    // Footer
+    ctx.fillStyle = '#8a7a5a'; ctx.font = '11px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('[Up/Down] select  [Space] choose  [Esc] close', ox + ow / 2, oy + oh - 12);
+  } else if (line.interactive) {
+    // Interactive placeholder
+    ctx.fillStyle = '#d4c8a8'; ctx.font = '14px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Dawkins invites you to try the Mac...', ox + ow / 2, oy + oh / 2 - 30);
+    ctx.fillStyle = '#8a7a5a'; ctx.font = 'italic 12px monospace';
+    ctx.fillText(line.interactive.prompt || '[Coming soon]', ox + ow / 2, oy + oh / 2 + 10);
+    ctx.fillStyle = '#6a5a3a';
+    ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 1;
+    ctx.strokeRect(ox + ow / 2 - 120, oy + oh / 2 - 50, 240, 80);
+
+    // Footer
+    ctx.fillStyle = '#8a7a5a'; ctx.font = '11px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('[Space] continue  [Esc] close', ox + ow / 2, oy + oh - 12);
+  } else {
+    // Normal dialogue line
+    // Speaker label
+    ctx.fillStyle = '#b0a080'; ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    const speaker = line.speaker === 'dawkins' ? 'R. Dawkins' : line.speaker;
+    ctx.fillText(speaker, ox + 40, contentY + 16);
+
+    // Main text — word-wrap
+    ctx.fillStyle = '#f0e8d8'; ctx.font = '15px Georgia, serif';
+    const textLines = wrapText(ctx, line.text || '', ow - 100);
+    for (let i = 0; i < textLines.length; i++) {
+      ctx.fillText(textLines[i], ox + 40, contentY + 44 + i * 24);
+    }
+
+    // Tone/gesture
+    const metaY = contentY + 44 + textLines.length * 24 + 16;
+    if (line.tone || line.gesture) {
+      ctx.fillStyle = '#7a6a4a'; ctx.font = 'italic 11px monospace';
+      const meta = [line.tone, line.gesture].filter(Boolean).join(' \u2014 ');
+      ctx.fillText(meta, ox + 40, metaY);
+    }
+
+    // Progress indicator
+    ctx.fillStyle = '#6a5a3a'; ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`${ds.lineIdx + 1} / ${ds.currentVisit.lines.length}`, ox + ow - 20, contentY + 16);
+
+    // Footer
+    ctx.fillStyle = '#8a7a5a'; ctx.font = '11px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    ctx.fillText('[Space] continue  [Esc] close', ox + ow / 2, oy + oh - 12);
+  }
+}
+
+function wrapText(ctx, text, maxWidth) {
+  const words = text.split(' ');
+  const lines = [];
+  let current = '';
+  for (const w of words) {
+    const test = current ? current + ' ' + w : w;
+    if (ctx.measureText(test).width > maxWidth) {
+      if (current) lines.push(current);
+      current = w;
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
+// ── Help Overlay ──
+
+function drawHelpOverlay(ctx) {
+  overlayBg(ctx);
+  const pw = 500, ph = 582;
+  const px = (CANVAS_W - pw) / 2, py = (CANVAS_H - ph) / 2 - 20;
+  drawPanel(ctx, px, py, pw, ph, 'Keyboard Commands');
+
+  const commands = [
+    ['Arrow Keys', 'Move'],
+    ['Space', 'Interact / Plant / Harvest'],
+    ['I  or  Enter', 'Open Inventory'],
+    ['1 \u2013 9', 'Select inventory slot'],
+    ['Escape', 'Close menu'],
+    ['T (hold)', 'Fast-forward time'],
+    ['H', 'Toggle this help screen'],
+    ['M', 'Toggle music'],
+    ['V', 'Toggle voice'],
+    ['P  or  Esc', 'Pause / Resume'],
+    ['Q', 'Follow nearby farmer NPC'],
+    ['F', 'Toggle auto-follow (tutorial)'],
+    ['S', 'Save (in crafting menu)'],
+    ['Right-drag', 'Pan camera'],
+  ];
+
+  const col1 = px + 40;
+  const col2 = px + 200;
+  const startY = py + 54;
+  const rowH = 34;
+
+  ctx.textBaseline = 'middle';
+
+  for (let i = 0; i < commands.length; i++) {
+    const y = startY + i * rowH;
+    // Key column
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#8ab4f8';
+    ctx.fillText(commands[i][0], col1, y + rowH / 2);
+    // Description column
+    ctx.font = '13px monospace';
+    ctx.fillStyle = '#ccc';
+    ctx.fillText(commands[i][1], col2, y + rowH / 2);
+  }
+
+  // Footer
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#888';
+  ctx.fillText('[H] or [Esc] to close', px + pw / 2, py + ph - 18);
+}
+
+// ── Pause Overlay ──
+
+function drawPauseOverlay(ctx) {
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#e0e0e0';
+  ctx.font = 'bold 40px monospace';
+  ctx.fillText('PAUSED', CANVAS_W / 2, CANVAS_H / 2 - 20);
+  ctx.fillStyle = '#888';
+  ctx.font = '14px monospace';
+  ctx.fillText('[P] Resume', CANVAS_W / 2, CANVAS_H / 2 + 24);
+}
+
+// ── Settings Indicators ──
+
+function drawSettingsIndicators(ctx, gs) {
+  const s = gs.audioSettings;
+  if (!s) return;
+  const tutActive = gs.tutorialState && gs.tutorialState.active && !gs.tutorialState.completed;
+
+  ctx.font = '10px monospace';
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'right';
+
+  let x = CANVAS_W - 8;
+  const y = 6;
+
+  // Music toggle
+  ctx.fillStyle = s.musicEnabled ? 'rgba(100,200,100,0.7)' : 'rgba(120,120,120,0.5)';
+  ctx.fillText(`[M] Music ${s.musicEnabled ? 'ON' : 'OFF'}`, x, y);
+
+  // Voice toggle
+  x -= 110;
+  ctx.fillStyle = s.voiceEnabled ? 'rgba(100,200,100,0.7)' : 'rgba(120,120,120,0.5)';
+  ctx.fillText(`[V] Voice ${s.voiceEnabled ? 'ON' : 'OFF'}`, x, y);
+
+  // Auto-follow toggle (always shown, not just during tutorial)
+  x -= 110;
+  ctx.fillStyle = s.autoFollow ? 'rgba(100,200,100,0.7)' : 'rgba(120,120,120,0.5)';
+  ctx.fillText(`[F] Follow ${s.autoFollow ? 'ON' : 'OFF'}`, x, y);
+
+  // Follow NPC indicator
+  if (gs.followNpcIdx >= 0) {
+    const npc = NPCS[gs.followNpcIdx];
+    if (npc) {
+      const followText = `Following ${npc.name}`;
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,215,0,0.85)';
+      ctx.fillText(followText, CANVAS_W / 2, 6);
+      ctx.font = '9px monospace';
+      ctx.fillStyle = 'rgba(200,200,200,0.6)';
+      ctx.fillText('[Q] or Arrow keys to stop', CANVAS_W / 2, 20);
+    }
+  }
+}
+
+// ── Helpers ──
+
+function overlayBg(ctx) { ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H); }
+
+function drawPanel(ctx, x, y, w, h, title) {
+  ctx.fillStyle = '#14142a'; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = '#3a3a5a'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+  ctx.fillStyle = '#1e1e3e'; ctx.fillRect(x, y, w, 34);
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 15px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(title, x+w/2, y+17);
+}
+
+function drawInvGrid(ctx, inv, selectedSlot, x, y, highlightIdx, hlColor) {
+  const cell = 56, cols = 9;
+  for (let i = 0; i < Math.max(inv.length, 1); i++) {
+    const gc = i%cols, gr = Math.floor(i/cols);
+    const cx = x + gc*(cell+4), cy = y + gr*(cell+14);
+    ctx.fillStyle = i===selectedSlot ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.03)';
+    ctx.fillRect(cx, cy, cell, cell);
+    if (i === highlightIdx) { ctx.strokeStyle = hlColor; ctx.lineWidth = 3; ctx.strokeRect(cx-1,cy-1,cell+2,cell+2); }
+    else { ctx.strokeStyle = '#3a3a5a'; ctx.lineWidth = 1; ctx.strokeRect(cx,cy,cell,cell); }
+    ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(String(i+1), cx+2, cy+1);
+    if (i < inv.length) {
+      const item = inv[i];
+      if (item.kind === 'material') {
+        drawMaterialSlot(ctx, item, cx, cy, cell);
+      } else if (item.kind === 'tool') {
+        drawToolSlot(ctx, item, cx, cy, cell);
+      } else if (item.kind === 'product') {
+        drawProductSlot(ctx, item, cx, cy, cell);
+      } else {
+        ctx.drawImage(getSprite(item, 42), cx+7, cy+9);
+      }
+      ctx.fillStyle = '#888'; ctx.font = '8px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(`${sellPrice(item)}g`, cx+cell/2, cy+cell+1); ctx.textAlign = 'left';
+    }
+  }
+}
+
+function farmLabel(fg) {
+  if (!fg) return 'common';
+  const parts = [];
+  if (fg.fertility >= 3) parts.push('fertile');
+  else if (fg.fertility === 1) parts.push('rare');
+  if (fg.longevity >= 2) parts.push(fg.longevity === 3 ? 'perennial' : 'hardy');
+  if (fg.vigor === 3) parts.push('fast');
+  else if (fg.vigor === 1) parts.push('slow');
+  return parts.length ? parts.join(', ') : 'common';
+}
+
+function farmTraitLine(org) {
+  const fg = org.farmGenes || { fertility: 2, longevity: 1, vigor: 2 };
+  return `F${fg.fertility} L${fg.longevity} V${fg.vigor}`;
+}
+
+function drawMessage(ctx, text) {
+  ctx.font = 'bold 15px monospace';
+  const tw = ctx.measureText(text).width;
+  const mx = CANVAS_W / 2, my = HUD_Y - 28;
+  ctx.fillStyle = 'rgba(0,0,0,0.8)';
+  ctx.fillRect(mx-tw/2-14, my-13, tw+28, 28);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
+  ctx.strokeRect(mx-tw/2-14, my-13, tw+28, 28);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, mx, my);
+}
