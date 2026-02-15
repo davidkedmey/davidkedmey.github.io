@@ -159,7 +159,7 @@ function deserializeItem(data) {
 }
 
 function serializeOrganism(org) {
-  return {
+  const data = {
     kind: org.kind || 'organism',
     id: org.id,
     genes: org.genes,
@@ -174,6 +174,8 @@ function serializeOrganism(org) {
     tileCol: org.tileCol,
     tileRow: org.tileRow,
   };
+  if (org.nickname) data.nickname = org.nickname;
+  return data;
 }
 
 function deserializeOrganism(data) {

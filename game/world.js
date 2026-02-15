@@ -91,3 +91,11 @@ export function nearbyBuilding(px, py) {
   }
   return null;
 }
+
+export function buildingDoorPos(building) {
+  const cx = (building.x + building.w / 2) * TILE_SIZE;
+  if (building.doorSide === 'top') {
+    return { x: cx, y: building.y * TILE_SIZE - TILE_SIZE * 0.5 };
+  }
+  return { x: cx, y: (building.y + building.h) * TILE_SIZE + TILE_SIZE * 0.5 };
+}

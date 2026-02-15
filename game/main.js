@@ -1,6 +1,6 @@
 // Entry point: init, RAF game loop, day cycle
 
-import { createWorld, TILE, tileAt, isSolid, TILE_SIZE, COLS, ROWS, nearbyBuilding } from './world.js';
+import { createWorld, TILE, tileAt, isSolid, TILE_SIZE, COLS, ROWS, nearbyBuilding, BUILDINGS, buildingDoorPos } from './world.js';
 import { createPlayer, updatePlayer, facingTile } from './player.js';
 import { createInput } from './input.js';
 import { render, updateCamera, CANVAS_W, CANVAS_H } from './renderer.js';
@@ -129,6 +129,10 @@ const gameState = {
   spectator: null,
   // Command bar
   commandBar: { active: false, text: '' },
+  // Auto-walk target (set by /go command)
+  walkTarget: null, // { x, y, label, onArrive?, npcIdx? }
+  // Dance spin timer
+  playerSpin: 0,
   // Pause
   paused: false,
   // Camera pan (right-click drag)
@@ -204,7 +208,8 @@ function doSave() {
 }
 
 function showMessage(text, duration) {
-  gameState.message = { text, timer: duration || 2.5 };
+  const lines = Array.isArray(text) ? text : [text];
+  gameState.message = { lines, timer: duration || 2.5 };
 }
 
 // ── World Actions ──
@@ -404,12 +409,7 @@ function handleWorldAction() {
 
   // Plow
   if (tile === TILE.GRASS) {
-    if (!isPlayerProperty(ft.col, ft.row)) {
-      showMessage("That's someone else's property!");
-      return;
-    }
-    world[ft.row][ft.col] = TILE.DIRT;
-    showMessage('Plowed!');
+    doPlow();
     return;
   }
 
@@ -419,66 +419,15 @@ function handleWorldAction() {
       showMessage("That's someone else's property!");
       return;
     }
-
     const existing = planted.find(o => o.tileCol === ft.col && o.tileRow === ft.row);
-
-    if (existing && existing.stage === 'mature') {
-      const result = harvest(existing);
-      for (const s of result.seeds) player.inventory.push(s);
-
-      // Harvest materials from the organism
-      const materials = harvestMaterials(existing);
-      const matParts = [];
-      for (const mat of materials) {
-        addMaterialToInventory(player.inventory, mat);
-        const mt = MATERIAL_TYPES[mat.materialType];
-        matParts.push(`+${mat.quantity} ${mt.name.toLowerCase()}`);
-      }
-
-      if (result.plantDied) {
-        // Annual or final harvest — remove from ground, add to inventory
-        planted.splice(planted.indexOf(existing), 1);
-        existing.tileCol = null;
-        existing.tileRow = null;
-        player.inventory.push(existing);
-        const matStr = matParts.length > 0 ? `, ${matParts.join(', ')}` : '';
-        showMessage(`Harvested! +${result.seeds.length} seed${result.seeds.length > 1 ? 's' : ''}${matStr}`);
-      } else {
-        // Perennial — stays planted, regrows
-        const matStr = matParts.length > 0 ? ` ${matParts.join(', ')}` : '';
-        showMessage(`Harvested +${result.seeds.length} seed${result.seeds.length > 1 ? 's' : ''}!${matStr} (${existing.harvestsLeft} left)`);
-      }
-      return;
-    }
+    if (existing && existing.stage === 'mature') { doHarvest(); return; }
     if (existing && existing.stage === 'growing') {
       const left = existing.matureDays - existing.growthProgress;
       showMessage(`Growing... ${left} day${left !== 1 ? 's' : ''} left`);
       return;
     }
-    if (!existing && player.inventory.length > 0) {
-      const selected = player.inventory[player.selectedSlot];
-      // Only plant organisms
-      if (selected && selected.kind === 'material') { showMessage("Can't plant materials!"); return; }
-      if (selected && selected.kind === 'tool') { showMessage("Can't plant tools!"); return; }
-      if (selected && selected.kind === 'product') { showMessage("Can't plant products!"); return; }
-      const seed = player.inventory.splice(player.selectedSlot, 1)[0];
-      if (seed) {
-        seed.tileCol = ft.col;
-        seed.tileRow = ft.row;
-        seed.plantedDay = gameState.day;
-        seed.stage = 'growing';
-        seed.growthProgress = 0;
-        planted.push(seed);
-        if (player.selectedSlot >= player.inventory.length && player.inventory.length > 0)
-          player.selectedSlot = player.inventory.length - 1;
-        showMessage('Planted!');
-      }
-      return;
-    }
-    if (!existing && player.inventory.length === 0) {
-      showMessage('No seeds');
-      return;
-    }
+    if (!existing && player.inventory.length > 0) { doPlant(); return; }
+    if (!existing && player.inventory.length === 0) { showMessage('No seeds'); return; }
   }
 }
 
@@ -835,52 +784,446 @@ function stopSpectator() {
   gameState.overlay = null;
 }
 
-// ── Command Parser ──
+// ── Auto-Walk System ──
+
+function autoWalkToTarget(dt) {
+  const wt = gameState.walkTarget;
+  if (!wt) return;
+  // If tracking an NPC, update target position each frame
+  if (wt.npcIdx != null && npcStates[wt.npcIdx]) {
+    wt.x = npcStates[wt.npcIdx].x;
+    wt.y = npcStates[wt.npcIdx].y;
+  }
+  const dx = wt.x - player.x;
+  const dy = wt.y - player.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < TILE_SIZE * 1.2) {
+    // Arrived
+    if (wt.onArrive) wt.onArrive();
+    gameState.walkTarget = null;
+    return;
+  }
+  const speed = 180 * dt;
+  const nx = (dx / dist) * speed;
+  const ny = (dy / dist) * speed;
+  if (canAutoMoveTo(player.x + nx, player.y)) player.x += nx;
+  if (canAutoMoveTo(player.x, player.y + ny)) player.y += ny;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    player.facing = dx > 0 ? 'right' : 'left';
+  } else {
+    player.facing = dy > 0 ? 'down' : 'up';
+  }
+}
+
+// ── Target Resolution ──
+
+const TARGET_ALIASES = {
+  home: 'house', store: 'shop', dawkins: 'study',
+};
+
+function resolveTarget(name) {
+  if (!name) return null;
+  const key = name.toLowerCase().trim();
+  const alias = TARGET_ALIASES[key] || key;
+  // Check buildings
+  const building = BUILDINGS.find(b => b.id === alias || b.name.toLowerCase() === alias);
+  if (building) return { type: 'building', building };
+  // Check NPCs
+  const npcIdx = NPCS.findIndex(n => n.name.toLowerCase() === alias || n.id === alias);
+  if (npcIdx >= 0) return { type: 'npc', idx: npcIdx };
+  return null;
+}
+
+// ── Farming Helpers ──
+
+function doPlant(slotIdx) {
+  const ft = facingTile(player);
+  const tile = tileAt(world, ft.col, ft.row);
+  if (tile !== TILE.DIRT) { showMessage("Not facing a dirt tile."); return false; }
+  if (!isPlayerProperty(ft.col, ft.row)) { showMessage("That's someone else's property!"); return false; }
+  const existing = planted.find(o => o.tileCol === ft.col && o.tileRow === ft.row);
+  if (existing) { showMessage("Something's already planted here."); return false; }
+  const idx = slotIdx != null ? slotIdx : player.selectedSlot;
+  if (idx < 0 || idx >= player.inventory.length) { showMessage('No item selected.'); return false; }
+  const selected = player.inventory[idx];
+  if (!selected || selected.kind !== 'organism') { showMessage("Can only plant organisms!"); return false; }
+  const seed = player.inventory.splice(idx, 1)[0];
+  seed.tileCol = ft.col; seed.tileRow = ft.row;
+  seed.plantedDay = gameState.day; seed.stage = 'growing'; seed.growthProgress = 0;
+  planted.push(seed);
+  if (player.selectedSlot >= player.inventory.length && player.inventory.length > 0)
+    player.selectedSlot = player.inventory.length - 1;
+  showMessage('Planted!');
+  return true;
+}
+
+function doHarvest() {
+  const ft = facingTile(player);
+  const tile = tileAt(world, ft.col, ft.row);
+  if (tile !== TILE.DIRT) { showMessage("Not facing a dirt tile."); return false; }
+  const existing = planted.find(o => o.tileCol === ft.col && o.tileRow === ft.row);
+  if (!existing) { showMessage("Nothing planted here."); return false; }
+  if (existing.stage !== 'mature') {
+    const left = existing.matureDays - existing.growthProgress;
+    showMessage(`Growing... ${left} day${left !== 1 ? 's' : ''} left`);
+    return false;
+  }
+  const result = harvest(existing);
+  for (const s of result.seeds) player.inventory.push(s);
+  const materials = harvestMaterials(existing);
+  const matParts = [];
+  for (const mat of materials) {
+    addMaterialToInventory(player.inventory, mat);
+    const mt = MATERIAL_TYPES[mat.materialType];
+    matParts.push(`+${mat.quantity} ${mt.name.toLowerCase()}`);
+  }
+  if (result.plantDied) {
+    planted.splice(planted.indexOf(existing), 1);
+    existing.tileCol = null; existing.tileRow = null;
+    player.inventory.push(existing);
+    const matStr = matParts.length > 0 ? `, ${matParts.join(', ')}` : '';
+    showMessage(`Harvested! +${result.seeds.length} seed${result.seeds.length > 1 ? 's' : ''}${matStr}`);
+  } else {
+    const matStr = matParts.length > 0 ? ` ${matParts.join(', ')}` : '';
+    showMessage(`Harvested +${result.seeds.length} seed${result.seeds.length > 1 ? 's' : ''}!${matStr} (${existing.harvestsLeft} left)`);
+  }
+  return true;
+}
+
+function doPlow() {
+  const ft = facingTile(player);
+  const tile = tileAt(world, ft.col, ft.row);
+  if (tile !== TILE.GRASS) { showMessage("Not facing grass."); return false; }
+  if (!isPlayerProperty(ft.col, ft.row)) { showMessage("That's someone else's property!"); return false; }
+  world[ft.row][ft.col] = TILE.DIRT;
+  showMessage('Plowed!');
+  return true;
+}
+
+// ── Command Dispatch Table ──
+
+function cmdFollow(arg) {
+  if (!arg) { showMessage('Usage: follow <name>'); return; }
+  const name = arg.toLowerCase();
+  const idx = NPCS.findIndex(n => n.name.toLowerCase() === name);
+  if (idx < 0) { showMessage(`Unknown NPC: "${arg}"`); return; }
+  if (NPCS[idx].role !== 'farmer') { showMessage(`Can't follow ${NPCS[idx].name} (not a farmer)`); return; }
+  startFollowNPC(idx);
+  showMessage(`Following ${NPCS[idx].name}!`, 2);
+}
+
+function cmdStop() {
+  if (gameState.followNpcIdx >= 0) {
+    stopFollowNPC();
+    showMessage('Stopped following.', 1.5);
+  } else if (gameState.walkTarget) {
+    gameState.walkTarget = null;
+    showMessage('Stopped.', 1.5);
+  } else {
+    showMessage('Not following anyone.');
+  }
+}
+
+function cmdHelp() { gameState.overlay = gameState.overlay === 'help' ? null : 'help'; }
+function cmdInventory() { gameState.overlay = 'inventory'; }
+
+function cmdTime() {
+  gameState.timeSkipSticky = !gameState.timeSkipSticky;
+  gameState.timeSkip = gameState.timeSkipSticky;
+  showMessage(gameState.timeSkipSticky ? 'Fast-forward ON' : 'Fast-forward OFF', 1.5);
+}
+
+function cmdSave() { doSave(); showMessage('Game saved!'); }
+
+function cmdSkip() {
+  gameState.dayTimer = gameState.DAY_LENGTH - 0.01;
+  showMessage('Skipping to next morning...', 1.5);
+}
+
+function cmdPause() {
+  gameState.paused = !gameState.paused;
+  showMessage(gameState.paused ? 'Paused' : 'Resumed', 1.5);
+}
+
+function cmdMusic() {
+  const on = toggleMusic();
+  showMessage(on ? 'Music ON' : 'Music OFF', 1.5);
+}
+
+function cmdVoice() {
+  const on = toggleVoice();
+  showMessage(on ? 'Voice ON' : 'Voice OFF', 1.5);
+}
+
+function cmdFortune() {
+  const tips = NPCS[3].dialogIdle;
+  const tip = tips[Math.floor(Math.random() * tips.length)];
+  showMessage(`Sage: "${tip}"`, 4);
+}
+
+function cmdStats() {
+  showMessage([
+    `Day ${gameState.day}  |  ${player.wallet}g`,
+    `Species: ${collection.discovered.size}  Donated: ${collection.totalDonated}`,
+    `Sold: ${collection.totalSold}  Bred: ${collection.totalBred}`,
+    `Modes: ${collection.unlockedModes.join(', ')}  Lab: ${collection.labUnlocked ? 'open' : 'locked'}`,
+  ], 5);
+}
+
+function cmdWho() {
+  const lines = npcStates.map((ns, i) => {
+    const npc = NPCS[i];
+    const task = ns.task ? ns.task.type : 'idle';
+    return `${npc.name}: ${task}  (${ns.wallet}g)`;
+  });
+  showMessage(lines, 4);
+}
+
+function cmdLook() {
+  const ft = facingTile(player);
+  const tile = tileAt(world, ft.col, ft.row);
+  const tileNames = { [TILE.GRASS]:'grass', [TILE.DIRT]:'dirt', [TILE.PATH]:'path', [TILE.WATER]:'water', [TILE.BUILDING]:'building', [TILE.TREE]:'tree', [TILE.FENCE]:'fence' };
+  const lines = [`Facing: ${tileNames[tile] || '?'} (${ft.col},${ft.row})`];
+  const building = nearbyBuilding(player.x, player.y);
+  if (building) lines.push(`Near: ${building.name}`);
+  const nearby = nearbyNPC(player.x, player.y, npcStates);
+  if (nearby) lines.push(`NPC: ${nearby.npc.name}`);
+  const org = planted.find(o => o.tileCol === ft.col && o.tileRow === ft.row);
+  if (org) lines.push(`Planted: M${org.mode} D${org.genes[8]} (${org.stage})`);
+  showMessage(lines, 4);
+}
+
+function cmdPeek(arg) {
+  if (!arg) { showMessage('Usage: peek <npc name>'); return; }
+  const name = arg.toLowerCase();
+  const idx = NPCS.findIndex(n => n.name.toLowerCase() === name);
+  if (idx < 0) { showMessage(`Unknown NPC: "${arg}"`); return; }
+  const ns = npcStates[idx];
+  const npc = NPCS[idx];
+  const task = ns.task ? ns.task.type : 'idle';
+  showMessage([
+    `${npc.name} — ${task}`,
+    `Wallet: ${ns.wallet}g  Items: ${ns.inventory.length}`,
+    `Plots planted: ${ns.planted.length}`,
+  ], 4);
+}
+
+function cmdAppraise(arg) {
+  const idx = arg ? parseInt(arg) - 1 : player.selectedSlot;
+  if (idx < 0 || idx >= player.inventory.length) { showMessage('No item in that slot.'); return; }
+  const item = player.inventory[idx];
+  if (item.kind !== 'organism') {
+    showMessage(`Slot ${idx + 1}: ${item.kind} — ~${sellPrice(item)}g`, 3);
+    return;
+  }
+  const fg = item.farmGenes || { fertility: 2, longevity: 1, vigor: 2 };
+  showMessage([
+    `Slot ${idx + 1}: Mode ${item.mode}  Depth ${item.genes[8]}`,
+    `F${fg.fertility} L${fg.longevity} V${fg.vigor}  Stage: ${item.stage}`,
+    `Sell price: ~${sellPrice(item)}g`,
+  ], 4);
+}
+
+function cmdRank() {
+  const organisms = player.inventory
+    .map((item, i) => ({ item, i }))
+    .filter(e => e.item.kind === 'organism')
+    .sort((a, b) => sellPrice(b.item) - sellPrice(a.item));
+  if (organisms.length === 0) { showMessage('No organisms in inventory.'); return; }
+  const top = organisms.slice(0, 3);
+  const lines = top.map((e, rank) =>
+    `#${rank + 1} Slot ${e.i + 1}: M${e.item.mode} D${e.item.genes[8]} ~${sellPrice(e.item)}g`
+  );
+  showMessage(lines, 4);
+}
+
+function cmdBest() {
+  let bestIdx = -1, bestVal = -1;
+  for (let i = 0; i < player.inventory.length; i++) {
+    const v = sellPrice(player.inventory[i]);
+    if (v > bestVal) { bestVal = v; bestIdx = i; }
+  }
+  if (bestIdx < 0) { showMessage('Inventory is empty.'); return; }
+  player.selectedSlot = bestIdx;
+  showMessage(`Selected slot ${bestIdx + 1} (~${bestVal}g)`, 2);
+}
+
+function cmdGo(arg) {
+  if (!arg) { showMessage('Usage: go <place or npc>'); return; }
+  const target = resolveTarget(arg);
+  if (!target) { showMessage(`Unknown target: "${arg}"`); return; }
+  if (target.type === 'building') {
+    const pos = buildingDoorPos(target.building);
+    gameState.walkTarget = { x: pos.x, y: pos.y, label: target.building.name };
+    showMessage(`Walking to ${target.building.name}...`, 1.5);
+  } else {
+    const ns = npcStates[target.idx];
+    gameState.walkTarget = { x: ns.x, y: ns.y, label: NPCS[target.idx].name, npcIdx: target.idx };
+    showMessage(`Walking to ${NPCS[target.idx].name}...`, 1.5);
+  }
+}
+
+function cmdWarp(arg) {
+  if (!arg) { showMessage('Usage: warp <place or npc>'); return; }
+  const target = resolveTarget(arg);
+  if (!target) { showMessage(`Unknown target: "${arg}"`); return; }
+  if (target.type === 'building') {
+    const pos = buildingDoorPos(target.building);
+    player.x = pos.x; player.y = pos.y;
+    showMessage(`Warped to ${target.building.name}!`, 1.5);
+  } else {
+    const ns = npcStates[target.idx];
+    player.x = ns.x; player.y = ns.y;
+    showMessage(`Warped to ${NPCS[target.idx].name}!`, 1.5);
+  }
+}
+
+function cmdPlant(arg) {
+  const slotIdx = arg ? parseInt(arg) - 1 : null;
+  if (slotIdx != null && slotIdx >= 0) player.selectedSlot = slotIdx;
+  doPlant(slotIdx != null && slotIdx >= 0 ? slotIdx : null);
+}
+
+function cmdHarvest() { doHarvest(); }
+function cmdPlow() { doPlow(); }
+
+function cmdTrade(arg) {
+  if (!arg) { showMessage('Usage: trade <npc name>'); return; }
+  const name = arg.toLowerCase();
+  const idx = NPCS.findIndex(n => n.name.toLowerCase() === name);
+  if (idx < 0) { showMessage(`Unknown NPC: "${arg}"`); return; }
+  if (NPCS[idx].role !== 'farmer') { showMessage(`Can't trade with ${NPCS[idx].name}.`); return; }
+  const ns = npcStates[idx];
+  if (ns.inventory.length === 0) { showMessage(`${NPCS[idx].name} has nothing to trade.`); return; }
+  gameState.walkTarget = {
+    x: ns.x, y: ns.y, label: NPCS[idx].name, npcIdx: idx,
+    onArrive: () => {
+      gameState.overlay = 'trade';
+      gameState.tradeNpcIdx = idx;
+      gameState.tradeCursor = 0;
+      gameState.tradeNpcSlot = 0;
+      gameState.tradePlayerSlot = player.selectedSlot;
+    },
+  };
+  showMessage(`Walking to ${NPCS[idx].name} to trade...`, 1.5);
+}
+
+function cmdTalk(arg) {
+  if (!arg) { showMessage('Usage: talk <npc name>'); return; }
+  const name = arg.toLowerCase();
+  const idx = NPCS.findIndex(n => n.name.toLowerCase() === name);
+  if (idx < 0) { showMessage(`Unknown NPC: "${arg}"`); return; }
+  const npc = NPCS[idx];
+  const ns = npcStates[idx];
+  gameState.walkTarget = {
+    x: ns.x, y: ns.y, label: npc.name, npcIdx: idx,
+    onArrive: () => {
+      const dialog = npc.dialogIdle[ns.dialogIdx % npc.dialogIdle.length];
+      ns.dialogIdx++;
+      showMessage(`${npc.name}: "${dialog}"`, 3);
+    },
+  };
+  showMessage(`Walking to ${npc.name}...`, 1.5);
+}
+
+function cmdName(arg) {
+  if (!arg) { showMessage('Usage: name <nickname>'); return; }
+  const item = player.inventory[player.selectedSlot];
+  if (!item || item.kind !== 'organism') { showMessage('Select an organism first.'); return; }
+  item.nickname = arg.slice(0, 16);
+  showMessage(`Named: "${item.nickname}"`, 2);
+}
+
+function cmdCompare(arg, parts) {
+  const s1 = parseInt(parts[1]) - 1;
+  const s2 = parseInt(parts[2]) - 1;
+  if (isNaN(s1) || isNaN(s2)) { showMessage('Usage: compare <slot1> <slot2>'); return; }
+  const a = player.inventory[s1], b = player.inventory[s2];
+  if (!a || !b) { showMessage('Invalid slot(s).'); return; }
+  if (a.kind !== 'organism' || b.kind !== 'organism') { showMessage('Both slots must be organisms.'); return; }
+  const fgA = a.farmGenes || { fertility: 2, longevity: 1, vigor: 2 };
+  const fgB = b.farmGenes || { fertility: 2, longevity: 1, vigor: 2 };
+  showMessage([
+    `Slot ${s1 + 1} vs Slot ${s2 + 1}`,
+    `Mode: ${a.mode} | ${b.mode}   Depth: ${a.genes[8]} | ${b.genes[8]}`,
+    `F/L/V: ${fgA.fertility}/${fgA.longevity}/${fgA.vigor} | ${fgB.fertility}/${fgB.longevity}/${fgB.vigor}`,
+    `Price: ~${sellPrice(a)}g | ~${sellPrice(b)}g`,
+  ], 5);
+}
+
+function cmdDance() {
+  gameState.playerSpin = 2;
+  showMessage('You dance!', 2);
+}
+
+function cmdWave() {
+  const nearby = nearbyNPC(player.x, player.y, npcStates);
+  showMessage('You wave!', 1.5);
+  if (nearby) {
+    setTimeout(() => {
+      showMessage(`${nearby.npc.name} waves back!`, 2);
+    }, 1500);
+  }
+}
+
+function cmdYell() {
+  showMessage('AAAHH!', 2);
+  // Nearby NPCs face toward player and pause
+  for (const ns of npcStates) {
+    const dist = Math.hypot(ns.x - player.x, ns.y - player.y);
+    if (dist < TILE_SIZE * 6) {
+      const dx = player.x - ns.x, dy = player.y - ns.y;
+      if (Math.abs(dx) > Math.abs(dy)) ns.facing = dx > 0 ? 'right' : 'left';
+      else ns.facing = dy > 0 ? 'down' : 'up';
+      ns.moving = false;
+      ns.waitTimer = 2;
+    }
+  }
+}
+
+const COMMANDS = {
+  follow: cmdFollow, f: cmdFollow,
+  stop: cmdStop, unfollow: cmdStop,
+  help: cmdHelp,
+  inventory: cmdInventory, inv: cmdInventory,
+  time: cmdTime, speed: cmdTime,
+  save: cmdSave,
+  skip: cmdSkip,
+  pause: cmdPause,
+  music: cmdMusic,
+  voice: cmdVoice,
+  fortune: cmdFortune,
+  stats: cmdStats,
+  who: cmdWho,
+  look: cmdLook,
+  peek: cmdPeek,
+  appraise: cmdAppraise,
+  rank: cmdRank,
+  best: cmdBest,
+  go: cmdGo,
+  warp: cmdWarp,
+  plant: cmdPlant,
+  harvest: cmdHarvest,
+  plow: cmdPlow,
+  trade: cmdTrade,
+  talk: cmdTalk,
+  name: cmdName,
+  compare: cmdCompare,
+  dance: cmdDance,
+  wave: cmdWave,
+  yell: cmdYell,
+};
 
 function executeCommand(raw) {
-  const parts = raw.toLowerCase().split(/\s+/);
-  const cmd = parts[0];
-  const arg = parts.slice(1).join(' ');
-
-  if (cmd === 'follow' || cmd === 'f') {
-    if (!arg) { showMessage('Usage: follow <name>'); return; }
-    // Match NPC name
-    const idx = NPCS.findIndex(n => n.name.toLowerCase() === arg);
-    if (idx < 0) { showMessage(`Unknown NPC: "${arg}"`); return; }
-    if (NPCS[idx].role !== 'farmer') { showMessage(`Can't follow ${NPCS[idx].name} (not a farmer)`); return; }
-    startFollowNPC(idx);
-    showMessage(`Following ${NPCS[idx].name}!`, 2);
-    return;
+  const rawParts = raw.split(/\s+/);
+  const cmd = rawParts[0].toLowerCase();
+  const handler = COMMANDS[cmd];
+  if (handler) {
+    // Pass original-case arg for commands like /name, lowercase parts for others
+    handler(rawParts.slice(1).join(' '), rawParts.map(p => p.toLowerCase()));
+  } else {
+    showMessage(`Unknown: "${cmd}" \u2014 type /help`);
   }
-
-  if (cmd === 'stop' || cmd === 'unfollow') {
-    if (gameState.followNpcIdx >= 0) {
-      stopFollowNPC();
-      showMessage('Stopped following.', 1.5);
-    } else {
-      showMessage('Not following anyone.');
-    }
-    return;
-  }
-
-  if (cmd === 'help') {
-    gameState.overlay = gameState.overlay === 'help' ? null : 'help';
-    return;
-  }
-
-  if (cmd === 'inventory' || cmd === 'inv') {
-    gameState.overlay = 'inventory';
-    return;
-  }
-
-  if (cmd === 'time') {
-    gameState.timeSkipSticky = !gameState.timeSkipSticky;
-    gameState.timeSkip = gameState.timeSkipSticky;
-    showMessage(gameState.timeSkipSticky ? 'Fast-forward ON' : 'Fast-forward OFF', 1.5);
-    return;
-  }
-
-  showMessage(`Unknown command: "${cmd}"`);
 }
 
 // ── Game Loop ──
@@ -1087,11 +1430,12 @@ function gameLoop(timestamp) {
   else if (gameState.overlay === 'crafting') handleCraftingInput();
   else if (gameState.overlay === 'dawkins') handleDawkinsInput();
   else {
-    // Arrow keys reset camera pan (but do NOT cancel follow mode)
+    // Arrow keys reset camera pan and cancel auto-walk
     if (input.ArrowLeft || input.ArrowRight || input.ArrowUp || input.ArrowDown) {
       gameState.cameraPanOffset.x = 0;
       gameState.cameraPanOffset.y = 0;
       gameState.cameraPanTimer = 0;
+      if (gameState.walkTarget) gameState.walkTarget = null;
     }
     updatePlayer(player, input, world, dt);
     if (input.justPressed(' ')) handleWorldAction();
@@ -1174,6 +1518,17 @@ function gameLoop(timestamp) {
     if (followTarget) {
       autoFollowNPC(followTarget, dt);
     }
+  }
+
+  // Auto-walk to target (from /go command)
+  if (gameState.walkTarget && !gameState.overlay) {
+    autoWalkToTarget(dt);
+  }
+
+  // Dance spin timer
+  if (gameState.playerSpin > 0) {
+    gameState.playerSpin -= dt;
+    if (gameState.playerSpin < 0) gameState.playerSpin = 0;
   }
 
   // Update AI tasks (drives NPC walking to buildings)

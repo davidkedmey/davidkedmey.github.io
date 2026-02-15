@@ -104,7 +104,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   if (npcStates) drawNPCs(ctx, npcStates, cx, cy);
 
   // Player
-  drawPlayer(ctx, player, cx, cy);
+  drawPlayer(ctx, player, cx, cy, gs);
 
   // Day/night tint
   drawDayNight(ctx, gs);
@@ -125,6 +125,18 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
     if (followState) {
       drawSpeechBubble(ctx, gs.followNarration.text, followState.x - cx, followState.y - cy);
     }
+  }
+
+  // Walk-target label
+  if (gs.walkTarget && gs.walkTarget.label) {
+    const wx = gs.walkTarget.x - cx, wy = gs.walkTarget.y - cy - 20;
+    const label = `\u2192 ${gs.walkTarget.label}`;
+    ctx.font = 'bold 10px monospace';
+    const lw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(wx - lw / 2 - 4, wy - 7, lw + 8, 16);
+    ctx.fillStyle = '#aad4ff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, wx, wy);
   }
 
   // Prompts (above HUD, in world space)
@@ -161,7 +173,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
     drawSettingsIndicators(ctx, gs);
   }
 
-  if (gs.message) drawMessage(ctx, gs.message.text);
+  if (gs.message) drawMessage(ctx, gs.message.lines || [gs.message.text]);
 }
 
 // ── Intro ──
@@ -555,12 +567,20 @@ function drawNPCPrompt(ctx, player, npcStates, cx, cy, gs) {
 
 // ── Player ──
 
-function drawPlayer(ctx, p, cx, cy) {
+function drawPlayer(ctx, p, cx, cy, gs) {
   const size = 28, half = size / 2;
   const sx = p.x - cx, sy = p.y - cy;
   const x = sx - half, y = sy - half;
   ctx.fillStyle = 'rgba(0,0,0,0.2)';
   ctx.beginPath(); ctx.ellipse(sx, sy+half+2, half*0.8, 4, 0, 0, Math.PI*2); ctx.fill();
+  // Dance spin
+  const spinning = gs && gs.playerSpin > 0;
+  if (spinning) {
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(gs.playerSpin * Math.PI * 4);
+    ctx.translate(-sx, -sy);
+  }
   ctx.fillStyle = '#e8c170'; ctx.fillRect(x, y, size, size);
   ctx.strokeStyle = '#b8914a'; ctx.lineWidth = 2; ctx.strokeRect(x, y, size, size);
   ctx.fillStyle = '#d44'; ctx.beginPath();
@@ -571,6 +591,7 @@ function drawPlayer(ctx, p, cx, cy) {
     case 'right': ctx.moveTo(x+size+4,sy); ctx.lineTo(x+size-2,sy-5); ctx.lineTo(x+size-2,sy+5); break;
   }
   ctx.closePath(); ctx.fill();
+  if (spinning) ctx.restore();
 }
 
 // ── Building prompt ──
@@ -789,7 +810,8 @@ function drawOrganismDetail(ctx, item, detX, detY, detW, detH) {
   // Title
   ctx.fillStyle = '#fff'; ctx.font = 'bold 16px monospace';
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(`Mode ${item.mode} Biomorph`, detX + detW/2, iy); iy += 24;
+  const title = item.nickname ? `"${item.nickname}" (M${item.mode})` : `Mode ${item.mode} Biomorph`;
+  ctx.fillText(title, detX + detW/2, iy); iy += 24;
   ctx.fillStyle = '#aaa'; ctx.font = '12px monospace';
   ctx.fillText(`Depth ${item.genes[8]}  \u2022  ${item.stage}`, detX + detW/2, iy); iy += 26;
   // Farm traits
@@ -1667,52 +1689,94 @@ function wrapText(ctx, text, maxWidth) {
 
 function drawHelpOverlay(ctx) {
   overlayBg(ctx);
-  const pw = 500, ph = 582;
-  const px = (CANVAS_W - pw) / 2, py = (CANVAS_H - ph) / 2 - 20;
-  drawPanel(ctx, px, py, pw, ph, 'Keyboard Commands');
+  const pw = 700, ph = 680;
+  const px = (CANVAS_W - pw) / 2, py = (CANVAS_H - ph) / 2 - 10;
+  drawPanel(ctx, px, py, pw, ph, 'Help');
 
-  const commands = [
+  // Left column: Keyboard commands
+  const keyCommands = [
     ['Arrow Keys', 'Move'],
     ['Space', 'Interact / Plant / Harvest'],
-    ['I  or  Enter', 'Open Inventory'],
-    ['1 \u2013 9', 'Select inventory slot'],
+    ['I / Enter', 'Open Inventory'],
+    ['1\u20139', 'Select inventory slot'],
     ['Escape', 'Close menu'],
     ['T (hold)', 'Fast-forward time'],
-    ['H', 'Toggle this help screen'],
-    ['M', 'Toggle music'],
-    ['V', 'Toggle voice'],
-    ['P  or  Esc', 'Pause / Resume'],
-    ['Q', 'Follow nearby farmer NPC'],
-    ['F', 'Toggle auto-follow (tutorial)'],
-    ['S', 'Save (in crafting menu)'],
+    ['H', 'Toggle help'],
+    ['M / V', 'Music / Voice toggle'],
+    ['P / Esc', 'Pause / Resume'],
+    ['Q', 'Follow nearby NPC'],
+    ['F', 'Auto-follow toggle'],
     ['Right-drag', 'Pan camera'],
   ];
 
-  const col1 = px + 40;
-  const col2 = px + 200;
-  const startY = py + 54;
-  const rowH = 34;
+  const col1 = px + 20;
+  const col2 = px + 140;
+  let startY = py + 52;
+  const rowH = 22;
 
   ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#c8e6c8'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('Keyboard', col1, startY); startY += 6;
 
-  for (let i = 0; i < commands.length; i++) {
+  for (let i = 0; i < keyCommands.length; i++) {
     const y = startY + i * rowH;
-    // Key column
-    ctx.font = 'bold 13px monospace';
-    ctx.textAlign = 'left';
+    ctx.font = 'bold 11px monospace'; ctx.textAlign = 'left';
     ctx.fillStyle = '#8ab4f8';
-    ctx.fillText(commands[i][0], col1, y + rowH / 2);
-    // Description column
-    ctx.font = '13px monospace';
-    ctx.fillStyle = '#ccc';
-    ctx.fillText(commands[i][1], col2, y + rowH / 2);
+    ctx.fillText(keyCommands[i][0], col1, y + rowH / 2);
+    ctx.font = '11px monospace'; ctx.fillStyle = '#bbb';
+    ctx.fillText(keyCommands[i][1], col2, y + rowH / 2);
+  }
+
+  // Right column: Slash commands
+  const slashCmds = [
+    ['/go <place>', 'Walk to location'],
+    ['/warp <place>', 'Teleport instantly'],
+    ['/follow <npc>', 'Follow a farmer'],
+    ['/stop', 'Stop following/walking'],
+    ['/trade <npc>', 'Walk to NPC & trade'],
+    ['/talk <npc>', 'Walk to NPC & chat'],
+    ['/plant [slot]', 'Plant on facing tile'],
+    ['/harvest', 'Harvest facing crop'],
+    ['/plow', 'Plow facing grass'],
+    ['/stats', 'Show game stats'],
+    ['/who', 'NPC status list'],
+    ['/look', 'Inspect surroundings'],
+    ['/peek <npc>', 'Spy on NPC stats'],
+    ['/appraise [slot]', 'Item details & price'],
+    ['/rank', 'Top 3 valuable items'],
+    ['/best', 'Select best item'],
+    ['/compare <s1> <s2>', 'Compare two slots'],
+    ['/name <text>', 'Nickname an organism'],
+    ['/save', 'Save game'],
+    ['/skip', 'Skip to next morning'],
+    ['/speed', 'Toggle fast-forward'],
+    ['/pause', 'Pause/resume'],
+    ['/music / /voice', 'Toggle audio'],
+    ['/fortune', 'Random Sage tip'],
+    ['/dance', 'Spin!'],
+    ['/wave', 'Wave at NPCs'],
+    ['/yell', 'Shout at NPCs'],
+  ];
+
+  const col3 = px + 330;
+  const col4 = px + 510;
+  let startY2 = py + 52;
+
+  ctx.fillStyle = '#c8e6c8'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('/ Commands', col3, startY2); startY2 += 6;
+
+  for (let i = 0; i < slashCmds.length; i++) {
+    const y = startY2 + i * rowH;
+    ctx.font = 'bold 10px monospace'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#f8d48a';
+    ctx.fillText(slashCmds[i][0], col3, y + rowH / 2);
+    ctx.font = '10px monospace'; ctx.fillStyle = '#aaa';
+    ctx.fillText(slashCmds[i][1], col4, y + rowH / 2);
   }
 
   // Footer
-  ctx.font = '11px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#888';
-  ctx.fillText('[H] or [Esc] to close', px + pw / 2, py + ph - 18);
+  ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#888';
+  ctx.fillText('[H] or [Esc] to close  \u2022  Press / to open command bar', px + pw / 2, py + ph - 18);
 }
 
 // ── Pause Overlay ──
@@ -1923,14 +1987,20 @@ function drawCommandBar(ctx, gs) {
   }
 }
 
-function drawMessage(ctx, text) {
-  ctx.font = 'bold 15px monospace';
-  const tw = ctx.measureText(text).width;
-  const mx = CANVAS_W / 2, my = HUD_Y - 28;
-  ctx.fillStyle = 'rgba(0,0,0,0.8)';
-  ctx.fillRect(mx-tw/2-14, my-13, tw+28, 28);
+function drawMessage(ctx, lines) {
+  ctx.font = 'bold 14px monospace';
+  const lineH = 20;
+  const maxW = Math.max(...lines.map(l => ctx.measureText(l).width));
+  const boxW = maxW + 28;
+  const boxH = lines.length * lineH + 14;
+  const mx = CANVAS_W / 2;
+  const boxY = HUD_Y - boxH - 8;
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
+  ctx.fillRect(mx - boxW / 2, boxY, boxW, boxH);
   ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
-  ctx.strokeRect(mx-tw/2-14, my-13, tw+28, 28);
+  ctx.strokeRect(mx - boxW / 2, boxY, boxW, boxH);
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(text, mx, my);
+  for (let i = 0; i < lines.length; i++) {
+    ctx.fillText(lines[i], mx, boxY + 7 + lineH / 2 + i * lineH);
+  }
 }
