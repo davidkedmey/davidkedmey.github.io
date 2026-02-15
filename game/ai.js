@@ -1,6 +1,6 @@
 // AI decision system for Fern and Moss — autonomous farmer behavior
 
-import { TILE, TILE_SIZE, COLS, ROWS, tileAt } from './world.js';
+import { TILE, TILE_SIZE, COLS, ROWS, tileAt, GARDEN_PLOTS } from './world.js';
 import { NPCS } from './npcs.js';
 import { createOrganism, randomColorGenes, tickGrowth, harvest } from './organisms.js';
 import { randomInteresting } from '../shared/genotype.js';
@@ -10,6 +10,7 @@ import { donate, recordSale, recordBreed } from './collection.js';
 import { harvestMaterials, addMaterialToInventory } from './materials.js';
 import { RECIPES, canCraft, executeCraft } from './crafting.js';
 import { getWildOrganism } from './wild.js';
+import { curateScore } from './scoring.js';
 
 export const AI_PERSONALITIES = {
   fern: {
@@ -83,11 +84,13 @@ export function aiDayTick(npcStates, gameState, world, wilds, collection) {
       }
     }
 
-    // Fill empty plots
+    // Fill empty plots (use unlocked modes)
+    const modes = collection.unlockedModes || [1];
     for (const plot of npc.plots) {
       if (!state.planted.some(p => p.tileCol === plot.col && p.tileRow === plot.row)) {
-        const genes = randomInteresting(1);
-        const org = createOrganism(genes, 1, randomColorGenes());
+        const mode = modes[Math.floor(Math.random() * modes.length)];
+        const genes = randomInteresting(mode);
+        const org = createOrganism(genes, mode, randomColorGenes());
         org.tileCol = plot.col;
         org.tileRow = plot.row;
         org.plantedDay = currentDay;
@@ -125,6 +128,21 @@ function pickTask(state, npc, personality, gameState, collection, wilds, world) 
   // 2. Breed — random chance, needs 2+ organisms and lab unlocked
   if (collection.labUnlocked && organisms.length >= 2 && Math.random() < personality.breedChance) {
     return createTask('breed', DESTINATIONS.lab, { npcId: npc.id });
+  }
+
+  // 2b. Curate — place best specimen in garden (after breed, before donate)
+  if (organisms.length > 0 && Math.random() < 0.2) {
+    const gardenPlots = GARDEN_PLOTS[npc.id];
+    if (gardenPlots && gardenPlots.length > 0) {
+      // Find the best plot to walk to (first empty, or worst-scoring existing)
+      const emptyPlot = gardenPlots.find(p =>
+        !state.garden.some(g => g.col === p.col && g.row === p.row)
+      );
+      const targetPlot = emptyPlot || (state.garden.length > 0 ? state.garden[0] : gardenPlots[0]);
+      if (targetPlot) {
+        return createTask('curate', { col: targetPlot.col, row: targetPlot.row }, { npcId: npc.id });
+      }
+    }
   }
 
   // 3. Buy — when wallet allows and inventory is low
@@ -306,6 +324,9 @@ function executeAction(state, npc, task, gameState, world, wilds, collection) {
     case 'craft':
       executeCraftAction(state, task);
       break;
+    case 'curate':
+      executeCurate(state, npc, task);
+      break;
   }
 }
 
@@ -434,6 +455,59 @@ function executeCraftAction(state, task) {
   state.inventory.push(item);
 }
 
+function executeCurate(state, npc, task) {
+  const gardenPlots = GARDEN_PLOTS[npc.id];
+  if (!gardenPlots) return;
+
+  // Find best organism in inventory
+  const organisms = state.inventory
+    .map((item, idx) => ({ item, idx }))
+    .filter(e => e.item.kind === 'organism');
+  if (organisms.length === 0) return;
+
+  // Score each organism
+  const referenceGenes = state.garden
+    .filter(g => g.organism)
+    .map(g => g.organism.genes);
+  let bestOrg = null, bestScore = -1, bestIdx = -1;
+  for (const { item, idx } of organisms) {
+    const score = curateScore(item.genes, referenceGenes, npc.id);
+    if (score > bestScore) {
+      bestScore = score;
+      bestOrg = item;
+      bestIdx = idx;
+    }
+  }
+  if (!bestOrg) return;
+
+  // Find target plot: first empty garden plot, or replace worst
+  const destCol = Math.round((task.destX - TILE_SIZE / 2) / TILE_SIZE);
+  const destRow = Math.round((task.destY - TILE_SIZE / 2) / TILE_SIZE);
+
+  const existingIdx = state.garden.findIndex(g => g.col === destCol && g.row === destRow);
+  if (existingIdx >= 0) {
+    // Replace if new specimen scores higher
+    const existing = state.garden[existingIdx];
+    if (existing.organism) {
+      const existingScore = curateScore(existing.organism.genes, referenceGenes, npc.id);
+      if (bestScore <= existingScore) return; // not worth replacing
+    }
+    state.garden[existingIdx] = {
+      col: destCol, row: destRow,
+      organism: { ...bestOrg, tileCol: null, tileRow: null, stage: 'mature' },
+    };
+  } else {
+    // Place in empty plot
+    state.garden.push({
+      col: destCol, row: destRow,
+      organism: { ...bestOrg, tileCol: null, tileRow: null, stage: 'mature' },
+    });
+  }
+
+  // Remove from inventory
+  state.inventory.splice(bestIdx, 1);
+}
+
 // ── Helper: task label for renderer ──
 
 export function getTaskLabel(task) {
@@ -445,6 +519,7 @@ export function getTaskLabel(task) {
     forage: 'Tree',
     donate: 'Museum',
     craft: 'Craft',
+    curate: 'Garden',
   };
   const dest = labels[task.type] || '?';
   if (task.phase === 'returning') return 'Home';
@@ -468,6 +543,7 @@ export const NARRATION = {
     forage: { walking: "I spotted a wild tree.", acting: "Gathering materials...", returning: "Good haul today." },
     donate: { walking: "The museum needs specimens.", acting: "Donating to the collection.", returning: "For science!" },
     craft: { walking: "Time to craft something.", acting: "Working on a new tool...", returning: "That should be useful." },
+    curate: { walking: "Found a good spot for this one.", acting: "Placing it just so...", returning: "The garden is coming along." },
   },
   moss: {
     idle: [
@@ -483,6 +559,7 @@ export const NARRATION = {
     forage: { walking: "Wild trees have the best stuff.", acting: "Foraging...", returning: "Interesting materials." },
     donate: { walking: "Museum donation day.", acting: "Here, take this oddity.", returning: "They'll appreciate that one." },
     craft: { walking: "Need better tools.", acting: "Crafting...", returning: "That'll do." },
+    curate: { walking: "This one deserves a spotlight.", acting: "Perfect. Right here.", returning: "Wait till someone sees that." },
   },
 };
 

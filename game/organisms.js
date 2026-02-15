@@ -156,10 +156,29 @@ export function depthToColor(depth, maxDepth, hue, spread) {
 
 // ── Sprite rendering ────────────────────────────────────────
 
+// Apply symmetry transformation to line segments
+function applySymmetry(lines, symType) {
+  if (!symType || symType === 'left-right') return lines;
+  const result = lines.slice();
+  if (symType === 'up-down' || symType === 'four-way') {
+    for (const seg of lines) {
+      result.push({ x0: seg.x0, y0: -seg.y0, x1: seg.x1, y1: -seg.y1, depth: seg.depth });
+    }
+  }
+  if (symType === 'four-way') {
+    const soFar = result.slice();
+    for (const seg of soFar) {
+      result.push({ x0: -seg.x0, y0: seg.y0, x1: -seg.x1, y1: seg.y1, depth: seg.depth });
+    }
+  }
+  return result;
+}
+
 export function getSprite(org, size) {
   size = size || SPRITE_SIZE;
   const depth = visibleDepth(org);
-  const key = `${org.id}-${depth}-${size}`;
+  const sym = org.symmetry || 'left-right';
+  const key = `${org.id}-${depth}-${size}-${sym}`;
 
   if (spriteCache.has(key)) return spriteCache.get(key);
 
@@ -178,7 +197,8 @@ export function getSprite(org, size) {
   }
 
   const allLines = drawTree(org.genes);
-  const lines = allLines.filter(l => l.depth > org.genes[8] - depth);
+  const filtered = allLines.filter(l => l.depth > org.genes[8] - depth);
+  const lines = applySymmetry(filtered, sym);
 
   if (lines.length === 0) {
     spriteCache.set(key, canvas);

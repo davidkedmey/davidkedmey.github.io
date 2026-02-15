@@ -2,15 +2,17 @@
 
 import { serializeCollection } from './collection.js';
 import { serializeWilds, deserializeWilds } from './wild.js';
-import { TILE } from './world.js';
+import { TILE, COLS, ROWS } from './world.js';
+import { createWorld } from './world.js';
+import { serializeExhibits, deserializeExhibits } from './exhibits.js';
 
 const SAVE_KEY = 'biomorph-farm-save';
 
-export function saveGame(gameState, player, world, planted, inventory, collection, npcStates, wilds) {
+export function saveGame(gameState, player, world, planted, inventory, collection, npcStates, wilds, exhibits) {
   const tutState = gameState.tutorialState;
   const dState = gameState.dawkinsState;
   const data = {
-    version: 7,
+    version: 9,
     day: gameState.day,
     dayTimer: gameState.dayTimer,
     playerX: player.x,
@@ -25,6 +27,7 @@ export function saveGame(gameState, player, world, planted, inventory, collectio
     shopStock: (gameState.shopStock || []).map(serializeOrganism),
     npcStates: (npcStates || []).map(serializeNpcState),
     wilds: wilds ? serializeWilds(wilds) : [],
+    exhibits: exhibits ? serializeExhibits(exhibits) : [],
     tutorialState: tutState ? { active: tutState.active, stepIdx: tutState.stepIdx, completed: tutState.completed } : null,
     dawkinsCompletedVisits: dState ? dState.completedVisits : 0,
     savedAt: Date.now(),
@@ -112,6 +115,46 @@ export function loadGame() {
       }
     }
 
+    // Migration: v7 -> v8: expand world from 24 to 40 rows, add gardens
+    if (data.version < 8) {
+      if (data.world) {
+        const oldRows = data.world.length;
+        if (oldRows < ROWS) {
+          // Generate a fresh world to copy new rows from
+          const freshWorld = createWorld();
+          // First: update old bottom water border to grass/path as appropriate
+          if (oldRows > 0) {
+            for (let c = 0; c < COLS; c++) {
+              // Old bottom row was water border — replace with fresh world content
+              data.world[oldRows - 1][c] = freshWorld[oldRows - 1][c];
+            }
+          }
+          // Append new rows from fresh world
+          for (let r = oldRows; r < ROWS; r++) {
+            data.world.push(freshWorld[r].slice());
+          }
+        }
+      }
+      // Add garden arrays to NPC states
+      for (const ns of (data.npcStates || [])) {
+        if (!ns.garden) ns.garden = [];
+      }
+    }
+
+    // Migration: v8 -> v9: exhibits system replaces NPC gardens, wider paths
+    if (data.version < 9) {
+      // Update world with wider paths and exhibit dirt tiles
+      if (data.world) {
+        const freshWorld = createWorld();
+        // Overwrite garden zone rows with fresh layout (rows 25-39)
+        for (let r = 25; r < ROWS && r < data.world.length; r++) {
+          data.world[r] = freshWorld[r].slice();
+        }
+      }
+      // Exhibits will be initialized fresh by applySave (no save data yet)
+      data.exhibits = null;
+    }
+
     data.planted = (data.planted || []).map(deserializeItem);
     data.inventory = (data.inventory || []).map(deserializeItem);
     if (data.shopStock) data.shopStock = data.shopStock.map(deserializeItem);
@@ -122,10 +165,19 @@ export function loadGame() {
         ns.wallet = ns.wallet || 0;
         ns.task = null; // tasks are not saved — NPCs resume idle on load
         ns.lastSellDay = ns.lastSellDay || 0;
+        // Ensure garden array exists
+        if (!ns.garden) ns.garden = [];
+        // Deserialize garden organisms
+        ns.garden = (ns.garden || []).map(entry => ({
+          ...entry,
+          organism: entry.organism ? deserializeItem(entry.organism) : null,
+        }));
       }
     }
     // Deserialize wilds
     data.wilds = data.wilds ? deserializeWilds(data.wilds) : null;
+    // Deserialize exhibits
+    data.exhibits = data.exhibits ? deserializeExhibits(data.exhibits) : null;
 
     return data;
   } catch (e) {
@@ -199,5 +251,10 @@ function serializeNpcState(ns) {
     dialogIdx: ns.dialogIdx,
     wallet: ns.wallet || 0,
     lastSellDay: ns.lastSellDay || 0,
+    garden: (ns.garden || []).map(entry => ({
+      col: entry.col,
+      row: entry.row,
+      organism: entry.organism ? serializeOrganism(entry.organism) : null,
+    })),
   };
 }

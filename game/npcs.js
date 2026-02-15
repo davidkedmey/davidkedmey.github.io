@@ -1,6 +1,6 @@
 // NPC data, wander AI, farm tending, trading
 
-import { TILE, TILE_SIZE, tileAt, isSolid } from './world.js';
+import { TILE, TILE_SIZE, tileAt, isSolid, GARDEN_PLOTS } from './world.js';
 import { createSeed, createOrganism, tickGrowth, harvest, randomColorGenes } from './organisms.js';
 import { randomInteresting } from '../shared/genotype.js';
 
@@ -109,6 +109,8 @@ export function initNPCs(world) {
       // Farming
       planted: [],
       inventory: [],
+      // Garden — curated specimens on display in botanical zones
+      garden: [],
       // Dialog
       dialogIdx: 0,
       // AI
@@ -128,6 +130,20 @@ export function initNPCs(world) {
       org.stage = 'mature';
       org.growthProgress = org.matureDays;
       state.planted.push(org);
+    }
+
+    // Seed initial garden specimens (first 4 plots per farmer)
+    const gardenPlots = GARDEN_PLOTS[npc.id];
+    if (gardenPlots) {
+      const seedCount = Math.min(4, gardenPlots.length);
+      for (let gi = 0; gi < seedCount; gi++) {
+        const plot = gardenPlots[gi];
+        const genes = randomInteresting(1);
+        const org = createOrganism(genes, 1, randomColorGenes());
+        org.stage = 'mature';
+        org.growthProgress = org.matureDays;
+        state.garden.push({ col: plot.col, row: plot.row, organism: org });
+      }
     }
 
     states.push(state);
@@ -249,6 +265,28 @@ export function npcDayTick(npcStates, currentDay) {
         org.growthProgress = 0;
         state.planted.push(org);
       }
+    }
+  }
+}
+
+// Seed starter specimens into empty gardens (for migrated saves)
+export function seedEmptyGardens(npcStates) {
+  for (let i = 0; i < npcStates.length; i++) {
+    const npc = NPCS[i];
+    if (!npc) continue;
+    const state = npcStates[i];
+    if (!state.garden) state.garden = [];
+    if (state.garden.length > 0) continue; // already has specimens
+    const gardenPlots = GARDEN_PLOTS[npc.id];
+    if (!gardenPlots) continue;
+    const seedCount = Math.min(4, gardenPlots.length);
+    for (let gi = 0; gi < seedCount; gi++) {
+      const plot = gardenPlots[gi];
+      const genes = randomInteresting(1);
+      const org = createOrganism(genes, 1, randomColorGenes());
+      org.stage = 'mature';
+      org.growthProgress = org.matureDays;
+      state.garden.push({ col: plot.col, row: plot.row, organism: org });
     }
   }
 }

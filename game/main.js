@@ -9,7 +9,7 @@ import { sellPrice, buyPrice, generateShopStock } from './economy.js';
 import { createBreedingLab, labSelectParent, labSelectOffspring, labConfirm, labReset } from './breeding.js';
 import { createCollection, donate, recordSale, recordBreed, serializeCollection, deserializeCollection } from './collection.js';
 import { saveGame, loadGame, hasSave } from './state.js';
-import { NPCS, initNPCs, updateNPCs, nearbyNPC, executeTrade } from './npcs.js';
+import { NPCS, initNPCs, updateNPCs, nearbyNPC, executeTrade, seedEmptyGardens } from './npcs.js';
 import { harvestMaterials, addMaterialToInventory, analyzeBiomorph, MATERIAL_TYPES } from './materials.js';
 import { initWildBiomorphs, wildDayTick, getWildOrganism, removeWildOrganism } from './wild.js';
 import { RECIPES, canCraft, executeCraft, useTool, addProductToInventory } from './crafting.js';
@@ -19,6 +19,7 @@ import { aiDayTick, updateAITasks, getNarration, precomputeSpectatorAction } fro
 import { loadDawkinsDialogue, createDawkinsState, canStartVisit, startVisit, advanceLine, selectChoice, getCurrentLine, completeVisit } from './dawkins.js';
 import { loadAudioSettings, getAudioSettings, initOnInteraction, toggleMusic, toggleVoice, toggleAutoFollow, startMusic, stopMusic, setMusicMood, speak, stopSpeech, resetLastSpoken } from './audio.js';
 import { loadLLMSettings, getLLMSettings, setLLMSetting, interpretCommand, buildGameContext } from './llm.js';
+import { initExhibits, exhibitBreederURL } from './exhibits.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -33,6 +34,7 @@ const lab = createBreedingLab();
 let collection = createCollection();
 let npcStates = initNPCs(world);
 let wilds = initWildBiomorphs(world);
+let exhibits = initExhibits();
 const cam = { x: player.x - 480, y: player.y - 360 }; // center on player
 
 // ── Tutorial + Dawkins ──
@@ -100,6 +102,44 @@ const INTRO_PAGES = [
   },
 ];
 
+const STUDY_INFO_PAGES = [
+  {
+    title: 'The Scale of Morphospace',
+    lines: [
+      'In Mode 1 alone, there are over 46 million possible genotypes.',
+      '',
+      'Each combination of 8 direction genes and a depth gene creates',
+      'a unique biomorph. Yet most of these are minor variations —',
+      'rotations, reflections, slight tweaks.',
+      '',
+      'When we group similar forms, roughly 1,000 to 5,000 truly',
+      'distinct species emerge. Each one a unique body plan,',
+      'a unique solution to the same developmental rules.',
+    ],
+  },
+  {
+    title: 'All Five Modes',
+    lines: [
+      'Across all five modes — from basic trees to segmented,',
+      'gradient forms — the total morphospace explodes into',
+      'billions of possible genotypes.',
+      '',
+      'Even grouping by similarity, there may be 20,000 to',
+      '100,000 genuinely distinct species waiting to be found.',
+      '',
+      'Most have never been seen. You could breed something',
+      'so rare that no one else has ever encountered it.',
+      '',
+      'Every time you enter the Lab, you might discover',
+      'something entirely new.',
+    ],
+  },
+  {
+    title: 'Your Discoveries',
+    dynamic: true, // renderer will pull stats from collection
+  },
+];
+
 const gameState = {
   phase: 'title',  // 'title' | 'intro' | 'playing'
   titleCursor: 0,  // 0 = New Game, 1 = Continue
@@ -149,7 +189,7 @@ for (let i = 0; i < 3; i++) player.inventory.push(createSeed(1));
 gameState.shopStock = generateShopStock(collection.unlockedModes);
 
 // What's New — show once per version
-const GAME_VERSION = 7;
+const GAME_VERSION = 9;
 const whatsNewKey = `biomorph-farm-whatsnew-v${GAME_VERSION}`;
 gameState.showWhatsNew = !localStorage.getItem(whatsNewKey);
 
@@ -174,9 +214,14 @@ function applySave(save) {
   player.inventory = save.inventory;
   if (save.collection) collection = deserializeCollection(save.collection);
   if (save.shopStock) gameState.shopStock = save.shopStock;
-  if (save.npcStates) npcStates = save.npcStates;
+  if (save.npcStates) {
+    npcStates = save.npcStates;
+    seedEmptyGardens(npcStates);
+  }
   if (save.wilds) wilds = save.wilds;
   else wilds = initWildBiomorphs(world);
+  if (save.exhibits) exhibits = save.exhibits;
+  else exhibits = initExhibits();
   if (save.tutorialState) {
     tutorialState = {
       ...createTutorialState(),
@@ -204,11 +249,13 @@ function startNewGame() {
 // Attach to gameState for renderer + save access
 gameState.tutorialState = tutorialState;
 gameState.dawkinsState = dawkinsState;
+gameState.studyInfoPages = STUDY_INFO_PAGES;
+gameState.studyInfoPage = 0;
 
 function doSave() {
   gameState.tutorialState = tutorialState;
   gameState.dawkinsState = dawkinsState;
-  saveGame(gameState, player, world, planted, player.inventory, collection, npcStates, wilds);
+  saveGame(gameState, player, world, planted, player.inventory, collection, npcStates, wilds, exhibits);
 }
 
 function showMessage(text, duration) {
@@ -367,6 +414,17 @@ function handleWorldAction() {
   const ft = facingTile(player);
   const tile = tileAt(world, ft.col, ft.row);
 
+  // Check for exhibit
+  if (exhibits) {
+    const ex = exhibits.find(e => e.col === ft.col && e.row === ft.row && e.organism);
+    if (ex) {
+      const url = exhibitBreederURL(ex);
+      gameState.overlay = 'exhibit';
+      gameState.exhibitData = { exhibit: ex, breederURL: url };
+      return;
+    }
+  }
+
   // Near building
   const building = nearbyBuilding(player.x, player.y);
   if (building) {
@@ -382,7 +440,10 @@ function handleWorldAction() {
     if (building.id === 'study') {
       if (!dawkinsState.dialogueData) { showMessage('The door is locked...'); return; }
       if (!canStartVisit(dawkinsState)) {
-        showMessage('Dawkins: "The Mac is yours whenever you want it."');
+        // All 10 visits complete — show morphospace info
+        gameState.overlay = 'study-info';
+        gameState.studyInfoPage = 0;
+        setMusicMood('study');
         return;
       }
       startVisit(dawkinsState);
@@ -609,6 +670,40 @@ function handleCraftingInput() {
       player.inventory.push(item);
     }
     showMessage(`Crafted ${recipe.name}!`);
+  }
+}
+
+function handleStudyInfoInput() {
+  if (input.justPressed('Escape')) {
+    gameState.overlay = null;
+    setMusicMood('farm');
+    return;
+  }
+  if (input.justPressed(' ') || input.justPressed('Enter') || input.justPressed('ArrowRight')) {
+    gameState.studyInfoPage++;
+    if (gameState.studyInfoPage >= STUDY_INFO_PAGES.length) {
+      gameState.overlay = null;
+      setMusicMood('farm');
+    }
+  }
+  if (input.justPressed('ArrowLeft')) {
+    gameState.studyInfoPage = Math.max(0, gameState.studyInfoPage - 1);
+  }
+}
+
+// ── Exhibit ──
+function handleExhibitInput() {
+  if (input.justPressed('Escape') || input.justPressed(' ') || input.justPressed('Enter')) {
+    gameState.overlay = null;
+    gameState.exhibitData = null;
+    return;
+  }
+  // 'b' to open in breeder
+  if (input.justPressed('b') || input.justPressed('B')) {
+    const data = gameState.exhibitData;
+    if (data && data.breederURL) {
+      window.open(data.breederURL, '_blank');
+    }
   }
 }
 
@@ -1329,7 +1424,7 @@ function gameLoop(timestamp) {
         gameState.showWhatsNew = false;
         localStorage.setItem(whatsNewKey, '1');
       }
-      render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds);
+      render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
       requestAnimationFrame(gameLoop);
       return;
     }
@@ -1349,7 +1444,7 @@ function gameLoop(timestamp) {
     }
     // Disable Continue if no save
     if (!gameState.hasSave && gameState.titleCursor === 1) gameState.titleCursor = 0;
-    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds);
+    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
     requestAnimationFrame(gameLoop);
     return;
   }
@@ -1369,7 +1464,7 @@ function gameLoop(timestamp) {
       gameState.phase = 'playing'; // skip intro
       if (!musicStarted) { musicStarted = true; startMusic('farm'); }
     }
-    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds);
+    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
     requestAnimationFrame(gameLoop);
     return;
   }
@@ -1389,7 +1484,7 @@ function gameLoop(timestamp) {
     gameState.tutorialState = tutorialState;
     gameState.dawkinsState = dawkinsState;
     gameState.audioSettings = getAudioSettings();
-    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds);
+    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
     requestAnimationFrame(gameLoop);
     return;
   }
@@ -1515,6 +1610,8 @@ function gameLoop(timestamp) {
   else if (gameState.overlay === 'trade') handleTradeInput();
   else if (gameState.overlay === 'crafting') handleCraftingInput();
   else if (gameState.overlay === 'dawkins') handleDawkinsInput();
+  else if (gameState.overlay === 'study-info') handleStudyInfoInput();
+  else if (gameState.overlay === 'exhibit') handleExhibitInput();
   else {
     // Arrow keys reset camera pan and cancel auto-walk
     if (input.ArrowLeft || input.ArrowRight || input.ArrowUp || input.ArrowDown) {
@@ -1729,7 +1826,7 @@ function gameLoop(timestamp) {
   lastTutorialSpeech = gameState.currentTutorialSpeech;
 
   // Debug exports (dev only)
-  window.__GAME_STATE__ = { gameState, player, npcStates, collection, planted, wilds, world, executeCommand };
+  window.__GAME_STATE__ = { gameState, player, npcStates, collection, planted, wilds, world, exhibits, executeCommand };
   window.__GAME_DEBUG__ = {
     day: gameState.day,
     playerGold: player.wallet,
@@ -1745,7 +1842,7 @@ function gameLoop(timestamp) {
     wildTreeCount: wilds.size,
   };
 
-  render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds);
+  render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
   requestAnimationFrame(gameLoop);
 }
 

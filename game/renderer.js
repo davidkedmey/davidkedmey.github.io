@@ -1,6 +1,6 @@
 // All canvas drawing: tiles, organisms, player, HUD, menus, overlays
 
-import { TILE, COLS, ROWS, TILE_SIZE, BUILDINGS } from './world.js';
+import { TILE, COLS, ROWS, TILE_SIZE, BUILDINGS, ZONE_SIGNS } from './world.js';
 import { facingTile } from './player.js';
 import { getSprite } from './organisms.js';
 import { sellPrice, buyPrice } from './economy.js';
@@ -39,7 +39,7 @@ export function updateCamera(cam, player, dt) {
 
 // ── Main render ──
 
-export function render(ctx, world, player, gs, planted, collection, lab, npcStates, cam, wilds) {
+export function render(ctx, world, player, gs, planted, collection, lab, npcStates, cam, wilds, exhibits) {
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
   if (gs.phase === 'title') { drawTitle(ctx, gs); return; }
@@ -57,6 +57,35 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   drawTiles(ctx, world, cx, cy, wilds);
   drawPropertyBorders(ctx, cx, cy);
   drawBuildings(ctx, collection, cx, cy, gs.dawkinsState);
+  drawZoneSigns(ctx, cx, cy);
+
+  // World exhibits (curated permanent specimens)
+  if (exhibits) {
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    for (const ex of exhibits) {
+      if (ex.col == null) continue;
+      const sx = ex.col * TILE_SIZE - cx;
+      const sy = ex.row * TILE_SIZE - cy;
+      if (sx < -TILE_SIZE * 2 || sx > CANVAS_W + TILE_SIZE || sy < -TILE_SIZE * 2 || sy > VIEW_H + TILE_SIZE) continue;
+      // Decorative plinth/border
+      ctx.fillStyle = 'rgba(160,140,100,0.35)';
+      ctx.fillRect(sx + 1, sy + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+      ctx.strokeStyle = 'rgba(200,180,140,0.6)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx + 2, sy + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+      // Draw the organism
+      if (ex.organism) {
+        ctx.drawImage(getSprite(ex.organism, TILE_SIZE - 8), sx + 4, sy + 4);
+      }
+      // Label below the plinth
+      if (ex.label) {
+        ctx.fillStyle = 'rgba(220,210,180,0.9)';
+        ctx.fillText(ex.label, sx + TILE_SIZE / 2, sy + TILE_SIZE + 10);
+      }
+    }
+    ctx.textAlign = 'left';
+  }
 
   // NPC planted organisms
   if (npcStates) {
@@ -160,6 +189,8 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   if (gs.overlay === 'trade') drawTradeOverlay(ctx, gs, player, npcStates);
   if (gs.overlay === 'crafting') drawCraftingOverlay(ctx, gs, overlayPlayer);
   if (gs.overlay === 'dawkins') drawDawkinsOverlay(ctx, gs);
+  if (gs.overlay === 'study-info') drawStudyInfoOverlay(ctx, gs, collection);
+  if (gs.overlay === 'exhibit') drawExhibitOverlay(ctx, gs);
   if (gs.overlay === 'help') drawHelpOverlay(ctx);
 
   // Spectator banner
@@ -246,19 +277,19 @@ function drawWhatsNew(ctx) {
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#c8e6c8';
   ctx.font = 'bold 18px Georgia, serif';
-  ctx.fillText("What's New — v7", CANVAS_W / 2, y + 30);
+  ctx.fillText("What's New — v9", CANVAS_W / 2, y + 30);
 
   // Bullet points
   ctx.textAlign = 'left';
   ctx.font = '13px monospace';
   ctx.fillStyle = '#aac8aa';
   const lines = [
-    "Fern and Moss now have their own cottages and farms",
-    "Watch them walk to the Shop, Lab, and Museum",
-    "Each farmer has a wallet — they buy, sell, and breed",
-    "Property borders mark who owns what land",
-    "You can't plow or plant on their property",
-    "Wild trees won't spread into owned land",
+    "Curated exhibits along the garden path",
+    "Depth gradient: same species at increasing complexity",
+    "Symmetry showcase: LR, UD, four-way, asymmetric",
+    "Segmentation & gradient exhibits in southern zones",
+    "Each exhibit labeled — walk through the paper!",
+    "Complete all Dawkins visits for morphospace info",
   ];
   for (let i = 0; i < lines.length; i++) {
     ctx.fillStyle = '#6a9a6a';
@@ -487,6 +518,31 @@ function drawBuildings(ctx, collection, cx, cy, dawkinsState) {
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       ctx.fillText('!', bx + bw/2, by - 2);
     }
+  }
+}
+
+// ── Zone Signs ──
+
+function drawZoneSigns(ctx, cx, cy) {
+  for (const sign of ZONE_SIGNS) {
+    const sx = sign.col * TILE_SIZE - cx;
+    const sy = sign.row * TILE_SIZE - cy;
+    if (sx < -100 || sx > CANVAS_W + 100 || sy < -30 || sy > VIEW_H + 30) continue;
+
+    // Small wooden sign post
+    ctx.fillStyle = 'rgba(60,40,20,0.8)';
+    const tw = ctx.measureText(sign.text).width || 80;
+    ctx.font = 'bold 11px monospace';
+    const textW = ctx.measureText(sign.text).width;
+    ctx.fillStyle = 'rgba(60,40,20,0.85)';
+    ctx.fillRect(sx - textW / 2 - 6, sy - 4, textW + 12, 18);
+    ctx.strokeStyle = 'rgba(100,80,50,0.6)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx - textW / 2 - 6, sy - 4, textW + 12, 18);
+
+    ctx.fillStyle = '#e8d8b8';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(sign.text, sx, sy + 5);
   }
 }
 
@@ -1674,6 +1730,151 @@ function drawDawkinsOverlay(ctx, gs) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillText('[Space] continue  [Esc] close', ox + ow / 2, oy + oh - 12);
   }
+}
+
+function drawExhibitOverlay(ctx, gs) {
+  const data = gs.exhibitData;
+  if (!data || !data.exhibit) return;
+  const ex = data.exhibit;
+  const org = ex.organism;
+
+  const w = 360, h = 280;
+  const x = (CANVAS_W - w) / 2, y = (CANVAS_H - h) / 2;
+
+  // Backdrop
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // Panel
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = '#6a8a6a';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, h);
+
+  // Title
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#c8e6c8';
+  ctx.font = 'bold 16px Georgia, serif';
+  ctx.fillText(ex.label || 'Exhibit', x + w / 2, y + 24);
+
+  // Organism sprite
+  if (org) {
+    const spriteSize = 120;
+    ctx.drawImage(getSprite(org, spriteSize), x + (w - spriteSize) / 2, y + 44);
+
+    // Mode and genes info
+    ctx.font = '11px monospace';
+    ctx.fillStyle = '#8ab88a';
+    const modeNames = ['Peppering', 'Basic', 'Symmetry', 'Segments', 'Gradients', 'Full Dawkins'];
+    ctx.fillText(`Mode: ${modeNames[org.mode] || org.mode}`, x + w / 2, y + 175);
+    ctx.fillText(`Genes: [${org.genes.join(', ')}]`, x + w / 2, y + 192);
+    if (org.symmetry && org.symmetry !== 'left-right') {
+      ctx.fillText(`Symmetry: ${org.symmetry}`, x + w / 2, y + 209);
+    }
+  }
+
+  // Breeder link
+  ctx.fillStyle = '#aac8ee';
+  ctx.font = '12px monospace';
+  ctx.fillText('[B] Open in Breeder', x + w / 2, y + h - 38);
+
+  // Close hint
+  ctx.fillStyle = '#668866';
+  ctx.font = '11px monospace';
+  ctx.fillText('[Space/Esc] Close', x + w / 2, y + h - 16);
+
+  ctx.textAlign = 'left';
+}
+
+function drawStudyInfoOverlay(ctx, gs, collection) {
+  const pages = gs.studyInfoPages;
+  if (!pages) return;
+  const pageIdx = gs.studyInfoPage || 0;
+  const page = pages[Math.min(pageIdx, pages.length - 1)];
+  if (!page) return;
+
+  overlayBg(ctx);
+
+  const ox = 120, oy = 60, ow = 720, oh = 600;
+
+  // Background — warm study tones (matches Dawkins overlay)
+  ctx.fillStyle = '#3a2a1a';
+  ctx.fillRect(ox, oy, ow, oh);
+  ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 2;
+  ctx.strokeRect(ox, oy, ow, oh);
+
+  // Header bar
+  ctx.fillStyle = '#2a1a0a';
+  ctx.fillRect(ox, oy, ow, 40);
+  ctx.fillStyle = '#f0e8d8'; ctx.font = 'bold 15px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(page.title || 'The Study', ox + ow / 2, oy + 20);
+
+  const contentY = oy + 56;
+
+  if (page.dynamic && collection) {
+    // Dynamic stats page
+    ctx.fillStyle = '#d4c8a8'; ctx.font = '15px Georgia, serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+
+    const speciesFound = collection.discovered.size;
+    const totalBred = collection.totalBred;
+    const totalSold = collection.totalSold;
+    const totalDonated = collection.totalDonated;
+    const modes = collection.unlockedModes;
+    // Rough morphospace estimate based on unlocked modes
+    let totalGenotypes = 0;
+    let estimatedSpecies = 0;
+    for (const m of modes) {
+      if (m <= 2) { totalGenotypes += 46e6; estimatedSpecies += 3000; }
+      else if (m === 3) { totalGenotypes += 2e9; estimatedSpecies += 15000; }
+      else { totalGenotypes += 5e9; estimatedSpecies += 30000; }
+    }
+    const pctExplored = estimatedSpecies > 0 ? (speciesFound / estimatedSpecies * 100) : 0;
+
+    const stats = [
+      `Species discovered: ${speciesFound}`,
+      `Total bred: ${totalBred}`,
+      `Total sold: ${totalSold}`,
+      `Total donated: ${totalDonated}`,
+      `Modes unlocked: ${modes.join(', ')}`,
+      '',
+      `Estimated distinct species (unlocked modes): ~${estimatedSpecies.toLocaleString()}`,
+      `Your exploration: ${pctExplored < 0.01 ? '<0.01' : pctExplored.toFixed(2)}%`,
+      '',
+      'The vast majority of morphospace remains unexplored.',
+      'Every breeding session is a chance to find something',
+      'no one has ever seen before.',
+    ];
+
+    for (let i = 0; i < stats.length; i++) {
+      ctx.fillStyle = i < 5 ? '#e8d8b8' : '#d4c8a8';
+      ctx.font = i < 5 ? 'bold 15px Georgia, serif' : '15px Georgia, serif';
+      ctx.fillText(stats[i], ox + 40, contentY + 16 + i * 28);
+    }
+  } else if (page.lines) {
+    // Static text page
+    ctx.fillStyle = '#f0e8d8'; ctx.font = '15px Georgia, serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (let i = 0; i < page.lines.length; i++) {
+      ctx.fillText(page.lines[i], ox + 40, contentY + 16 + i * 28);
+    }
+  }
+
+  // Page indicator
+  ctx.fillStyle = '#6a5a3a'; ctx.font = '11px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText(`${pageIdx + 1} / ${pages.length}`, ox + ow / 2, oy + oh - 30);
+
+  // Footer
+  ctx.fillStyle = '#8a7a5a'; ctx.font = '11px monospace';
+  const isLast = pageIdx >= pages.length - 1;
+  ctx.fillText(
+    isLast ? '[Space] close  [Left] back  [Esc] close' : '[Space/Right] next  [Left] back  [Esc] close',
+    ox + ow / 2, oy + oh - 12
+  );
 }
 
 function wrapText(ctx, text, maxWidth) {
