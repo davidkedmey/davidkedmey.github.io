@@ -18,6 +18,7 @@ import { buildOwnershipGrid, isPlayerProperty } from './property.js';
 import { aiDayTick, updateAITasks, getNarration, precomputeSpectatorAction } from './ai.js';
 import { loadDawkinsDialogue, createDawkinsState, canStartVisit, startVisit, advanceLine, selectChoice, getCurrentLine, completeVisit } from './dawkins.js';
 import { loadAudioSettings, getAudioSettings, initOnInteraction, toggleMusic, toggleVoice, toggleAutoFollow, startMusic, stopMusic, setMusicMood, speak, stopSpeech, resetLastSpoken } from './audio.js';
+import { loadLLMSettings, getLLMSettings, setLLMSetting, interpretCommand, buildGameContext } from './llm.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -40,6 +41,7 @@ const dawkinsState = createDawkinsState();
 const sageShowState = createSageShowState();
 loadDawkinsDialogue().then(data => { dawkinsState.dialogueData = data; }).catch(() => {});
 loadAudioSettings();
+loadLLMSettings();
 initOnInteraction();
 let musicStarted = false;
 
@@ -138,6 +140,8 @@ const gameState = {
   // Camera pan (right-click drag)
   cameraPanOffset: { x: 0, y: 0 },
   cameraPanTimer: 0,       // countdown to ease back after mouse release
+  // AI command interpretation
+  aiThinking: false,
 };
 
 // Default inventory
@@ -1181,6 +1185,51 @@ function cmdYell() {
   }
 }
 
+function cmdAI(arg, parts) {
+  const llm = getLLMSettings();
+  const sub = (parts[1] || '').toLowerCase();
+
+  if (!sub || sub === 'status') {
+    showMessage([
+      `AI: ${llm.enabled ? 'ON' : 'OFF'}`,
+      `Model: ${llm.model}`,
+      `Key: ${llm.apiKey ? '****' + llm.apiKey.slice(-4) : 'not set'}`,
+      `Endpoint: ${llm.baseUrl}`,
+    ], 5);
+    return;
+  }
+  if (sub === 'on') { setLLMSetting('enabled', true); showMessage('AI enabled'); return; }
+  if (sub === 'off') { setLLMSetting('enabled', false); showMessage('AI disabled'); return; }
+  if (sub === 'key') {
+    const key = arg.replace(/^key\s+/i, '');
+    if (!key) { showMessage('Usage: /ai key <your-api-key>'); return; }
+    setLLMSetting('apiKey', key);
+    showMessage('API key saved: ****' + key.slice(-4));
+    return;
+  }
+  if (sub === 'model') {
+    const m = arg.replace(/^model\s+/i, '');
+    if (!m) { showMessage(`Current model: ${llm.model}`); return; }
+    setLLMSetting('model', m);
+    showMessage(`Model set: ${m}`);
+    return;
+  }
+  if (sub === 'url') {
+    const u = arg.replace(/^url\s+/i, '');
+    if (!u) { showMessage(`Endpoint: ${llm.baseUrl}`); return; }
+    setLLMSetting('baseUrl', u);
+    showMessage(`Endpoint set: ${u}`);
+    return;
+  }
+  if (sub === 'clear') {
+    setLLMSetting('apiKey', '');
+    setLLMSetting('enabled', false);
+    showMessage('API key cleared, AI disabled');
+    return;
+  }
+  showMessage('Usage: /ai [on|off|key|model|url|clear]');
+}
+
 const COMMANDS = {
   follow: cmdFollow, f: cmdFollow,
   stop: cmdStop, unfollow: cmdStop,
@@ -1217,13 +1266,48 @@ const COMMANDS = {
 function executeCommand(raw) {
   const rawParts = raw.split(/\s+/);
   const cmd = rawParts[0].toLowerCase();
+
+  // Check for /ai subcommands first
+  if (cmd === 'ai') { cmdAI(rawParts.slice(1).join(' '), rawParts.map(p => p.toLowerCase())); return; }
+
   const handler = COMMANDS[cmd];
   if (handler) {
     // Pass original-case arg for commands like /name, lowercase parts for others
     handler(rawParts.slice(1).join(' '), rawParts.map(p => p.toLowerCase()));
-  } else {
-    showMessage(`Unknown: "${cmd}" \u2014 type /help`);
+    return;
   }
+
+  // AI fallback: if enabled and key present
+  const llm = getLLMSettings();
+  if (llm.enabled && llm.apiKey) {
+    gameState.aiThinking = true;
+    showMessage('Thinking...', 15);
+    const ctx = buildGameContext(gameState, player, npcStates, planted, collection);
+    interpretCommand(raw, ctx).then(result => {
+      gameState.aiThinking = false;
+      if (!result) {
+        showMessage(`Couldn't map "${raw}" \u2014 try /help`, 3);
+      } else if (result.startsWith('SAY:')) {
+        showMessage(result.slice(4).trim(), 5);
+      } else if (result.startsWith('SUGGEST:')) {
+        const suggested = result.slice(8).trim();
+        gameState.message = null;
+        gameState.commandBar.active = true;
+        gameState.commandBar.text = suggested;
+        gameState.commandBar.suggestion = true;
+        input.setTextMode(true);
+      } else {
+        showMessage([`> ${result}`, '(AI interpreted)'], 2);
+        setTimeout(() => executeCommand(result), 400);
+      }
+    }).catch(() => {
+      gameState.aiThinking = false;
+      showMessage('AI error \u2014 check /ai settings');
+    });
+    return;
+  }
+
+  showMessage(`Unknown: "${cmd}" \u2014 type /help`);
 }
 
 // ── Game Loop ──
@@ -1326,11 +1410,13 @@ function gameLoop(timestamp) {
       const cmd = gameState.commandBar.text.trim();
       gameState.commandBar.active = false;
       gameState.commandBar.text = '';
+      gameState.commandBar.suggestion = false;
       input.setTextMode(false);
       if (cmd) executeCommand(cmd);
     } else if (input.justPressed('Escape')) {
       gameState.commandBar.active = false;
       gameState.commandBar.text = '';
+      gameState.commandBar.suggestion = false;
       input.setTextMode(false);
     }
     // Skip all other game input while command bar is open
@@ -1643,7 +1729,7 @@ function gameLoop(timestamp) {
   lastTutorialSpeech = gameState.currentTutorialSpeech;
 
   // Debug exports (dev only)
-  window.__GAME_STATE__ = { gameState, player, npcStates, collection, planted, wilds, world };
+  window.__GAME_STATE__ = { gameState, player, npcStates, collection, planted, wilds, world, executeCommand };
   window.__GAME_DEBUG__ = {
     day: gameState.day,
     playerGold: player.wallet,

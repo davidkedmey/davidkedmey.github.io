@@ -173,7 +173,15 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
     drawSettingsIndicators(ctx, gs);
   }
 
-  if (gs.message) drawMessage(ctx, gs.message.lines || [gs.message.text]);
+  if (gs.message) {
+    let lines = gs.message.lines || [gs.message.text];
+    // Pulsing dots for AI thinking indicator
+    if (gs.aiThinking && lines.length === 1 && lines[0] === 'Thinking...') {
+      const dots = '.'.repeat(1 + Math.floor(Date.now() / 400) % 3);
+      lines = ['Thinking' + dots];
+    }
+    drawMessage(ctx, lines);
+  }
 }
 
 // ── Intro ──
@@ -1689,7 +1697,7 @@ function wrapText(ctx, text, maxWidth) {
 
 function drawHelpOverlay(ctx) {
   overlayBg(ctx);
-  const pw = 700, ph = 680;
+  const pw = 700, ph = 746;
   const px = (CANVAS_W - pw) / 2, py = (CANVAS_H - ph) / 2 - 10;
   drawPanel(ctx, px, py, pw, ph, 'Help');
 
@@ -1756,6 +1764,9 @@ function drawHelpOverlay(ctx) {
     ['/dance', 'Spin!'],
     ['/wave', 'Wave at NPCs'],
     ['/yell', 'Shout at NPCs'],
+    ['/ai', 'AI settings & status'],
+    ['/ai on|off', 'Enable/disable AI'],
+    ['/ai key <key>', 'Set API key'],
   ];
 
   const col3 = px + 330;
@@ -1976,14 +1987,28 @@ function drawCommandBar(ctx, gs) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
   const textY = barY + barH / 2;
-  ctx.fillText('>', barX + 10, textY);
-  ctx.fillStyle = '#fff';
-  ctx.fillText(bar.text, barX + 24, textY);
+  if (bar.suggestion) {
+    // AI suggestion mode: different prompt and hint
+    ctx.fillStyle = '#f8d48a';
+    ctx.fillText('AI\u2192', barX + 6, textY);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(bar.text, barX + 38, textY);
+    // Hint on right side
+    ctx.fillStyle = '#666';
+    ctx.textAlign = 'right';
+    ctx.fillText('[Enter] run \u2022 [Esc] cancel', barX + barW - 10, textY);
+    ctx.textAlign = 'left';
+  } else {
+    ctx.fillText('>', barX + 10, textY);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(bar.text, barX + 24, textY);
+  }
   // Blinking cursor
   if (Math.floor(Date.now() / 500) % 2 === 0) {
+    const xOff = bar.suggestion ? 38 : 24;
     const tw = ctx.measureText(bar.text).width;
     ctx.fillStyle = '#fff';
-    ctx.fillRect(barX + 24 + tw + 1, textY - 7, 2, 14);
+    ctx.fillRect(barX + xOff + tw + 1, textY - 7, 2, 14);
   }
 }
 

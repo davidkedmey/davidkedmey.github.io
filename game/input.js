@@ -6,8 +6,21 @@ export function createInput(canvas) {
   let textMode = false;
   const charBuffer = [];
 
+  // Paste support for command bar
+  window.addEventListener('paste', e => {
+    if (!textMode) return;
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    for (const ch of text) {
+      if (ch === '\n' || ch === '\r') continue;
+      charBuffer.push(ch);
+    }
+  });
+
   window.addEventListener('keydown', e => {
     if (textMode) {
+      // Allow Cmd/Ctrl+V to reach the paste handler
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v') return;
       e.preventDefault();
       if (e.key === 'Backspace') {
         charBuffer.push('\b'); // backspace sentinel
@@ -15,7 +28,7 @@ export function createInput(canvas) {
         // Let these through as justPressed for main.js to handle
         if (!keys[e.key]) pressed[e.key] = true;
         keys[e.key] = true;
-      } else if (e.key.length === 1) {
+      } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
         charBuffer.push(e.key);
       }
       return;
