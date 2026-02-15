@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dawkins' Biomorphs — 3D Gallery</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.172.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.172.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="scene-container"></div>
+
+  <div id="overlay">
+    <div class="overlay-content">
+      <h1>Biomorph Gallery</h1>
+      <p class="overlay-prompt">Click to explore</p>
+      <p class="overlay-hint">WASD move &middot; Arrows look &middot; Space/C up/down &middot; Shift run &middot; Esc pause</p>
+      <p class="overlay-hint overlay-path">Walk the path: Basic &rarr; Symmetry &rarr; Segments &rarr; Gradients &rarr; Full Dawkins</p>
+    </div>
+  </div>
+
+  <div id="gene-overlay">
+    <h3>Genotype</h3>
+    <div id="gene-display"></div>
+  </div>
+
+  <div id="hud">
+    <span id="zone-name" class="zone-indicator">Basic</span>
+    <button id="btn-regenerate">Regenerate</button>
+    <span class="hud-hint">WASD move &middot; Arrows look &middot; Space/C up/down &middot; Esc pause</span>
+  </div>
+
+  <div id="header">
+    <a href="../">Hub</a>
+    <a href="../breed.html">Breed</a>
+    <a href="../game/">Play</a>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
