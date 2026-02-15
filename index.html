@@ -3,160 +3,310 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dawkins' Biomorphs</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Biomorph Builder — Explore the Evolution of Evolvability</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #0a0e14;
+      color: #d4dce6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .hero {
+      text-align: center;
+      padding: 60px 24px 40px;
+      max-width: 720px;
+    }
+
+    .hero h1 {
+      font-size: 2.4rem;
+      color: #c8e6c8;
+      margin-bottom: 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .hero .subtitle {
+      font-size: 1.05rem;
+      color: #8a9aaa;
+      font-style: italic;
+      margin-bottom: 8px;
+    }
+
+    .hero .attribution {
+      font-size: 0.85rem;
+      color: #5a6a7a;
+      margin-bottom: 32px;
+    }
+
+    .hero .attribution a {
+      color: #7a9aba;
+      text-decoration: none;
+    }
+
+    .hero .tagline {
+      font-size: 1.1rem;
+      color: #aab8c8;
+      line-height: 1.6;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    /* Canvas for animated biomorphs */
+    #hero-canvas {
+      display: block;
+      margin: 30px auto 10px;
+      border-radius: 8px;
+    }
+
+    .cards {
+      display: flex;
+      gap: 24px;
+      padding: 20px 24px 60px;
+      max-width: 960px;
+      width: 100%;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .card {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      border-radius: 12px;
+      padding: 32px 28px 28px;
+      width: 280px;
+      text-align: center;
+      transition: border-color 0.2s, transform 0.2s;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .card:hover {
+      border-color: #4a6a5a;
+      transform: translateY(-3px);
+    }
+
+    .card-icon {
+      font-size: 2.2rem;
+      margin-bottom: 16px;
+      display: block;
+      height: 48px;
+      line-height: 48px;
+    }
+
+    .card h2 {
+      font-size: 1.2rem;
+      color: #c8e6c8;
+      margin-bottom: 8px;
+      font-family: Georgia, serif;
+    }
+
+    .card .desc {
+      font-size: 0.9rem;
+      color: #8a9aaa;
+      line-height: 1.5;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin-bottom: 16px;
+      flex: 1;
+    }
+
+    .card .enter {
+      display: inline-block;
+      padding: 8px 20px;
+      border: 1px solid #3a5a4a;
+      border-radius: 6px;
+      color: #a8d8a8;
+      font-size: 0.85rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      transition: background 0.2s;
+    }
+
+    .card:hover .enter {
+      background: #1a2a22;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 20px 24px 40px;
+      color: #4a5a6a;
+      font-size: 0.8rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+
+    .footer a {
+      color: #6a8a9a;
+      text-decoration: none;
+    }
+
+    .stats {
+      display: flex;
+      gap: 40px;
+      justify-content: center;
+      padding: 0 24px 30px;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat .num {
+      font-size: 1.6rem;
+      color: #c8e6c8;
+      display: block;
+    }
+
+    .stat .label {
+      font-size: 0.75rem;
+      color: #6a7a8a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    @media (max-width: 680px) {
+      .hero h1 { font-size: 1.8rem; }
+      .cards { flex-direction: column; align-items: center; }
+      .card { width: 100%; max-width: 340px; }
+      .stats { gap: 24px; }
+    }
+  </style>
 </head>
 <body>
-  <header class="top-bar">
-    <span class="top-bar-title">Dawkins' Biomorphs</span>
-    <button id="btn-about" class="top-bar-icon" title="About &amp; Help">⚙</button>
-  </header>
 
-  <main>
-    <div id="offspring-grid"></div>
-
-    <div id="action-bar">
-      <div class="action-buttons">
-        <button id="btn-reroll" title="Same parent, new mutations (asexual reproduction)">&#8635; New Brood</button>
-        <button id="btn-breed" title="Cross with saved specimens (sexual reproduction)">&#9891;&#9893; Breed</button>
-        <button id="btn-undo" title="Return to previous generation (Ctrl+Z)">&larr; Back</button>
-        <div class="random-group">
-          <button id="btn-random" title="Start with a random organism">Seed</button>
-          <select id="random-mode" title="Random type">
-            <option value="interesting">Interesting</option>
-            <option value="pure">Pure random</option>
-          </select>
-        </div>
-      </div>
+  <div class="hero">
+    <h1>Biomorph Builder</h1>
+    <div class="subtitle">"What if the rules of development were allowed to evolve?"</div>
+    <div class="attribution">
+      Based on Richard Dawkins'
+      <a href="dawkins-paper/" target="_blank"><em>The Evolution of Evolvability</em></a> (1988)
     </div>
-    <nav class="mode-tabs">
-      <button class="mode-tab" data-mode="0">Pixel Peppering</button>
-      <button class="mode-tab active" data-mode="1">Basic</button>
-      <button class="mode-tab" data-mode="2">+ Symmetry</button>
-      <button class="mode-tab" data-mode="3">+ Segments</button>
-      <button class="mode-tab" data-mode="4">+ Gradients</button>
-      <button class="mode-tab" data-mode="5">Full Dawkins</button>
-    </nav>
-    <div id="settings-bar">
-      <div id="symmetry-controls" class="setting-row" style="display:none">
-        <label>Symmetry:
-          <select id="symmetry-select">
-            <option value="left-right">Left-right</option>
-            <option value="up-down">Up-down</option>
-            <option value="four-way">Four-way radial</option>
-            <option value="asymmetric">Asymmetric</option>
-          </select>
-        </label>
-      </div>
-      <div id="mode5-controls" class="setting-row" style="display:none">
-        <label><input type="checkbox" id="alternating-asym"> Alternating asymmetry</label>
-        <label><input type="checkbox" id="radial-sym"> Radial symmetry</label>
-      </div>
-      <div id="color-controls" class="setting-row" style="display:none">
-        <label>Color:
-          <select id="color-mode">
-            <option value="none">None</option>
-            <option value="depth">By depth</option>
-            <option value="angle">By direction</option>
-          </select>
-        </label>
-      </div>
-      <div class="setting-row">
-        <label class="mutation-label">Mutation:
-          <select id="mutation-intensity">
-            <option value="1">Gentle</option>
-            <option value="2">Moderate</option>
-            <option value="3">Wild</option>
-          </select>
-        </label>
-      </div>
-    </div>
-    <p id="mode-description"></p>
-
-  </main>
-
-  <div id="genome-panel" class="collapsible-panel">
-    <button class="panel-toggle">Genome</button>
-    <div class="panel-content" style="display:none">
-      <div id="genome-table"></div>
-    </div>
+    <canvas id="hero-canvas" width="720" height="120"></canvas>
+    <p class="tagline">
+      Nine genes. Recursive branching. Billions of possible forms.
+      Explore morphospace through breeding, farming, and walking.
+    </p>
   </div>
 
-  <div id="genealogy-panel" class="collapsible-panel">
-    <button class="panel-toggle">Genealogy</button>
-    <div class="panel-content" style="display:none">
-      <canvas id="genealogy-canvas"></canvas>
-    </div>
+  <div class="stats">
+    <div class="stat"><span class="num">46M+</span><span class="label">Genotypes (Mode 1)</span></div>
+    <div class="stat"><span class="num">5</span><span class="label">Developmental Modes</span></div>
+    <div class="stat"><span class="num">13</span><span class="label">Genes (Full Dawkins)</span></div>
   </div>
 
-  <div id="gallery-panel" class="collapsible-panel">
-    <button class="panel-toggle open">Gallery</button>
-    <div id="gallery-content" class="panel-content" style="display:grid"></div>
-  </div>
-
-  <div id="comparison-modal" style="display:none">
-    <div class="comparison-content">
-      <div class="comparison-side">
-        <h3>Parent</h3>
-        <canvas id="compare-parent" width="300" height="300"></canvas>
-        <div id="compare-parent-genes" class="comparison-genes"></div>
+  <div class="cards">
+    <a class="card" href="breed.html">
+      <span class="card-icon">&#9878;</span>
+      <h2>Breed</h2>
+      <div class="desc">
+        The laboratory. Select offspring, tweak parameters, discover species.
+        All five embryological modes from Dawkins' paper.
       </div>
-      <div class="comparison-side">
-        <h3>Offspring</h3>
-        <canvas id="compare-child" width="300" height="300"></canvas>
-        <div id="compare-child-genes" class="comparison-genes"></div>
+      <span class="enter">Open Breeder</span>
+    </a>
+
+    <a class="card" href="game/">
+      <span class="card-icon">&#127793;</span>
+      <h2>Play</h2>
+      <div class="desc">
+        A living world. Farm biomorphs, trade with NPCs,
+        walk the botanical gardens, and discover the breadth of morphospace.
       </div>
-      <div class="comparison-actions">
-        <button id="compare-select">Select This Offspring</button>
-        <button id="compare-dismiss">Cancel</button>
+      <span class="enter">Play Biomorph Farm</span>
+    </a>
+
+    <a class="card" href="3d/">
+      <span class="card-icon">&#127758;</span>
+      <h2>Explore</h2>
+      <div class="desc">
+        Walk through a 3D gallery of biomorphs rendered as branching trees.
+        Five zones, day/night cycle, first-person exploration.
       </div>
-    </div>
+      <span class="enter">Enter 3D Gallery</span>
+    </a>
   </div>
 
-  <div id="mate-picker-modal" style="display:none">
-    <div class="mate-picker-content">
-      <h3>Choose Mates</h3>
-      <p class="mate-picker-hint">Select 1&ndash;4 specimens from your gallery to breed with the current parent</p>
-      <div id="mate-picker-grid"></div>
-      <div class="mate-picker-actions">
-        <button id="mate-picker-confirm" disabled>Breed</button>
-        <button id="mate-picker-cancel">Cancel</button>
-      </div>
-    </div>
+  <div class="footer">
+    <a href="https://github.com/davidkedmey/dawkins-biomorphs">GitHub</a>
+    &middot;
+    <a href="dawkins-paper/">Read the Paper</a>
+    <br>
+    No frameworks. No build step. Just vanilla JS and the evolution of form.
   </div>
 
-  <div id="breed-modal" style="display:none">
-    <div class="breed-content">
-      <div class="breed-parents" id="breed-parents"></div>
-      <div id="breed-gene-comparison" class="breed-gene-comparison"></div>
-      <div id="breed-offspring" class="breed-offspring-grid"></div>
-      <div id="breed-detail-strip" class="breed-detail-strip"></div>
-      <div class="breed-actions">
-        <button id="breed-dismiss">Cancel</button>
-      </div>
-    </div>
-  </div>
+  <script>
+    // Redirect to breeder if URL has hash params (backward compat)
+    if (location.hash && location.hash.length > 1) {
+      location.replace('breed.html' + location.hash);
+    }
+  </script>
+  <script type="module">
+    // Animated hero: draw a row of biomorphs at increasing depth
+    import { drawTree, defineVectors } from './shared/genotype.js';
 
-  <div id="about-modal" style="display:none">
-    <div class="about-content">
-      <h2>Dawkins' Biomorphs</h2>
-      <p class="about-subtitle">Progressive embryologies from <em>The Evolution of Evolvability</em> (1988)</p>
-      <span class="about-version">v0.13</span>
-      <h3>How to Play</h3>
-      <ul>
-        <li>Click an offspring or press <kbd>1</kbd>–<kbd>8</kbd> to select it as the next parent</li>
-        <li>Each generation introduces small random mutations</li>
-        <li>Save favourites to the Gallery</li>
-        <li>Breed specimens together with ♀♂ Breed</li>
-        <li>Press <kbd>Ctrl+Z</kbd> to undo</li>
-      </ul>
-      <p class="about-credit">Based on Richard Dawkins' <em>The Evolution of Evolvability</em> (1988)</p>
-      <button id="about-close">Close</button>
-    </div>
-  </div>
+    const canvas = document.getElementById('hero-canvas');
+    const ctx = canvas.getContext('2d');
 
-  <script src="peppering.js"></script>
-  <script src="history.js"></script>
-  <script src="biomorph.js"></script>
+    const baseGenes = [-1, 3, -1, -1, 2, 2, 2, 3];
+    const depths = [2, 3, 4, 5, 6, 7];
+    const cellW = canvas.width / depths.length;
+
+    function renderHero() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < depths.length; i++) {
+        const genes = [...baseGenes, depths[i]];
+        const allLines = drawTree(genes);
+
+        if (allLines.length === 0) continue;
+
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const seg of allLines) {
+          minX = Math.min(minX, seg.x0, seg.x1);
+          maxX = Math.max(maxX, seg.x0, seg.x1);
+          minY = Math.min(minY, seg.y0, seg.y1);
+          maxY = Math.max(maxY, seg.y0, seg.y1);
+        }
+
+        const bw = maxX - minX || 1;
+        const bh = maxY - minY || 1;
+        const pad = 12;
+        const scale = Math.min((cellW - pad * 2) / bw, (canvas.height - pad * 2) / bh);
+        const cx = i * cellW + cellW / 2;
+        const cy = canvas.height / 2;
+        const ox = (minX + maxX) / 2;
+        const oy = (minY + maxY) / 2;
+        const maxD = Math.max(...allLines.map(s => s.depth));
+
+        for (const seg of allLines) {
+          const t = maxD > 1 ? (seg.depth - 1) / (maxD - 1) : 0;
+          const hue = 120 + t * 60; // green → teal
+          const light = 35 + t * 25;
+          ctx.strokeStyle = `hsl(${hue}, 50%, ${light}%)`;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(cx + (seg.x0 - ox) * scale, cy + (seg.y0 - oy) * scale);
+          ctx.lineTo(cx + (seg.x1 - ox) * scale, cy + (seg.y1 - oy) * scale);
+          ctx.stroke();
+        }
+
+        // Depth label
+        ctx.fillStyle = '#4a5a6a';
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`depth ${depths[i]}`, cx, canvas.height - 4);
+      }
+    }
+
+    renderHero();
+  </script>
 </body>
 </html>
