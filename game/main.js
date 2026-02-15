@@ -812,6 +812,7 @@ function startSpectator(npcIdx, result) {
   gameState.spectator = {
     npcIdx,
     npcName: npc ? npc.name : '?',
+    npcColor: npc ? npc.color : '#8ab4f8',
     overlay: result.overlay,
     actionLabel: result.actionLabel,
     steps: result.steps,

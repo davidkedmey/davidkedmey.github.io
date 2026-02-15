@@ -515,9 +515,34 @@ export function precomputeSpectatorAction(state, npc, task, gameState, collectio
   }
 }
 
+// Personality-flavored narration pools
+const SELL_LINES = {
+  fern: {
+    approach: n => `Fern brings ${n} specimen${n > 1 ? 's' : ''} to the counter...`,
+    consider: [
+      '"This one\'s been taking up space..."',
+      '"I grew this one myself, but it\'s time to let go."',
+      '"Not my best work, honestly."',
+      '"Someone else might appreciate this more."',
+    ],
+    sold: price => `Sold for ${price}g.`,
+    summary: (n, total) => `Fern earned ${total}g from ${n} sale${n > 1 ? 's' : ''}.`,
+  },
+  moss: {
+    approach: n => `Moss dumps ${n} specimen${n > 1 ? 's' : ''} on the counter.`,
+    consider: [
+      '"Watch this — bred this one myself."',
+      '"Chip won\'t know what hit him."',
+      '"Fern wouldn\'t have the guts to sell this."',
+      '"This one\'s too wild even for me."',
+    ],
+    sold: price => `Sold! ${price}g. Easy money.`,
+    summary: (n, total) => `Moss pockets ${total}g. Not bad for a day\'s work.`,
+  },
+};
+
 function precomputeSell(state, personality, gameState) {
-  // Figure out which items the NPC will sell (same logic as executeSell, but don't mutate)
-  const inv = state.inventory.map(i => ({ ...i })); // shallow copy for display
+  const inv = state.inventory.map(i => ({ ...i }));
   const toSell = [];
   for (let i = inv.length - 1; i >= 0; i--) {
     if (inv[i].kind === 'organism') {
@@ -527,6 +552,9 @@ function precomputeSell(state, personality, gameState) {
   }
   if (toSell.length === 0) return null;
 
+  const npcId = state.id;
+  const lines = SELL_LINES[npcId] || SELL_LINES.fern;
+
   const actor = {
     inventory: inv,
     wallet: state.wallet || 0,
@@ -534,32 +562,48 @@ function precomputeSell(state, personality, gameState) {
   };
 
   const steps = [];
+  let totalGold = 0;
 
-  // Step 1: Show inventory side
+  // Overview step
   steps.push({
     duration: 1.0,
     apply(gs, actor) {
       gs.shopSide = 1;
       gs.shopCursor = toSell.length > 0 ? toSell[toSell.length - 1].idx : 0;
+      gs.spectatorLabel = lines.approach(toSell.length);
     },
   });
 
-  // Steps 2+: cursor moves to each item being sold
-  for (const sale of toSell.reverse()) { // show in forward order
+  // Per-item steps
+  const sellsForward = toSell.slice().reverse();
+  for (let i = 0; i < sellsForward.length; i++) {
+    const sale = sellsForward[i];
+    totalGold += sale.price;
+    const line = lines.consider[i % lines.consider.length];
     steps.push({
       duration: 1.0,
       apply(gs, actor) {
         gs.shopCursor = sale.idx;
-        gs.spectatorLabel = `Selling for ${sale.price}g...`;
+        gs.spectatorLabel = line;
       },
     });
+    const soldLine = lines.sold(sale.price);
     steps.push({
       duration: 0.5,
       apply(gs, actor) {
-        gs.spectatorLabel = `Sold for ${sale.price}g!`;
+        gs.spectatorLabel = soldLine;
       },
     });
   }
+
+  // Summary step
+  const summaryLine = lines.summary(sellsForward.length, totalGold);
+  steps.push({
+    duration: 1.0,
+    apply(gs, actor) {
+      gs.spectatorLabel = summaryLine;
+    },
+  });
 
   const totalDuration = steps.reduce((s, step) => s + step.duration, 0);
 
@@ -572,12 +616,24 @@ function precomputeSell(state, personality, gameState) {
   };
 }
 
+const BUY_LINES = {
+  fern: {
+    browsing: '"Let me see what Chip has today..."',
+    consider: depth => `"Depth ${depth}... that's sensible. I'll take it."`,
+    bought: price => `Bought for ${price}g. A careful investment.`,
+  },
+  moss: {
+    browsing: '"Anything interesting in stock...?"',
+    consider: depth => `"Depth ${depth} — now that's got potential."`,
+    bought: price => `${price}g well spent. Let's see what this one can do.`,
+  },
+};
+
 function precomputeBuy(state, personality, gameState) {
   const budget = Math.floor((state.wallet || 0) * personality.buyBudget);
   const stock = gameState.shopStock || [];
   const [minDepth, maxDepth] = personality.preferredDepth;
 
-  // Find target item (same logic as executeBuy)
   let targetIdx = -1;
   for (let i = stock.length - 1; i >= 0; i--) {
     const item = stock[i];
@@ -594,6 +650,8 @@ function precomputeBuy(state, personality, gameState) {
 
   const targetItem = stock[targetIdx];
   const price = buyPrice(targetItem);
+  const npcId = state.id;
+  const lines = BUY_LINES[npcId] || BUY_LINES.fern;
 
   const actor = {
     inventory: state.inventory.map(i => ({ ...i })),
@@ -607,31 +665,49 @@ function precomputeBuy(state, personality, gameState) {
       apply(gs, actor) {
         gs.shopSide = 0;
         gs.shopCursor = targetIdx;
+        gs.spectatorLabel = lines.browsing;
       },
     },
     {
       duration: 1.0,
       apply(gs, actor) {
         gs.shopCursor = targetIdx;
-        gs.spectatorLabel = `Buying for ${price}g...`;
+        gs.spectatorLabel = lines.consider(targetItem.genes[8]);
       },
     },
     {
       duration: 0.5,
       apply(gs, actor) {
-        gs.spectatorLabel = `Bought for ${price}g!`;
+        gs.spectatorLabel = lines.bought(price);
       },
     },
   ];
 
   return {
     overlay: 'shop',
-    actionLabel: 'Buying',
+    actionLabel: 'Shopping',
     actor,
     steps,
     totalDuration: 2.5,
   };
 }
+
+const BREED_LINES = {
+  fern: {
+    parent1: '"I\'ll use this sturdy one as the base..."',
+    parent2: '"And pair it with something complementary."',
+    examining: '"Let\'s see what nature gives us..."',
+    pick_safe: d => `"Depth ${d} — nice and manageable. I'll keep this one."`,
+    pick_risky: d => `"Depth ${d} — that's interesting. Worth a try."`,
+  },
+  moss: {
+    parent1: '"All right, let\'s start with the weird one."',
+    parent2: '"Now throw in something wild..."',
+    examining: '"Come on, give me something good..."',
+    pick_safe: d => `"Depth ${d}? Boring, but fine."`,
+    pick_risky: d => `"Depth ${d}! Now THAT'S what I'm talking about."`,
+  },
+};
 
 function precomputeBreed(state, personality) {
   const organisms = state.inventory
@@ -640,7 +716,6 @@ function precomputeBreed(state, personality) {
 
   if (organisms.length < 2) return null;
 
-  // Find compatible pair
   let pair = null;
   for (let i = 0; i < organisms.length - 1 && !pair; i++) {
     for (let j = i + 1; j < organisms.length; j++) {
@@ -655,7 +730,6 @@ function precomputeBreed(state, personality) {
   const offspring = breed(pair[0].item, pair[1].item);
   if (offspring.length === 0) return null;
 
-  // Determine which offspring the NPC would pick
   let pickIdx;
   if (personality.pickOffspring === 'risky') {
     pickIdx = offspring.reduce((bi, o, i) => o.genes[8] > offspring[bi].genes[8] ? i : bi, 0);
@@ -663,13 +737,17 @@ function precomputeBreed(state, personality) {
     pickIdx = offspring.reduce((bi, o, i) => o.genes[8] < offspring[bi].genes[8] ? i : bi, 0);
   }
 
+  const npcId = state.id;
+  const lines = BREED_LINES[npcId] || BREED_LINES.fern;
+  const pickDepth = offspring[pickIdx].genes[8];
+  const pickLine = personality.pickOffspring === 'risky' ? lines.pick_risky(pickDepth) : lines.pick_safe(pickDepth);
+
   const actor = {
     inventory: state.inventory.map(i => ({ ...i })),
     wallet: state.wallet || 0,
     selectedSlot: 0,
   };
 
-  // Build a fake lab state for the renderer
   const labState = {
     active: true,
     step: 'select1',
@@ -685,14 +763,14 @@ function precomputeBreed(state, personality) {
       duration: 1.5,
       apply(gs, actor, lab) {
         lab.step = 'select1';
-        gs.spectatorLabel = 'Selecting parent 1...';
+        gs.spectatorLabel = lines.parent1;
       },
     },
     {
       duration: 1.5,
       apply(gs, actor, lab) {
         lab.step = 'select2';
-        gs.spectatorLabel = 'Selecting parent 2...';
+        gs.spectatorLabel = lines.parent2;
       },
     },
     {
@@ -700,14 +778,14 @@ function precomputeBreed(state, personality) {
       apply(gs, actor, lab) {
         lab.step = 'offspring';
         lab.selectedOffspring = [];
-        gs.spectatorLabel = 'Examining offspring...';
+        gs.spectatorLabel = lines.examining;
       },
     },
     {
       duration: 1.0,
       apply(gs, actor, lab) {
         lab.selectedOffspring = [pickIdx];
-        gs.spectatorLabel = `Picked offspring ${pickIdx + 1}!`;
+        gs.spectatorLabel = pickLine;
       },
     },
   ];
@@ -722,9 +800,23 @@ function precomputeBreed(state, personality) {
   };
 }
 
+const DONATE_LINES = {
+  fern: {
+    browsing: '"The museum could use another specimen..."',
+    donating: '"Here — for science."',
+  },
+  moss: {
+    browsing: '"Let\'s see if they have room for this one..."',
+    donating: '"Take it. I\'ve got plenty more where that came from."',
+  },
+};
+
 function precomputeDonate(state) {
   const idx = state.inventory.findIndex(i => i.kind === 'organism');
   if (idx < 0) return null;
+
+  const npcId = state.id;
+  const lines = DONATE_LINES[npcId] || DONATE_LINES.fern;
 
   const actor = {
     inventory: state.inventory.map(i => ({ ...i })),
@@ -737,13 +829,13 @@ function precomputeDonate(state) {
       duration: 1.0,
       apply(gs, actor) {
         actor.selectedSlot = idx;
-        gs.spectatorLabel = 'Browsing collection...';
+        gs.spectatorLabel = lines.browsing;
       },
     },
     {
       duration: 1.5,
       apply(gs, actor) {
-        gs.spectatorLabel = 'Donating specimen...';
+        gs.spectatorLabel = lines.donating;
       },
     },
   ];
@@ -757,10 +849,24 @@ function precomputeDonate(state) {
   };
 }
 
+const CRAFT_LINES = {
+  fern: {
+    selecting: name => `"I could use a new ${name}..."`,
+    crafting: name => `Fern carefully crafts a ${name}.`,
+  },
+  moss: {
+    selecting: name => `"Time to make a ${name}."`,
+    crafting: name => `Moss hammers together a ${name}. Good enough.`,
+  },
+};
+
 function precomputeCraft(state, task) {
   const recipe = RECIPES.find(r => r.id === task.data.recipeId);
   if (!recipe) return null;
   if (!canCraft(recipe, state.inventory)) return null;
+
+  const npcId = state.id;
+  const lines = CRAFT_LINES[npcId] || CRAFT_LINES.fern;
 
   const actor = {
     inventory: state.inventory.map(i => ({ ...i })),
@@ -775,13 +881,13 @@ function precomputeCraft(state, task) {
       duration: 1.5,
       apply(gs, actor) {
         gs.craftCursor = recipeIdx;
-        gs.spectatorLabel = `Selecting ${recipe.name}...`;
+        gs.spectatorLabel = lines.selecting(recipe.name);
       },
     },
     {
       duration: 1.0,
       apply(gs, actor) {
-        gs.spectatorLabel = `Crafting ${recipe.name}!`;
+        gs.spectatorLabel = lines.crafting(recipe.name);
       },
     },
   ];

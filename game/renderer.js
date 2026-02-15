@@ -143,7 +143,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   const overlayPlayer = gs.spectator ? gs.spectator.actor : player;
   const overlayLab = gs.spectator ? gs.spectator.lab : lab;
   if (gs.overlay === 'shop') drawShopOverlay(ctx, gs, overlayPlayer);
-  if (gs.overlay === 'lab') drawLabOverlay(ctx, overlayLab || lab, overlayPlayer);
+  if (gs.overlay === 'lab') drawLabOverlay(ctx, overlayLab || lab, overlayPlayer, gs);
   if (gs.overlay === 'museum') drawMuseumOverlay(ctx, collection, gs);
   if (gs.overlay === 'trade') drawTradeOverlay(ctx, gs, player, npcStates);
   if (gs.overlay === 'crafting') drawCraftingOverlay(ctx, gs, overlayPlayer);
@@ -746,7 +746,8 @@ function drawInventoryOverlay(ctx, gs, player) {
   // Grid on left
   const gridX = ox + 24, gridY = oy + 58;
   const CELL = 68, cols = 3;
-  drawItemCells(ctx, player.inventory, 9, cols, CELL, gridX, gridY, player.selectedSlot, true);
+  const specColor = gs.spectator ? gs.spectator.npcColor : null;
+  drawItemCells(ctx, player.inventory, 9, cols, CELL, gridX, gridY, player.selectedSlot, true, specColor);
 
   // Detail panel on right
   const detX = gridX + cols * (CELL + 4) + 24;
@@ -775,7 +776,7 @@ function drawInventoryOverlay(ctx, gs, player) {
   // Footer
   ctx.fillStyle = '#555'; ctx.font = '11px monospace';
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  ctx.fillText('[Arrows] navigate  [Esc] close', ox + ow/2, oy + oh - 10);
+  ctx.fillText(spectatorFooter(gs) || '[Arrows] navigate  [Esc] close', ox + ow/2, oy + oh - 10);
 }
 
 // Draw organism detail in inventory overlay
@@ -858,15 +859,20 @@ function drawMaterialDetail(ctx, item, detX, detY, detW, detH) {
 
 // ── Item Grid Helper ──
 
-function drawItemCells(ctx, items, maxSlots, cols, cellSize, x, y, selectedIdx, isActive) {
+function drawItemCells(ctx, items, maxSlots, cols, cellSize, x, y, selectedIdx, isActive, highlightColor) {
+  const hc = highlightColor || '#ffd700';
+  // Build a faint version for background highlight
+  const hcFaint = highlightColor
+    ? highlightColor + '1f' // ~12% opacity hex suffix
+    : 'rgba(255,220,50,0.12)';
   for (let i = 0; i < maxSlots; i++) {
     const gc = i % cols, gr = Math.floor(i / cols);
     const cx = x + gc * (cellSize + 4);
     const cy = y + gr * (cellSize + 4);
     const sel = i === selectedIdx;
-    ctx.fillStyle = sel && isActive ? 'rgba(255,220,50,0.12)' : 'rgba(255,255,255,0.03)';
+    ctx.fillStyle = sel && isActive ? hcFaint : 'rgba(255,255,255,0.03)';
     ctx.fillRect(cx, cy, cellSize, cellSize);
-    ctx.strokeStyle = sel && isActive ? '#ffd700' : '#2a2a3a';
+    ctx.strokeStyle = sel && isActive ? hc : '#2a2a3a';
     ctx.lineWidth = sel && isActive ? 2 : 1;
     ctx.strokeRect(cx, cy, cellSize, cellSize);
     ctx.fillStyle = '#444'; ctx.font = '9px monospace';
@@ -914,8 +920,9 @@ function drawShopOverlay(ctx, gs, player) {
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText(side === 0 ? '\u25B8 FOR SALE' : '  FOR SALE', ox + 24, panelTop);
   const shopGridX = ox + 34, shopGridY = panelTop + 24;
+  const specColor = gs.spectator ? gs.spectator.npcColor : null;
   drawItemCells(ctx, gs.shopStock, Math.max(gs.shopStock.length, 3), cols, CELL,
-    shopGridX, shopGridY, side === 0 ? gs.shopCursor : -1, side === 0);
+    shopGridX, shopGridY, side === 0 ? gs.shopCursor : -1, side === 0, specColor);
 
   // Right: YOUR ITEMS
   ctx.fillStyle = side === 1 ? '#ffd700' : '#888';
@@ -923,7 +930,7 @@ function drawShopOverlay(ctx, gs, player) {
   ctx.fillText(side === 1 ? '\u25B8 YOUR ITEMS' : '  YOUR ITEMS', midX + 24, panelTop);
   const invGridX = midX + 34, invGridY = panelTop + 24;
   drawItemCells(ctx, player.inventory, 9, cols, CELL,
-    invGridX, invGridY, side === 1 ? gs.shopCursor : -1, side === 1);
+    invGridX, invGridY, side === 1 ? gs.shopCursor : -1, side === 1, specColor);
 
   // Divider
   ctx.fillStyle = '#2a2a4a'; ctx.fillRect(midX - 1, panelTop - 4, 2, 260);
@@ -1026,12 +1033,12 @@ function drawShopOverlay(ctx, gs, player) {
   // Footer
   ctx.fillStyle = '#555'; ctx.font = '11px monospace';
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  ctx.fillText('[Left/Right] switch  [Up/Down] select  [Space] buy/sell  [Esc] close', ox+ow/2, oy+oh-10);
+  ctx.fillText(spectatorFooter(gs) || '[Left/Right] switch  [Up/Down] select  [Space] buy/sell  [Esc] close', ox+ow/2, oy+oh-10);
 }
 
 // ── Lab ──
 
-function drawLabOverlay(ctx, lab, player) {
+function drawLabOverlay(ctx, lab, player, gs) {
   overlayBg(ctx);
   const ox = 100, oy = 50, ow = 760, oh = 620;
   drawPanel(ctx, ox, oy, ow, oh, 'Breeding Lab');
@@ -1068,7 +1075,7 @@ function drawLabOverlay(ctx, lab, player) {
     }
   }
   ctx.fillStyle = '#666'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('[Esc] close', ox+ow/2, oy+oh-18);
+  ctx.fillText(spectatorFooter(gs) || '[Esc] close', ox+ow/2, oy+oh-18);
 }
 
 // ── Museum ──
@@ -1099,7 +1106,7 @@ function drawMuseumOverlay(ctx, collection, gs) {
     ctx.fillText('No specimens. [Space] to donate selected item.', ox+ow/2, gridY+50);
   }
   ctx.fillStyle = '#666'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('[Space] donate  [Up/Down] scroll  [Esc] close', ox+ow/2, oy+oh-18);
+  ctx.fillText(spectatorFooter(gs) || '[Space] donate  [Up/Down] scroll  [Esc] close', ox+ow/2, oy+oh-18);
 }
 
 // ── Trade ──
@@ -1185,7 +1192,7 @@ function drawTradeOverlay(ctx, gs, player, npcStates) {
   if (player.inventory.length === 0) { ctx.fillStyle = '#555'; ctx.font = '12px monospace'; ctx.fillText('Inventory empty', rightX, topY+30); }
 
   ctx.fillStyle = '#666'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
-  ctx.fillText('[L/R] side  [U/D] select  [Space] swap  [Esc] close', ox+ow/2, oy+oh-18);
+  ctx.fillText(spectatorFooter(gs) || '[L/R] side  [U/D] select  [Space] swap  [Esc] close', ox+ow/2, oy+oh-18);
 }
 
 // ── Crafting Overlay ──
@@ -1315,7 +1322,7 @@ function drawCraftingOverlay(ctx, gs, player) {
   // Footer
   ctx.fillStyle = '#555'; ctx.font = '11px monospace';
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-  ctx.fillText('[Up/Down] select  [Space] craft  [S] save  [Esc] close', ox + ow/2, oy + oh - 10);
+  ctx.fillText(spectatorFooter(gs) || '[Up/Down] select  [Space] craft  [S] save  [Esc] close', ox + ow/2, oy + oh - 10);
 }
 
 // ── Tool/Product Slot Renderers ──
@@ -1824,6 +1831,15 @@ function farmTraitLine(org) {
   return `F${fg.fertility} L${fg.longevity} V${fg.vigor}`;
 }
 
+function spectatorFooter(gs) {
+  if (!gs.spectator) return null;
+  const s = gs.spectator;
+  const step = `${s.stepIdx + 1}/${s.steps.length}`;
+  return s.done
+    ? `[Space] Done  \u00B7  [Esc] Stop watching`
+    : `[Space] Next step (${step})  \u00B7  [Esc] Stop watching`;
+}
+
 function drawSpectatorBanner(ctx, gs) {
   const spec = gs.spectator;
   if (!spec) return;
@@ -1831,21 +1847,25 @@ function drawSpectatorBanner(ctx, gs) {
   const bx = 50, by = 50, bw = 860;
   const hasLabel = !!gs.spectatorLabel;
   const bannerH = hasLabel ? 46 : 34;
+  const npcCol = spec.npcColor || '#8ab4f8';
   // Banner background
   ctx.fillStyle = '#1a1a3a';
   ctx.fillRect(bx, by, bw, bannerH);
-  ctx.strokeStyle = '#4a8adf';
+  ctx.strokeStyle = npcCol;
   ctx.lineWidth = 2;
   ctx.strokeRect(bx, by, bw, bannerH);
   // Bottom accent line
   ctx.beginPath(); ctx.moveTo(bx, by + bannerH); ctx.lineTo(bx + bw, by + bannerH); ctx.stroke();
 
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#8ab4f8'; ctx.font = 'bold 14px monospace';
-  const titleY = hasLabel ? by + 14 : by + bannerH / 2;
-  ctx.fillText(`Watching ${spec.npcName} \u2014 ${spec.actionLabel}`, bx + bw / 2, titleY);
+  // Step counter
+  const stepStr = `(${spec.stepIdx + 1}/${spec.steps.length})`;
 
-  // Step label (if set by apply)
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = npcCol; ctx.font = 'bold 14px monospace';
+  const titleY = hasLabel ? by + 14 : by + bannerH / 2;
+  ctx.fillText(`Watching ${spec.npcName} \u2014 ${spec.actionLabel}  ${stepStr}`, bx + bw / 2, titleY);
+
+  // Step label (narration text set by apply)
   if (hasLabel) {
     ctx.fillStyle = '#ffd700'; ctx.font = '12px monospace';
     ctx.fillText(gs.spectatorLabel, bx + bw / 2, by + 34);
@@ -1854,7 +1874,7 @@ function drawSpectatorBanner(ctx, gs) {
   // Hints
   ctx.fillStyle = '#7aa8d4'; ctx.font = '11px monospace';
   ctx.textAlign = 'left';
-  ctx.fillText('[Space] Next', bx + 12, titleY);
+  ctx.fillText(spec.done ? '[Space] Done' : '[Space] Next', bx + 12, titleY);
   ctx.textAlign = 'right';
   ctx.fillText('[Esc] Stop', bx + bw - 12, titleY);
   ctx.textAlign = 'left';
