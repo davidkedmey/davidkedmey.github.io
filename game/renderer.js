@@ -17,8 +17,8 @@ export const CANVAS_H = 768;
 const VIEW_H = CANVAS_H - TILE_SIZE; // 720 — viewport above HUD
 const HUD_Y = VIEW_H;
 const INV_SLOT = 38;
-const WORLD_W = COLS * TILE_SIZE;
-const WORLD_H = ROWS * TILE_SIZE;
+let WORLD_W = COLS * TILE_SIZE;
+let WORLD_H = ROWS * TILE_SIZE;
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
@@ -29,13 +29,15 @@ function grassColor(col, row) {
 
 // ── Camera ──
 
-export function updateCamera(cam, player, dt) {
+export function updateCamera(cam, player, dt, worldW, worldH) {
+  const ww = worldW || WORLD_W;
+  const wh = worldH || WORLD_H;
   const tx = player.x - CANVAS_W / 2;
   const ty = player.y - VIEW_H / 2;
   cam.x += (tx - cam.x) * Math.min(1, 6 * dt); // smooth follow
   cam.y += (ty - cam.y) * Math.min(1, 6 * dt);
-  cam.x = clamp(cam.x, 0, WORLD_W - CANVAS_W);
-  cam.y = clamp(cam.y, 0, WORLD_H - VIEW_H);
+  cam.x = clamp(cam.x, 0, ww - CANVAS_W);
+  cam.y = clamp(cam.y, 0, wh - VIEW_H);
 }
 
 // ── Main render ──
@@ -55,13 +57,15 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   ctx.rect(0, 0, CANVAS_W, VIEW_H);
   ctx.clip();
 
-  drawTiles(ctx, world, cx, cy, wilds);
-  drawPropertyBorders(ctx, cx, cy);
-  drawBuildings(ctx, collection, cx, cy, gs.dawkinsState);
-  drawZoneSigns(ctx, cx, cy);
+  drawTiles(ctx, world, cx, cy, gs.sandboxMode ? null : wilds);
+  if (!gs.sandboxMode) {
+    drawPropertyBorders(ctx, cx, cy);
+    drawBuildings(ctx, collection, cx, cy, gs.dawkinsState);
+    drawZoneSigns(ctx, cx, cy);
+  }
 
-  // World exhibits (curated permanent specimens)
-  if (exhibits) {
+  // World exhibits (curated permanent specimens — skip in sandbox)
+  if (exhibits && !gs.sandboxMode) {
     ctx.font = '9px monospace';
     ctx.textAlign = 'center';
     for (const ex of exhibits) {
@@ -88,8 +92,8 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
     ctx.textAlign = 'left';
   }
 
-  // NPC planted organisms
-  if (npcStates) {
+  // NPC planted organisms (skip in sandbox)
+  if (npcStates && !gs.sandboxMode) {
     for (const ns of npcStates) {
       for (const org of ns.planted) {
         if (org.tileCol == null) continue;
@@ -123,26 +127,26 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   // Facing tile highlight
   if (!gs.overlay) {
     const ft = facingTile(player);
-    if (ft.col >= 0 && ft.col < COLS && ft.row >= 0 && ft.row < ROWS) {
+    if (ft.col >= 0 && ft.col < world[0].length && ft.row >= 0 && ft.row < world.length) {
       ctx.strokeStyle = 'rgba(255,255,255,0.25)';
       ctx.lineWidth = 2;
       ctx.strokeRect(ft.col * TILE_SIZE - cx + 2, ft.row * TILE_SIZE - cy + 2, TILE_SIZE - 4, TILE_SIZE - 4);
     }
   }
 
-  // NPCs
-  if (npcStates) drawNPCs(ctx, npcStates, cx, cy);
+  // NPCs (skip in sandbox)
+  if (npcStates && !gs.sandboxMode) drawNPCs(ctx, npcStates, cx, cy);
 
   // Player
   drawPlayer(ctx, player, cx, cy, gs);
 
-  // Day/night tint
-  drawDayNight(ctx, gs);
+  // Day/night tint (skip in sandbox)
+  if (!gs.sandboxMode) drawDayNight(ctx, gs);
 
   ctx.restore(); // unclip
 
-  // Tutorial speech bubble (above Sage, in world space)
-  if (gs.currentTutorialSpeech && npcStates) {
+  // Tutorial speech bubble (above Sage, in world space — skip in sandbox)
+  if (gs.currentTutorialSpeech && npcStates && !gs.sandboxMode) {
     const sageState = npcStates.find(s => s.id === 'sage');
     if (sageState) {
       drawSpeechBubble(ctx, gs.currentTutorialSpeech, sageState.x - cx, sageState.y - cy);
@@ -169,14 +173,23 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
     ctx.fillText(label, wx, wy);
   }
 
-  // Prompts (above HUD, in world space)
-  if (!gs.overlay) {
+  // Prompts (above HUD, in world space — skip in sandbox)
+  if (!gs.overlay && !gs.sandboxMode) {
     drawBuildingPrompt(ctx, player, collection, cx, cy);
     drawNPCPrompt(ctx, player, npcStates, cx, cy, gs);
   }
 
+  // Sandbox cursor highlight
+  if (gs.sandboxMode && !gs.overlay) {
+    drawSandboxCursor(ctx, gs, cam.x, cam.y);
+  }
+
   // HUD (screen space)
-  drawHUD(ctx, gs, player, collection);
+  if (gs.sandboxMode) {
+    drawSandboxHUD(ctx, gs, player);
+  } else {
+    drawHUD(ctx, gs, player, collection);
+  }
 
   // Command bar (above HUD)
   drawCommandBar(ctx, gs);
@@ -196,8 +209,8 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   if (gs.overlay === 'gallery') drawGalleryOverlay(ctx, gs);
   if (gs.overlay === 'help') drawHelpOverlay(ctx);
 
-  // Spectator banner
-  if (gs.spectator) drawSpectatorBanner(ctx, gs);
+  // Spectator banner (skip in sandbox)
+  if (gs.spectator && !gs.sandboxMode) drawSpectatorBanner(ctx, gs);
 
   // Pause overlay (above everything)
   if (gs.paused) drawPauseOverlay(ctx);
@@ -265,6 +278,7 @@ function drawTitle(ctx, gs) {
     const modes = [
       { label: 'Survival Mode', desc: 'Earn gold, unlock modes, discover species' },
       { label: 'Creative Mode', desc: 'Infinite gold, all access, plant anywhere' },
+      { label: 'Sandbox Mode', desc: 'Paint terrain, plant biomorphs, build your world' },
     ];
     for (let i = 0; i < modes.length; i++) {
       const y = CANVAS_H / 2 - 10 + i * 56;
@@ -276,6 +290,34 @@ function drawTitle(ctx, gs) {
       ctx.font = '12px monospace';
       ctx.fillStyle = sel ? '#aaa' : '#444';
       ctx.fillText(modes[i].desc, CANVAS_W / 2, y + 22);
+    }
+
+    ctx.font = '11px monospace'; ctx.fillStyle = '#555';
+    ctx.fillText('[Up/Down] select   [Space] confirm   [Esc] back', CANVAS_W / 2, CANVAS_H / 2 + 160);
+  }
+
+  // Sandbox continue/new submenu
+  if (gs.titleSubmenu === 'sandbox-pick') {
+    ctx.fillStyle = '#0a0a12';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#60c0ff'; ctx.font = 'bold 20px Georgia, serif';
+    ctx.fillText('Sandbox Mode', CANVAS_W / 2, CANVAS_H / 2 - 70);
+
+    const opts = [
+      { label: 'Continue', desc: 'Resume your saved sandbox world' },
+      { label: 'New World', desc: 'Start fresh with a blank canvas' },
+    ];
+    for (let i = 0; i < opts.length; i++) {
+      const y = CANVAS_H / 2 - 10 + i * 56;
+      const sel = i === (gs.titleSandboxCursor || 0);
+      ctx.font = sel ? 'bold 18px monospace' : '16px monospace';
+      ctx.fillStyle = sel ? '#fff' : '#666';
+      const arrow = sel ? '\u25b6  ' : '   ';
+      ctx.fillText(arrow + opts[i].label, CANVAS_W / 2, y);
+      ctx.font = '12px monospace';
+      ctx.fillStyle = sel ? '#aaa' : '#444';
+      ctx.fillText(opts[i].desc, CANVAS_W / 2, y + 22);
     }
 
     ctx.font = '11px monospace'; ctx.fillStyle = '#555';
@@ -404,10 +446,11 @@ function drawDayNight(ctx, gs) {
 // ── Tiles ──
 
 function drawTiles(ctx, world, cx, cy, wilds) {
+  const worldCols = world[0].length, worldRows = world.length;
   const startCol = Math.max(0, Math.floor(cx / TILE_SIZE));
-  const endCol = Math.min(COLS, Math.ceil((cx + CANVAS_W) / TILE_SIZE) + 1);
+  const endCol = Math.min(worldCols, Math.ceil((cx + CANVAS_W) / TILE_SIZE) + 1);
   const startRow = Math.max(0, Math.floor(cy / TILE_SIZE));
-  const endRow = Math.min(ROWS, Math.ceil((cy + VIEW_H) / TILE_SIZE) + 1);
+  const endRow = Math.min(worldRows, Math.ceil((cy + VIEW_H) / TILE_SIZE) + 1);
 
   for (let row = startRow; row < endRow; row++) {
     for (let col = startCol; col < endCol; col++) {
@@ -811,6 +854,83 @@ function drawHUD(ctx, gs, player, collection) {
   // Help / Pause hints
   ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
   ctx.fillText('[H] Help  [P] Pause', 8, HUD_Y + TILE_SIZE - 8);
+}
+
+function drawSandboxCursor(ctx, gs, cx, cy) {
+  // Determine mouse position from gs — we need to expose it somehow
+  // We'll use a simple approach: store mouse pos on gs each frame
+  if (gs._mouseX == null) return;
+  const col = Math.floor((gs._mouseX + cx) / TILE_SIZE);
+  const row = Math.floor((gs._mouseY + cy) / TILE_SIZE);
+  if (col < 0 || row < 0) return;
+  const x = col * TILE_SIZE - cx;
+  const y = row * TILE_SIZE - cy;
+  if (gs.sandboxTool >= 0) {
+    ctx.strokeStyle = SANDBOX_PALETTE_COLORS[gs.sandboxTool] || '#fff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+  } else {
+    ctx.strokeStyle = '#60ff90';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, TILE_SIZE - 2, TILE_SIZE - 2);
+  }
+}
+
+const SANDBOX_PALETTE_COLORS = ['#4a7a3a', '#7a6340', '#c4a87a', '#2a5a8a', '#555', '#3a6a2a', '#8B6914'];
+const SANDBOX_PALETTE_LABELS = ['Grass', 'Soil', 'Path', 'Water', 'Stone', 'Tree', 'Fence'];
+
+function drawSandboxHUD(ctx, gs, player) {
+  ctx.fillStyle = '#12122a'; ctx.fillRect(0, HUD_Y, CANVAS_W, TILE_SIZE);
+  ctx.fillStyle = '#2a2a4a'; ctx.fillRect(0, HUD_Y, CANVAS_W, 2);
+  const midY = HUD_Y + TILE_SIZE / 2;
+
+  // SANDBOX badge
+  ctx.fillStyle = '#60c0ff'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('SANDBOX', 8, HUD_Y + 12);
+
+  // Player position
+  const col = Math.floor(player.x / TILE_SIZE);
+  const row = Math.floor(player.y / TILE_SIZE);
+  ctx.fillStyle = '#888'; ctx.font = '10px monospace';
+  ctx.fillText(`(${col}, ${row})`, 8, HUD_Y + TILE_SIZE - 10);
+
+  // Palette squares
+  const paletteX0 = (CANVAS_W - 7 * 42) / 2;
+  for (let i = 0; i < 7; i++) {
+    const x = paletteX0 + i * 42;
+    const sel = gs.sandboxTool === i;
+    // Background
+    ctx.fillStyle = sel ? 'rgba(255,220,50,0.2)' : 'rgba(255,255,255,0.04)';
+    ctx.fillRect(x, HUD_Y + 4, 36, 28);
+    // Color swatch
+    ctx.fillStyle = SANDBOX_PALETTE_COLORS[i];
+    ctx.fillRect(x + 4, HUD_Y + 8, 28, 16);
+    // Border
+    ctx.strokeStyle = sel ? '#ffd700' : '#3a3a5a';
+    ctx.lineWidth = sel ? 2 : 1;
+    ctx.strokeRect(x, HUD_Y + 4, 36, 28);
+    // Number label
+    ctx.fillStyle = sel ? '#ffd700' : '#666'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(String(i + 1), x + 18, HUD_Y + TILE_SIZE - 6);
+  }
+  // Label for selected tool
+  ctx.font = '11px monospace'; ctx.textAlign = 'center';
+  if (gs.sandboxTool >= 0) {
+    ctx.fillStyle = '#ccc';
+    ctx.fillText(SANDBOX_PALETTE_LABELS[gs.sandboxTool], CANVAS_W / 2, HUD_Y + TILE_SIZE - 6);
+  }
+
+  // Biomorph brush indicator
+  if (gs.sandboxTool === -1 && gs.sandboxBiomorph) {
+    ctx.fillStyle = '#60ff90'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'right';
+    ctx.fillText('Biomorph Brush', CANVAS_W - 10, midY - 6);
+    ctx.fillStyle = '#aaa'; ctx.font = '10px monospace';
+    ctx.fillText(gs.sandboxBiomorph.name || 'unnamed', CANVAS_W - 10, midY + 8);
+  }
+
+  // Hints
+  ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+  ctx.fillText('[I] Gallery  [E] Examine  [Cmd+Z] Undo', CANVAS_W - 10, HUD_Y + TILE_SIZE - 6);
 }
 
 // Draw a material item in a HUD slot

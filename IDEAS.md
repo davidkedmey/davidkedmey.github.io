@@ -177,4 +177,24 @@ The farm world is organized as a walk through increasingly capable biology:
 
 ---
 
-*Last updated: 2026-02-15*
+## 8. Sandbox as a World/Level Designer
+
+The sandbox mode (implemented Feb 2026) is a terrain painter + biomorph planter on a blank canvas. It could evolve into a general-purpose level/world design tool.
+
+### Near-term extensions
+- **Named saves / multiple worlds** — save slots with names, thumbnails, timestamps
+- **Export/import worlds** — JSON download/upload so worlds can be shared between players
+- **Larger canvases / infinite mode** — the save format already uses RLE + chunk-ready dimensions (80×64). Could extend to unbounded chunked worlds.
+- **Brush sizes** — 1×1, 3×3, 5×5 for faster large-area painting
+- **Flood fill** — fill connected regions with a tile type
+
+### Longer-term possibilities
+- **Design survival maps** — paint a world in sandbox, then play it in survival mode with NPCs, economy, etc.
+- **Community levels** — share sandbox worlds as downloadable levels (exhibit gardens, mazes, challenge maps)
+- **Biomorph placement rules** — define zones where biomorphs grow wild, spawn points, exhibit areas
+- **Decorative objects** — signs, fences, benches, lanterns beyond the basic tile palette
+- **Terrain templates** — preset patterns (river, lake, mountain, forest clearing) as stamp brushes
+
+---
+
+*Last updated: 2026-02-16*

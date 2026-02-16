@@ -193,8 +193,15 @@ export function createWorld() {
 }
 
 export function tileAt(grid, col, row) {
-  if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return TILE.WATER;
+  if (row < 0 || row >= grid.length || col < 0 || col >= grid[0].length) return TILE.WATER;
   return grid[row][col];
+}
+
+export function createSandboxWorld(cols, rows) {
+  const grid = Array.from({ length: rows }, () => new Array(cols).fill(TILE.GRASS));
+  for (let x = 0; x < cols; x++) { grid[0][x] = TILE.WATER; grid[rows - 1][x] = TILE.WATER; }
+  for (let y = 0; y < rows; y++) { grid[y][0] = TILE.WATER; grid[y][cols - 1] = TILE.WATER; }
+  return grid;
 }
 
 export function isSolid(tile) {

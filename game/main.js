@@ -1,6 +1,6 @@
 // Entry point: init, RAF game loop, day cycle
 
-import { createWorld, TILE, tileAt, isSolid, TILE_SIZE, COLS, ROWS, nearbyBuilding, BUILDINGS, buildingDoorPos } from './world.js';
+import { createWorld, createSandboxWorld, TILE, tileAt, isSolid, TILE_SIZE, COLS, ROWS, nearbyBuilding, BUILDINGS, buildingDoorPos } from './world.js';
 import { createPlayer, updatePlayer, facingTile } from './player.js';
 import { createInput } from './input.js';
 import { render, updateCamera, CANVAS_W, CANVAS_H } from './renderer.js';
@@ -8,7 +8,7 @@ import { createSeed, tickGrowth, harvest } from './organisms.js';
 import { sellPrice, buyPrice, generateShopStock } from './economy.js';
 import { createBreedingLab, labSelectParent, labSelectOffspring, labConfirm, labReset } from './breeding.js';
 import { createCollection, donate, recordSale, recordBreed, serializeCollection, deserializeCollection } from './collection.js';
-import { saveGame, loadGame, hasSave } from './state.js';
+import { saveGame, loadGame, hasSave, saveSandboxWorld, loadSandboxWorld, hasSandboxSave } from './state.js';
 import { NPCS, initNPCs, updateNPCs, nearbyNPC, executeTrade, seedEmptyGardens } from './npcs.js';
 import { harvestMaterials, addMaterialToInventory, analyzeBiomorph, MATERIAL_TYPES } from './materials.js';
 import { initWildBiomorphs, wildDayTick, getWildOrganism, removeWildOrganism } from './wild.js';
@@ -191,7 +191,12 @@ const gameState = {
   galleryItems: [],
   // Title screen mode picker
   titleSubmenu: null, // null | 'mode-pick'
-  titleModeCursor: 0, // 0=Survival, 1=Creative
+  titleModeCursor: 0, // 0=Survival, 1=Creative, 2=Sandbox
+  // Sandbox mode
+  sandboxMode: false,
+  sandboxTool: 0,       // palette index (0-6 = terrain, -1 = biomorph brush)
+  sandboxBiomorph: null, // spec for biomorph brush
+  sandboxUndoStack: [],  // for undo
 };
 
 // Default inventory
@@ -257,6 +262,72 @@ function startNewGame() {
   tutorialState = createTutorialState();
 }
 
+function startSandboxGame() {
+  gameState.sandboxMode = true;
+  gameState.creativeMode = true;
+  gameState.phase = 'playing';
+  gameState.sandboxTool = 0;
+  gameState.sandboxBiomorph = null;
+  gameState.sandboxUndoStack = [];
+  // Replace world grid in-place
+  world.length = 0;
+  const sg = createSandboxWorld(80, 64);
+  for (const row of sg) world.push(row);
+  // Center player
+  player.x = 40 * TILE_SIZE;
+  player.y = 32 * TILE_SIZE;
+  player.inventory = [];
+  player.wallet = 0;
+  planted.length = 0;
+  npcStates.length = 0;
+  if (!musicStarted) { musicStarted = true; startMusic('farm'); }
+}
+
+const SANDBOX_PALETTE = [
+  { tile: TILE.GRASS, label: 'Grass', color: '#4a7a3a' },
+  { tile: TILE.DIRT,  label: 'Soil',  color: '#7a6340' },
+  { tile: TILE.PATH,  label: 'Path',  color: '#c4a87a' },
+  { tile: TILE.WATER, label: 'Water', color: '#2a5a8a' },
+  { tile: TILE.BUILDING, label: 'Stone', color: '#555' },
+  { tile: TILE.TREE,  label: 'Tree',  color: '#3a6a2a' },
+  { tile: TILE.FENCE, label: 'Fence', color: '#8B6914' },
+];
+
+function handleSandboxPainting() {
+  const VIEW_H_PAINT = CANVAS_H - TILE_SIZE;
+  if (input.leftMouseY >= VIEW_H_PAINT) return; // clicking HUD area
+  const col = Math.floor((input.leftMouseX + cam.x) / TILE_SIZE);
+  const row = Math.floor((input.leftMouseY + cam.y) / TILE_SIZE);
+  // Skip border tiles
+  if (col <= 0 || col >= world[0].length - 1 || row <= 0 || row >= world.length - 1) return;
+
+  if (gameState.sandboxTool >= 0) {
+    // Terrain painting
+    const paintTile = SANDBOX_PALETTE[gameState.sandboxTool].tile;
+    if (world[row][col] === paintTile) return; // no-op
+    // Push undo entry
+    gameState.sandboxUndoStack.push({ col, row, oldTile: world[row][col] });
+    if (gameState.sandboxUndoStack.length > 500) gameState.sandboxUndoStack.shift();
+    world[row][col] = paintTile;
+    // Remove planted organisms if overwriting with solid tile
+    if (isSolid(paintTile)) {
+      const idx = planted.findIndex(o => o.tileCol === col && o.tileRow === row);
+      if (idx >= 0) planted.splice(idx, 1);
+    }
+  } else if (gameState.sandboxTool === -1 && gameState.sandboxBiomorph) {
+    // Biomorph planting
+    const tile = world[row][col];
+    if (tile !== TILE.DIRT && tile !== TILE.GRASS) return;
+    if (planted.some(o => o.tileCol === col && o.tileRow === row)) return;
+    const org = breederToOrganism(gameState.sandboxBiomorph);
+    org.tileCol = col;
+    org.tileRow = row;
+    org.stage = 'mature';
+    org.growthProgress = org.matureDays;
+    planted.push(org);
+  }
+}
+
 // Attach to gameState for renderer + save access
 gameState.tutorialState = tutorialState;
 gameState.dawkinsState = dawkinsState;
@@ -264,6 +335,10 @@ gameState.studyInfoPages = STUDY_INFO_PAGES;
 gameState.studyInfoPage = 0;
 
 function doSave() {
+  if (gameState.sandboxMode) {
+    saveSandboxWorld(world, planted, player);
+    return;
+  }
   gameState.tutorialState = tutorialState;
   gameState.dawkinsState = dawkinsState;
   saveGame(gameState, player, world, planted, player.inventory, collection, npcStates, wilds, exhibits);
@@ -820,6 +895,14 @@ function handleGalleryInput() {
   if (input.justPressed(' ')) {
     const spec = items[gameState.galleryCursor];
     if (!spec) return;
+    if (gameState.sandboxMode) {
+      // Sandbox: select biomorph brush
+      gameState.sandboxBiomorph = spec;
+      gameState.sandboxTool = -1;
+      gameState.overlay = null;
+      showMessage(`Biomorph brush: ${spec.name || 'specimen'} — click to plant`, 3);
+      return;
+    }
     if (player.inventory.length >= 9) {
       showMessage('Inventory full! (max 9 items)');
       return;
@@ -1466,12 +1549,20 @@ const COMMANDS = {
   creative: cmdCreative,
 };
 
+const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice'];
+
 function executeCommand(raw) {
   const rawParts = raw.split(/\s+/);
   const cmd = rawParts[0].toLowerCase();
 
   // Check for /ai subcommands first
   if (cmd === 'ai') { cmdAI(rawParts.slice(1).join(' '), rawParts.map(p => p.toLowerCase())); return; }
+
+  // Sandbox: reduced command set
+  if (gameState.sandboxMode && !SANDBOX_COMMANDS.includes(cmd)) {
+    showMessage(`Unknown command — type /help`, 2);
+    return;
+  }
 
   const handler = COMMANDS[cmd];
   if (handler) {
@@ -1538,16 +1629,64 @@ function gameLoop(timestamp) {
     }
     // Mode picker submenu
     if (gameState.titleSubmenu === 'mode-pick') {
-      if (input.justPressed('ArrowUp') || input.justPressed('ArrowDown')) {
-        gameState.titleModeCursor = gameState.titleModeCursor === 0 ? 1 : 0;
+      if (input.justPressed('ArrowUp')) {
+        gameState.titleModeCursor = Math.max(0, gameState.titleModeCursor - 1);
+      }
+      if (input.justPressed('ArrowDown')) {
+        gameState.titleModeCursor = Math.min(2, gameState.titleModeCursor + 1);
       }
       if (input.justPressed(' ') || input.justPressed('Enter')) {
-        gameState.creativeMode = gameState.titleModeCursor === 1;
-        gameState.titleSubmenu = null;
-        startNewGame();
+        if (gameState.titleModeCursor === 2) {
+          if (hasSandboxSave()) {
+            gameState.titleSubmenu = 'sandbox-pick';
+            gameState.titleSandboxCursor = 0;
+          } else {
+            gameState.titleSubmenu = null;
+            startSandboxGame();
+          }
+        } else {
+          gameState.creativeMode = gameState.titleModeCursor === 1;
+          gameState.titleSubmenu = null;
+          startNewGame();
+        }
       }
       if (input.justPressed('Escape')) {
         gameState.titleSubmenu = null;
+      }
+    } else if (gameState.titleSubmenu === 'sandbox-pick') {
+      if (input.justPressed('ArrowUp') || input.justPressed('ArrowDown')) {
+        gameState.titleSandboxCursor = gameState.titleSandboxCursor === 0 ? 1 : 0;
+      }
+      if (input.justPressed(' ') || input.justPressed('Enter')) {
+        gameState.titleSubmenu = null;
+        if (gameState.titleSandboxCursor === 0) {
+          // Continue saved sandbox
+          const save = loadSandboxWorld();
+          if (save) {
+            gameState.sandboxMode = true;
+            gameState.creativeMode = true;
+            gameState.phase = 'playing';
+            gameState.sandboxTool = 0;
+            gameState.sandboxBiomorph = null;
+            gameState.sandboxUndoStack = [];
+            world.length = 0;
+            for (const row of save.world) world.push(row);
+            player.x = save.playerX;
+            player.y = save.playerY;
+            player.inventory = [];
+            player.wallet = 0;
+            planted.length = 0;
+            planted.push(...save.planted);
+            npcStates.length = 0;
+            if (!musicStarted) { musicStarted = true; startMusic('farm'); }
+            showMessage('Sandbox loaded!');
+          }
+        } else {
+          startSandboxGame();
+        }
+      }
+      if (input.justPressed('Escape')) {
+        gameState.titleSubmenu = 'mode-pick';
       }
     } else {
     if (input.justPressed('ArrowUp') || input.justPressed('ArrowDown')) {
@@ -1648,19 +1787,35 @@ function gameLoop(timestamp) {
       input.setTextMode(true);
     }
 
-  // Inventory slot selection (number keys when no overlay, or specific overlays)
-  if (!gameState.overlay) {
-    for (let i = 1; i <= 9; i++) {
-      if (input.justPressed(String(i)) && i - 1 < player.inventory.length)
-        player.selectedSlot = i - 1;
+  // Sandbox undo (Ctrl/Cmd+Z)
+  if (gameState.sandboxMode && input.justPressed('Meta+z')) {
+    const undo = gameState.sandboxUndoStack.pop();
+    if (undo) {
+      world[undo.row][undo.col] = undo.oldTile;
     }
   }
 
-  // Time-skip: holding T advances time 3x faster (or sticky toggle via command bar)
-  if (!gameState.overlay && (input.isDown('t') || input.isDown('T'))) {
-    gameState.timeSkip = true;
-  } else if (!gameState.timeSkipSticky) {
-    gameState.timeSkip = false;
+  // Inventory slot selection / sandbox tool selection
+  if (!gameState.overlay) {
+    if (gameState.sandboxMode) {
+      for (let i = 1; i <= 7; i++) {
+        if (input.justPressed(String(i))) gameState.sandboxTool = i - 1;
+      }
+    } else {
+      for (let i = 1; i <= 9; i++) {
+        if (input.justPressed(String(i)) && i - 1 < player.inventory.length)
+          player.selectedSlot = i - 1;
+      }
+    }
+  }
+
+  // Time-skip: holding T advances time 3x faster (skip in sandbox)
+  if (!gameState.sandboxMode) {
+    if (!gameState.overlay && (input.isDown('t') || input.isDown('T'))) {
+      gameState.timeSkip = true;
+    } else if (!gameState.timeSkipSticky) {
+      gameState.timeSkip = false;
+    }
   }
 
   // Global toggle keys (work in any context)
@@ -1672,7 +1827,7 @@ function gameLoop(timestamp) {
     const on = toggleVoice();
     showMessage(on ? 'Voice ON' : 'Voice OFF', 1.5);
   }
-  if (input.justPressed('f') || input.justPressed('F')) {
+  if (!gameState.sandboxMode && (input.justPressed('f') || input.justPressed('F'))) {
     const on = toggleAutoFollow();
     showMessage(on ? 'Auto-follow ON' : 'Auto-follow OFF', 1.5);
   }
@@ -1680,8 +1835,8 @@ function gameLoop(timestamp) {
     gameState.overlay = gameState.overlay === 'help' ? null : 'help';
   }
 
-  // Q key: toggle follow NPC mode
-  if (input.justPressed('q') || input.justPressed('Q')) {
+  // Q key: toggle follow NPC mode (skip in sandbox)
+  if (!gameState.sandboxMode && (input.justPressed('q') || input.justPressed('Q'))) {
     if (gameState.followNpcIdx >= 0) {
       stopFollowNPC();
     } else if (!gameState.overlay) {
@@ -1747,10 +1902,20 @@ function gameLoop(timestamp) {
       if (gameState.walkTarget) gameState.walkTarget = null;
     }
     updatePlayer(player, input, world, dt);
+    // Sandbox painting (left-click)
+    if (gameState.sandboxMode && input.leftMouseDown) {
+      handleSandboxPainting();
+    }
     if (input.justPressed(' ')) handleWorldAction();
     if (input.justPressed('e') || input.justPressed('E')) handleWorldExamine();
-    if (input.justPressed('i') || input.justPressed('I') || input.justPressed('Enter'))
-      gameState.overlay = 'inventory';
+    if (gameState.sandboxMode) {
+      // I key opens gallery directly in sandbox
+      if (input.justPressed('i') || input.justPressed('I') || input.justPressed('Enter'))
+        cmdGallery();
+    } else {
+      if (input.justPressed('i') || input.justPressed('I') || input.justPressed('Enter'))
+        gameState.overlay = 'inventory';
+    }
   }
 
   } // end: command bar not active
@@ -1761,13 +1926,13 @@ function gameLoop(timestamp) {
   if (gameState.followNpcIdx >= 0) {
     const followTarget = npcStates[gameState.followNpcIdx];
     if (followTarget) {
-      updateCamera(cam, followTarget, dt);
+      updateCamera(cam, followTarget, dt, world[0].length * TILE_SIZE, world.length * TILE_SIZE);
     } else {
       stopFollowNPC();
-      updateCamera(cam, player, dt);
+      updateCamera(cam, player, dt, world[0].length * TILE_SIZE, world.length * TILE_SIZE);
     }
   } else {
-    updateCamera(cam, player, dt);
+    updateCamera(cam, player, dt, world[0].length * TILE_SIZE, world.length * TILE_SIZE);
   }
 
   // Mouse camera panning (right-click drag)
@@ -1795,12 +1960,13 @@ function gameLoop(timestamp) {
     }
   }
   // Apply pan offset to camera (clamped to world bounds)
-  const WORLD_PX_W = COLS * TILE_SIZE;
-  const WORLD_PX_H = ROWS * TILE_SIZE;
+  const WORLD_PX_W = world[0].length * TILE_SIZE;
+  const WORLD_PX_H = world.length * TILE_SIZE;
   const VIEW_H = CANVAS_H - TILE_SIZE;
   cam.x = Math.max(0, Math.min(WORLD_PX_W - CANVAS_W, cam.x + gameState.cameraPanOffset.x));
   cam.y = Math.max(0, Math.min(WORLD_PX_H - VIEW_H, cam.y + gameState.cameraPanOffset.y));
 
+  if (!gameState.sandboxMode) {
   // Tutorial update
   const sageState = npcStates.find(s => s.id === 'sage');
   const tutActive = tutorialState.active && !tutorialState.completed;
@@ -1922,6 +2088,7 @@ function gameLoop(timestamp) {
       showMessage(`The forest grew... (+${newTrees} tree${newTrees > 1 ? 's' : ''})`, 2);
     }
   }
+  } // end: !sandboxMode
 
   // Message timer
   if (gameState.message) {
@@ -1929,8 +2096,8 @@ function gameLoop(timestamp) {
     if (gameState.message.timer <= 0) gameState.message = null;
   }
 
-  // Notification queue
-  if (collection.notifications.length > 0 && !gameState.message) {
+  // Notification queue (skip in sandbox)
+  if (!gameState.sandboxMode && collection.notifications.length > 0 && !gameState.message) {
     showMessage(collection.notifications.shift(), 3);
   }
 
@@ -1969,6 +2136,12 @@ function gameLoop(timestamp) {
     plantedCount: planted.length,
     wildTreeCount: wilds.size,
   };
+
+  // Pass mouse position for sandbox cursor highlight
+  if (gameState.sandboxMode) {
+    gameState._mouseX = input.leftMouseX;
+    gameState._mouseY = input.leftMouseY;
+  }
 
   render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
   requestAnimationFrame(gameLoop);

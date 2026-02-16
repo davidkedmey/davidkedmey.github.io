@@ -21,6 +21,13 @@ export function createInput(canvas) {
     if (textMode) {
       // Allow Cmd/Ctrl+V to reach the paste handler
       if ((e.metaKey || e.ctrlKey) && e.key === 'v') return;
+      // Allow Cmd/Ctrl+Z through for sandbox undo
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (!keys['Meta+z']) pressed['Meta+z'] = true;
+        keys['Meta+z'] = true;
+        return;
+      }
       e.preventDefault();
       if (e.key === 'Backspace') {
         charBuffer.push('\b'); // backspace sentinel
@@ -31,6 +38,13 @@ export function createInput(canvas) {
       } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) {
         charBuffer.push(e.key);
       }
+      return;
+    }
+    // Cmd/Ctrl+Z as a compound key
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+      e.preventDefault();
+      if (!keys['Meta+z']) pressed['Meta+z'] = true;
+      keys['Meta+z'] = true;
       return;
     }
     if (!keys[e.key]) pressed[e.key] = true;
@@ -53,6 +67,10 @@ export function createInput(canvas) {
     lastX: 0,
     lastY: 0,
     justReleased: false,
+    // Left-click state (for sandbox painting)
+    leftDown: false,
+    leftX: 0,
+    leftY: 0,
   };
 
   if (canvas) {
@@ -67,6 +85,12 @@ export function createInput(canvas) {
         mouse.deltaX = 0;
         mouse.deltaY = 0;
       }
+      if (e.button === 0) { // left click
+        mouse.leftDown = true;
+        const rect = canvas.getBoundingClientRect();
+        mouse.leftX = e.clientX - rect.left;
+        mouse.leftY = e.clientY - rect.top;
+      }
     });
 
     window.addEventListener('mousemove', e => {
@@ -77,6 +101,11 @@ export function createInput(canvas) {
         mouse.lastX = e.clientX;
         mouse.lastY = e.clientY;
       }
+      if (mouse.leftDown) {
+        const rect = canvas.getBoundingClientRect();
+        mouse.leftX = e.clientX - rect.left;
+        mouse.leftY = e.clientY - rect.top;
+      }
     });
 
     window.addEventListener('mouseup', e => {
@@ -84,6 +113,9 @@ export function createInput(canvas) {
         mouse.rightDown = false;
         if (mouse.dragging) mouse.justReleased = true;
         mouse.dragging = false;
+      }
+      if (e.button === 0) {
+        mouse.leftDown = false;
       }
     });
   }
@@ -110,6 +142,10 @@ export function createInput(canvas) {
       if (mouse.justReleased) { mouse.justReleased = false; return true; }
       return false;
     },
+    // Left-click API (for sandbox painting)
+    get leftMouseDown() { return mouse.leftDown; },
+    get leftMouseX() { return mouse.leftX; },
+    get leftMouseY() { return mouse.leftY; },
     // Text mode for command bar
     setTextMode(on) { textMode = on; },
     drainCharBuffer() {

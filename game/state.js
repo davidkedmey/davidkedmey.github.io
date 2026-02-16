@@ -200,6 +200,99 @@ export function deleteSave() {
   localStorage.removeItem(SAVE_KEY);
 }
 
+// ── Sandbox save/load ──
+
+const SANDBOX_SAVE_KEY = 'biomorph-sandbox-save';
+
+function rleEncode(grid) {
+  const runs = [];
+  for (const row of grid) {
+    for (const tile of row) {
+      if (runs.length > 0 && runs[runs.length - 1][0] === tile) {
+        runs[runs.length - 1][1]++;
+      } else {
+        runs.push([tile, 1]);
+      }
+    }
+  }
+  return runs;
+}
+
+function rleDecode(runs, cols, rows) {
+  const grid = [];
+  let r = 0, c = 0;
+  let currentRow = new Array(cols);
+  for (const [tile, count] of runs) {
+    for (let i = 0; i < count; i++) {
+      currentRow[c] = tile;
+      c++;
+      if (c >= cols) {
+        grid.push(currentRow);
+        currentRow = new Array(cols);
+        c = 0;
+        r++;
+      }
+    }
+  }
+  return grid;
+}
+
+export function saveSandboxWorld(world, planted, player) {
+  const cols = world[0].length;
+  const rows = world.length;
+  const data = {
+    version: 1,
+    format: 'sandbox',
+    cols,
+    rows,
+    grid: rleEncode(world),
+    planted: planted.map(org => ({
+      kind: org.kind || 'organism',
+      id: org.id,
+      genes: org.genes,
+      mode: org.mode,
+      colorGenes: org.colorGenes,
+      farmGenes: org.farmGenes,
+      stage: org.stage,
+      growthProgress: org.growthProgress,
+      matureDays: org.matureDays,
+      tileCol: org.tileCol,
+      tileRow: org.tileRow,
+      nickname: org.nickname,
+      symmetry: org.symmetry,
+    })),
+    playerX: player.x,
+    playerY: player.y,
+    savedAt: Date.now(),
+  };
+  try {
+    localStorage.setItem(SANDBOX_SAVE_KEY, JSON.stringify(data));
+    return true;
+  } catch (e) {
+    console.warn('Sandbox save failed:', e);
+    return false;
+  }
+}
+
+export function loadSandboxWorld() {
+  try {
+    const raw = localStorage.getItem(SANDBOX_SAVE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data.format || data.format !== 'sandbox') return null;
+    data.world = rleDecode(data.grid, data.cols, data.rows);
+    data.planted = (data.planted || []).map(d => ({ ...d, kind: d.kind || 'organism' }));
+    return data;
+  } catch (e) {
+    console.warn('Sandbox load failed:', e);
+    return null;
+  }
+}
+
+export function hasSandboxSave() {
+  return localStorage.getItem(SANDBOX_SAVE_KEY) !== null;
+}
+
 // Serialize any inventory item (organism, material, tool, or product)
 function serializeItem(item) {
   if (item.kind === 'material') return { ...item };
