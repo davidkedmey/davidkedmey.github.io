@@ -12,7 +12,8 @@ export function saveGame(gameState, player, world, planted, inventory, collectio
   const tutState = gameState.tutorialState;
   const dState = gameState.dawkinsState;
   const data = {
-    version: 9,
+    version: 10,
+    creativeMode: gameState.creativeMode || false,
     day: gameState.day,
     dayTimer: gameState.dayTimer,
     playerX: player.x,
@@ -153,6 +154,11 @@ export function loadGame() {
       }
       // Exhibits will be initialized fresh by applySave (no save data yet)
       data.exhibits = null;
+    }
+
+    // Migration: v9 -> v10: add creative mode flag
+    if (data.version < 10) {
+      data.creativeMode = false;
     }
 
     data.planted = (data.planted || []).map(deserializeItem);

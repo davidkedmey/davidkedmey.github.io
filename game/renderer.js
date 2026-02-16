@@ -10,6 +10,7 @@ import { RECIPES, canCraft } from './crafting.js';
 import { getCurrentLine } from './dawkins.js';
 import { PROPERTIES, getOwner } from './property.js';
 import { getTaskLabel } from './ai.js';
+import { galleryImportCost } from './gallery-bridge.js';
 
 export const CANVAS_W = 960;
 export const CANVAS_H = 768;
@@ -191,6 +192,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   if (gs.overlay === 'dawkins') drawDawkinsOverlay(ctx, gs);
   if (gs.overlay === 'study-info') drawStudyInfoOverlay(ctx, gs, collection);
   if (gs.overlay === 'exhibit') drawExhibitOverlay(ctx, gs);
+  if (gs.overlay === 'gallery') drawGalleryOverlay(ctx, gs);
   if (gs.overlay === 'help') drawHelpOverlay(ctx);
 
   // Spectator banner
@@ -251,6 +253,34 @@ function drawTitle(ctx, gs) {
   ctx.fillStyle = '#555';
   ctx.fillText('[Up/Down] select   [Space] confirm', CANVAS_W / 2, CANVAS_H / 2 + 120);
 
+  // Mode picker submenu
+  if (gs.titleSubmenu === 'mode-pick') {
+    ctx.fillStyle = '#0a0a12';
+    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#c8e6c8'; ctx.font = 'bold 20px Georgia, serif';
+    ctx.fillText('Choose Game Mode', CANVAS_W / 2, CANVAS_H / 2 - 70);
+
+    const modes = [
+      { label: 'Survival Mode', desc: 'Earn gold, unlock modes, discover species' },
+      { label: 'Creative Mode', desc: 'Infinite gold, all access, plant anywhere' },
+    ];
+    for (let i = 0; i < modes.length; i++) {
+      const y = CANVAS_H / 2 - 10 + i * 56;
+      const sel = i === gs.titleModeCursor;
+      ctx.font = sel ? 'bold 18px monospace' : '16px monospace';
+      ctx.fillStyle = sel ? '#fff' : '#666';
+      const arrow = sel ? '\u25b6  ' : '   ';
+      ctx.fillText(arrow + modes[i].label, CANVAS_W / 2, y);
+      ctx.font = '12px monospace';
+      ctx.fillStyle = sel ? '#aaa' : '#444';
+      ctx.fillText(modes[i].desc, CANVAS_W / 2, y + 22);
+    }
+
+    ctx.font = '11px monospace'; ctx.fillStyle = '#555';
+    ctx.fillText('[Up/Down] select   [Space] confirm   [Esc] back', CANVAS_W / 2, CANVAS_H / 2 + 120);
+  }
+
   // What's New overlay
   if (gs.showWhatsNew) {
     drawWhatsNew(ctx);
@@ -277,19 +307,19 @@ function drawWhatsNew(ctx) {
   ctx.textBaseline = 'middle';
   ctx.fillStyle = '#c8e6c8';
   ctx.font = 'bold 18px Georgia, serif';
-  ctx.fillText("What's New — v9", CANVAS_W / 2, y + 30);
+  ctx.fillText("What's New — v10", CANVAS_W / 2, y + 30);
 
   // Bullet points
   ctx.textAlign = 'left';
   ctx.font = '13px monospace';
   ctx.fillStyle = '#aac8aa';
   const lines = [
-    "Curated exhibits along the garden path",
-    "Depth gradient: same species at increasing complexity",
-    "Symmetry showcase: LR, UD, four-way, asymmetric",
-    "Segmentation & gradient exhibits in southern zones",
-    "Each exhibit labeled — walk through the paper!",
-    "Complete all Dawkins visits for morphospace info",
+    "Breeder Gallery: /gallery imports your saved specimens",
+    "Creative Mode: infinite gold, plant anywhere, all access",
+    "New Game lets you pick Survival or Creative",
+    "Auto-generated names for all biomorphs",
+    "/creative toggles mode on existing saves",
+    "Import the same specimen multiple times as seeds",
   ];
   for (let i = 0; i < lines.length; i++) {
     ctx.fillStyle = '#6a9a6a';
@@ -699,6 +729,11 @@ function drawHUD(ctx, gs, player, collection) {
     ctx.fillStyle = '#ffa'; ctx.font = 'bold 9px monospace';
     ctx.fillText('>>>', 62, midY + 2);
   }
+  // Creative mode badge
+  if (gs.creativeMode) {
+    ctx.fillStyle = '#ff69b4'; ctx.font = 'bold 9px monospace';
+    ctx.fillText('CREATIVE', 8, HUD_Y + TILE_SIZE - 18);
+  }
 
   // Wallet
   ctx.fillStyle = '#ffd700'; ctx.font = 'bold 16px monospace';
@@ -748,7 +783,8 @@ function drawHUD(ctx, gs, player, collection) {
       const fg = item.farmGenes || { fertility: 2, longevity: 1, vigor: 2 };
       ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
       ctx.fillStyle = '#aaa'; ctx.font = '11px monospace';
-      ctx.fillText(`M${item.mode} D${item.genes[8]}`, CANVAS_W - 100, midY - 12);
+      const hudLabel = item.nickname ? `"${item.nickname}"` : `M${item.mode} D${item.genes[8]}`;
+      ctx.fillText(hudLabel, CANVAS_W - 100, midY - 12);
       ctx.fillStyle = '#ffd700'; ctx.font = 'bold 11px monospace';
       ctx.fillText(`~${sellPrice(item)}g`, CANVAS_W - 100, midY + 1);
       ctx.fillStyle = '#888'; ctx.font = '10px monospace';
@@ -1894,6 +1930,152 @@ function wrapText(ctx, text, maxWidth) {
   return lines;
 }
 
+// ── Gallery Overlay ──
+
+function drawGalleryOverlay(ctx, gs) {
+  overlayBg(ctx);
+  const pw = 700, ph = 500;
+  const px = (CANVAS_W - pw) / 2, py = (CANVAS_H - ph) / 2;
+  drawPanel(ctx, px, py, pw, ph, 'Breeder Gallery');
+
+  const items = gs.galleryItems || [];
+  if (items.length === 0) {
+    ctx.fillStyle = '#888'; ctx.font = '14px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('No specimens in gallery.', px + pw / 2, py + ph / 2);
+    ctx.fillText('[Esc] Close', px + pw / 2, py + ph - 20);
+    return;
+  }
+
+  const cursor = gs.galleryCursor || 0;
+  const visibleRows = 8;
+  // Auto-scroll to keep cursor visible
+  let scroll = gs.galleryScroll || 0;
+  if (cursor < scroll) scroll = cursor;
+  if (cursor >= scroll + visibleRows) scroll = cursor - visibleRows + 1;
+  gs.galleryScroll = scroll;
+
+  const listX = px + 16;
+  const listY = py + 48;
+  const rowH = 52;
+  const listW = 340;
+
+  // Draw list
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(listX, listY, listW, visibleRows * rowH);
+  ctx.clip();
+
+  for (let i = scroll; i < Math.min(items.length, scroll + visibleRows); i++) {
+    const spec = items[i];
+    const y = listY + (i - scroll) * rowH;
+    const sel = i === cursor;
+
+    // Row background
+    ctx.fillStyle = sel ? 'rgba(255,220,50,0.12)' : 'rgba(255,255,255,0.03)';
+    ctx.fillRect(listX, y, listW, rowH - 2);
+    if (sel) {
+      ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
+      ctx.strokeRect(listX, y, listW, rowH - 2);
+    }
+
+    // Thumbnail sprite — create temporary organism for rendering
+    const tmpOrg = {
+      genes: spec.genes,
+      mode: spec.mode,
+      colorGenes: spec.colorGenes || { hue: 0, spread: 0 },
+      symmetry: spec.symmetry || 'left-right',
+      id: `gallery-${spec.id || i}`,
+      stage: 'mature',
+      farmGenes: { fertility: 2, longevity: 1, vigor: 2 },
+    };
+    ctx.drawImage(getSprite(tmpOrg, 40), listX + 4, y + 5);
+
+    // Name
+    ctx.fillStyle = sel ? '#fff' : '#ccc'; ctx.font = 'bold 12px monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(spec.name || `Specimen ${i + 1}`, listX + 50, y + 6);
+
+    // Mode + depth info
+    ctx.fillStyle = '#888'; ctx.font = '10px monospace';
+    ctx.fillText(`Mode ${spec.mode}  D${spec.genes[8]}`, listX + 50, y + 22);
+
+    // Cost
+    const cost = galleryImportCost(spec);
+    if (gs.creativeMode) {
+      ctx.fillStyle = '#7c7'; ctx.font = 'bold 10px monospace';
+      ctx.fillText('FREE', listX + 50, y + 36);
+    } else {
+      ctx.fillStyle = '#ffd700'; ctx.font = 'bold 10px monospace';
+      ctx.fillText(`${cost}g`, listX + 50, y + 36);
+    }
+  }
+  ctx.restore();
+
+  // Scrollbar
+  if (items.length > visibleRows) {
+    const sbX = listX + listW + 4;
+    const sbH = visibleRows * rowH;
+    const thumbH = Math.max(20, sbH * visibleRows / items.length);
+    const thumbY = listY + (sbH - thumbH) * scroll / Math.max(1, items.length - visibleRows);
+    ctx.fillStyle = 'rgba(255,255,255,0.1)'; ctx.fillRect(sbX, listY, 4, sbH);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(sbX, thumbY, 4, thumbH);
+  }
+
+  // Detail panel (right side)
+  const detailX = px + 380;
+  const detailY = py + 48;
+  const detailW = pw - 400;
+  const detailH = ph - 80;
+
+  if (cursor < items.length) {
+    const spec = items[cursor];
+    const tmpOrg = {
+      genes: spec.genes,
+      mode: spec.mode,
+      colorGenes: spec.colorGenes || { hue: 0, spread: 0 },
+      symmetry: spec.symmetry || 'left-right',
+      id: `gallery-detail-${spec.id || cursor}`,
+      stage: 'mature',
+      farmGenes: { fertility: 2, longevity: 1, vigor: 2 },
+    };
+
+    // Large sprite
+    const spriteSize = 120;
+    const sx = detailX + (detailW - spriteSize) / 2;
+    ctx.drawImage(getSprite(tmpOrg, spriteSize), sx, detailY + 10);
+
+    // Name
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(spec.name || `Specimen ${cursor + 1}`, detailX + detailW / 2, detailY + spriteSize + 20);
+
+    // Mode, depth, symmetry
+    ctx.fillStyle = '#aaa'; ctx.font = '11px monospace';
+    ctx.fillText(`Mode ${spec.mode}   Depth ${spec.genes[8]}`, detailX + detailW / 2, detailY + spriteSize + 42);
+    if (spec.symmetry && spec.symmetry !== 'left-right') {
+      ctx.fillText(`Sym: ${spec.symmetry}`, detailX + detailW / 2, detailY + spriteSize + 58);
+    }
+
+    // Genes
+    ctx.fillStyle = '#666'; ctx.font = '9px monospace';
+    const geneStr = spec.genes.slice(0, 8).join(', ');
+    ctx.fillText(`[${geneStr}]`, detailX + detailW / 2, detailY + spriteSize + 78);
+
+    // Generation info
+    if (spec.generation != null) {
+      ctx.fillStyle = '#777'; ctx.font = '10px monospace';
+      ctx.fillText(`Gen ${spec.generation}`, detailX + detailW / 2, detailY + spriteSize + 96);
+    }
+  }
+
+  // Footer
+  ctx.fillStyle = '#888'; ctx.font = '11px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('[Space] Import   [Up/Down] Navigate   [Esc] Close', px + pw / 2, py + ph - 12);
+  ctx.fillText(`${items.length} specimen${items.length !== 1 ? 's' : ''} in gallery`, px + pw / 2, py + ph - 28);
+}
+
 // ── Help Overlay ──
 
 function drawHelpOverlay(ctx) {
@@ -1965,6 +2147,8 @@ function drawHelpOverlay(ctx) {
     ['/dance', 'Spin!'],
     ['/wave', 'Wave at NPCs'],
     ['/yell', 'Shout at NPCs'],
+    ['/gallery', 'Import breeder specimens'],
+    ['/creative', 'Toggle creative mode'],
     ['/ai', 'AI settings & status'],
     ['/ai on|off', 'Enable/disable AI'],
     ['/ai key <key>', 'Set API key'],

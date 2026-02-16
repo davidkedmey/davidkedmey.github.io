@@ -20,6 +20,7 @@ import { loadDawkinsDialogue, createDawkinsState, canStartVisit, startVisit, adv
 import { loadAudioSettings, getAudioSettings, initOnInteraction, toggleMusic, toggleVoice, toggleAutoFollow, startMusic, stopMusic, setMusicMood, speak, stopSpeech, resetLastSpoken } from './audio.js';
 import { loadLLMSettings, getLLMSettings, setLLMSetting, interpretCommand, buildGameContext } from './llm.js';
 import { initExhibits, exhibitBreederURL } from './exhibits.js';
+import { loadBreederGallery, breederToOrganism, galleryImportCost } from './gallery-bridge.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -182,6 +183,15 @@ const gameState = {
   cameraPanTimer: 0,       // countdown to ease back after mouse release
   // AI command interpretation
   aiThinking: false,
+  // Creative mode
+  creativeMode: false,
+  // Gallery overlay
+  galleryCursor: 0,
+  galleryScroll: 0,
+  galleryItems: [],
+  // Title screen mode picker
+  titleSubmenu: null, // null | 'mode-pick'
+  titleModeCursor: 0, // 0=Survival, 1=Creative
 };
 
 // Default inventory
@@ -189,7 +199,7 @@ for (let i = 0; i < 3; i++) player.inventory.push(createSeed(1));
 gameState.shopStock = generateShopStock(collection.unlockedModes);
 
 // What's New — show once per version
-const GAME_VERSION = 9;
+const GAME_VERSION = 10;
 const whatsNewKey = `biomorph-farm-whatsnew-v${GAME_VERSION}`;
 gameState.showWhatsNew = !localStorage.getItem(whatsNewKey);
 
@@ -235,6 +245,7 @@ function applySave(save) {
   if (save.dawkinsCompletedVisits != null) {
     dawkinsState.completedVisits = save.dawkinsCompletedVisits;
   }
+  gameState.creativeMode = save.creativeMode || false;
   showMessage('Game loaded!');
 }
 
@@ -274,7 +285,7 @@ function handleWorldAction() {
 
     // Hoe: plow facing tile + next tile in same direction
     if (selected.kind === 'tool' && selected.toolType === 'hoe' && tile0 === TILE.GRASS) {
-      if (!isPlayerProperty(ft0.col, ft0.row)) {
+      if (!gameState.creativeMode && !isPlayerProperty(ft0.col, ft0.row)) {
         showMessage("That's someone else's property!"); return;
       }
       world[ft0.row][ft0.col] = TILE.DIRT;
@@ -430,7 +441,7 @@ function handleWorldAction() {
   if (building) {
     if (building.id === 'shop') { gameState.overlay = 'shop'; gameState.shopCursor = 0; gameState.shopSide = 0; return; }
     if (building.id === 'lab') {
-      if (!collection.labUnlocked) { showMessage('Lab locked — donate 5 specimens first.'); return; }
+      if (!gameState.creativeMode && !collection.labUnlocked) { showMessage('Lab locked — donate 5 specimens first.'); return; }
       gameState.overlay = 'lab'; lab.active = true; lab.step = 'select1'; return;
     }
     if (building.id === 'museum') { gameState.overlay = 'museum'; gameState.museumScroll = 0; return; }
@@ -472,15 +483,31 @@ function handleWorldAction() {
     return;
   }
 
-  // Plow
+  // Grass tile: in creative mode, check for planted organisms or plant directly
   if (tile === TILE.GRASS) {
+    if (gameState.creativeMode) {
+      const existing = planted.find(o => o.tileCol === ft.col && o.tileRow === ft.row);
+      if (existing && existing.stage === 'mature') { doHarvest(); return; }
+      if (existing && existing.stage === 'growing') {
+        const left = existing.matureDays - existing.growthProgress;
+        showMessage(`Growing... ${left} day${left !== 1 ? 's' : ''} left`);
+        return;
+      }
+      if (!existing && player.inventory.length > 0) {
+        const selected = player.inventory[player.selectedSlot];
+        if (selected && selected.kind === 'organism') {
+          doPlant();
+          return;
+        }
+      }
+    }
     doPlow();
     return;
   }
 
   // Dirt tile
   if (tile === TILE.DIRT) {
-    if (!isPlayerProperty(ft.col, ft.row)) {
+    if (!gameState.creativeMode && !isPlayerProperty(ft.col, ft.row)) {
       showMessage("That's someone else's property!");
       return;
     }
@@ -521,13 +548,13 @@ function handleShopInput() {
     if (side === 0 && gameState.shopCursor < gameState.shopStock.length) {
       const item = gameState.shopStock[gameState.shopCursor];
       const price = buyPrice(item);
-      if (player.wallet >= price) {
-        player.wallet -= price;
+      if (gameState.creativeMode || player.wallet >= price) {
+        if (!gameState.creativeMode) player.wallet -= price;
         player.inventory.push(item);
         gameState.shopStock.splice(gameState.shopCursor, 1);
         if (gameState.shopCursor >= gameState.shopStock.length)
           gameState.shopCursor = Math.max(0, gameState.shopStock.length - 1);
-        showMessage(`Bought! -${price}g`);
+        showMessage(gameState.creativeMode ? 'Bought! (free)' : `Bought! -${price}g`);
       } else { showMessage('Not enough gold!'); }
     } else if (side === 1 && gameState.shopCursor < player.inventory.length) {
       const item = player.inventory[gameState.shopCursor];
@@ -755,6 +782,33 @@ function handleDawkinsInput() {
   }
 }
 
+// ── Gallery ──
+function handleGalleryInput() {
+  if (input.justPressed('Escape')) { gameState.overlay = null; return; }
+  const items = gameState.galleryItems;
+  if (items.length === 0) return;
+  if (input.justPressed('ArrowUp')) {
+    gameState.galleryCursor = Math.max(0, gameState.galleryCursor - 1);
+  }
+  if (input.justPressed('ArrowDown')) {
+    gameState.galleryCursor = Math.min(items.length - 1, gameState.galleryCursor + 1);
+  }
+  if (input.justPressed(' ')) {
+    const spec = items[gameState.galleryCursor];
+    if (!spec) return;
+    const cost = galleryImportCost(spec);
+    if (!gameState.creativeMode && player.wallet < cost) {
+      showMessage(`Not enough gold! Need ${cost}g`);
+      return;
+    }
+    if (!gameState.creativeMode) player.wallet -= cost;
+    const org = breederToOrganism(spec);
+    player.inventory.push(org);
+    const costStr = gameState.creativeMode ? '(free)' : `-${cost}g`;
+    showMessage(`Imported ${org.nickname}! ${costStr}`);
+  }
+}
+
 // ── Inventory ──
 function handleInventoryInput() {
   if (input.justPressed('Escape')) { gameState.overlay = null; return; }
@@ -938,8 +992,9 @@ function resolveTarget(name) {
 function doPlant(slotIdx) {
   const ft = facingTile(player);
   const tile = tileAt(world, ft.col, ft.row);
-  if (tile !== TILE.DIRT) { showMessage("Not facing a dirt tile."); return false; }
-  if (!isPlayerProperty(ft.col, ft.row)) { showMessage("That's someone else's property!"); return false; }
+  const validTile = gameState.creativeMode ? (tile === TILE.DIRT || tile === TILE.GRASS) : (tile === TILE.DIRT);
+  if (!validTile) { showMessage("Not facing a dirt tile."); return false; }
+  if (!gameState.creativeMode && !isPlayerProperty(ft.col, ft.row)) { showMessage("That's someone else's property!"); return false; }
   const existing = planted.find(o => o.tileCol === ft.col && o.tileRow === ft.row);
   if (existing) { showMessage("Something's already planted here."); return false; }
   const idx = slotIdx != null ? slotIdx : player.selectedSlot;
@@ -959,7 +1014,8 @@ function doPlant(slotIdx) {
 function doHarvest() {
   const ft = facingTile(player);
   const tile = tileAt(world, ft.col, ft.row);
-  if (tile !== TILE.DIRT) { showMessage("Not facing a dirt tile."); return false; }
+  const validTile = gameState.creativeMode ? (tile === TILE.DIRT || tile === TILE.GRASS) : (tile === TILE.DIRT);
+  if (!validTile) { showMessage("Not facing a dirt tile."); return false; }
   const existing = planted.find(o => o.tileCol === ft.col && o.tileRow === ft.row);
   if (!existing) { showMessage("Nothing planted here."); return false; }
   if (existing.stage !== 'mature') {
@@ -993,7 +1049,7 @@ function doPlow() {
   const ft = facingTile(player);
   const tile = tileAt(world, ft.col, ft.row);
   if (tile !== TILE.GRASS) { showMessage("Not facing grass."); return false; }
-  if (!isPlayerProperty(ft.col, ft.row)) { showMessage("That's someone else's property!"); return false; }
+  if (!gameState.creativeMode && !isPlayerProperty(ft.col, ft.row)) { showMessage("That's someone else's property!"); return false; }
   world[ft.row][ft.col] = TILE.DIRT;
   showMessage('Plowed!');
   return true;
@@ -1325,6 +1381,27 @@ function cmdAI(arg, parts) {
   showMessage('Usage: /ai [on|off|key|model|url|clear]');
 }
 
+function cmdGallery() {
+  const items = loadBreederGallery();
+  if (items.length === 0) {
+    showMessage('No specimens in breeder gallery.');
+    return;
+  }
+  gameState.galleryItems = items;
+  gameState.galleryCursor = 0;
+  gameState.galleryScroll = 0;
+  gameState.overlay = 'gallery';
+}
+
+function cmdCreative() {
+  gameState.creativeMode = !gameState.creativeMode;
+  if (gameState.creativeMode) {
+    showMessage(['Creative mode ON', 'Infinite gold, all access, plant anywhere'], 3);
+  } else {
+    showMessage('Creative mode OFF — back to survival', 3);
+  }
+}
+
 const COMMANDS = {
   follow: cmdFollow, f: cmdFollow,
   stop: cmdStop, unfollow: cmdStop,
@@ -1356,6 +1433,8 @@ const COMMANDS = {
   dance: cmdDance,
   wave: cmdWave,
   yell: cmdYell,
+  gallery: cmdGallery,
+  creative: cmdCreative,
 };
 
 function executeCommand(raw) {
@@ -1428,13 +1507,28 @@ function gameLoop(timestamp) {
       requestAnimationFrame(gameLoop);
       return;
     }
+    // Mode picker submenu
+    if (gameState.titleSubmenu === 'mode-pick') {
+      if (input.justPressed('ArrowUp') || input.justPressed('ArrowDown')) {
+        gameState.titleModeCursor = gameState.titleModeCursor === 0 ? 1 : 0;
+      }
+      if (input.justPressed(' ') || input.justPressed('Enter')) {
+        gameState.creativeMode = gameState.titleModeCursor === 1;
+        gameState.titleSubmenu = null;
+        startNewGame();
+      }
+      if (input.justPressed('Escape')) {
+        gameState.titleSubmenu = null;
+      }
+    } else {
     if (input.justPressed('ArrowUp') || input.justPressed('ArrowDown')) {
       gameState.titleCursor = gameState.titleCursor === 0 ? 1 : 0;
     }
     if (input.justPressed(' ') || input.justPressed('Enter')) {
       if (gameState.titleCursor === 0) {
-        // New Game
-        startNewGame();
+        // New Game — show mode picker
+        gameState.titleSubmenu = 'mode-pick';
+        gameState.titleModeCursor = 0;
       } else if (savedGame) {
         // Continue
         applySave(savedGame);
@@ -1444,6 +1538,7 @@ function gameLoop(timestamp) {
     }
     // Disable Continue if no save
     if (!gameState.hasSave && gameState.titleCursor === 1) gameState.titleCursor = 0;
+    }
     render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
     requestAnimationFrame(gameLoop);
     return;
@@ -1612,6 +1707,7 @@ function gameLoop(timestamp) {
   else if (gameState.overlay === 'dawkins') handleDawkinsInput();
   else if (gameState.overlay === 'study-info') handleStudyInfoInput();
   else if (gameState.overlay === 'exhibit') handleExhibitInput();
+  else if (gameState.overlay === 'gallery') handleGalleryInput();
   else {
     // Arrow keys reset camera pan and cancel auto-walk
     if (input.ArrowLeft || input.ArrowRight || input.ArrowUp || input.ArrowDown) {
@@ -1787,7 +1883,8 @@ function gameLoop(timestamp) {
     lastDay = gameState.day;
     tickGrowth(planted, gameState.day);
     aiDayTick(npcStates, gameState, world, wilds, collection);
-    gameState.shopStock = generateShopStock(collection.unlockedModes);
+    const shopModes = gameState.creativeMode ? [1,2,3,4,5] : collection.unlockedModes;
+    gameState.shopStock = generateShopStock(shopModes);
     // Wild forest spreading
     const newTrees = wildDayTick(wilds, world);
     if (newTrees > 0) {

@@ -2,6 +2,7 @@
 
 import { drawTree, randomInteresting, mutate, cloneGenes, MODE_CONFIGS } from '../shared/genotype.js';
 import { TILE_SIZE } from './world.js';
+import { generateName } from './naming.js';
 
 const SPRITE_SIZE = 44;
 const spriteCache = new Map();
@@ -48,14 +49,16 @@ function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
 export function createOrganism(genes, mode, colorGenes, farmGenes) {
   const fg = farmGenes || randomFarmGenes();
+  const cg = colorGenes || randomColorGenes();
   const vigorMultiplier = fg.vigor === 1 ? 1.5 : fg.vigor === 3 ? 0.5 : 1;
   return {
     kind: 'organism',
     id: nextId++,
     genes: genes,
     mode: mode,
-    colorGenes: colorGenes || randomColorGenes(),
+    colorGenes: cg,
     farmGenes: fg,
+    nickname: generateName(genes, mode, cg),
     stage: 'seed',           // seed → growing → mature
     growthProgress: 0,
     matureDays: Math.max(1, Math.ceil(genes[8] / 2 * vigorMultiplier)),
