@@ -96,7 +96,18 @@
 
   <div id="gallery-panel" class="collapsible-panel">
     <button class="panel-toggle open">Gallery</button>
-    <div id="gallery-content" class="panel-content" style="display:grid"></div>
+    <div class="panel-content" style="display:block">
+      <div class="gallery-collection-bar">
+        <label>Collection:
+          <select id="gallery-collection">
+            <option value="peppering">Peppering Art</option>
+            <option value="classic" selected>Classic Biomorphs</option>
+            <option value="saves">My Saves</option>
+          </select>
+        </label>
+      </div>
+      <div id="gallery-content" style="display:grid"></div>
+    </div>
   </div>
 
   <div id="comparison-modal" style="display:none">

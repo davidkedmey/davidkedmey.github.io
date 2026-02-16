@@ -738,13 +738,21 @@ function crossoverColorMulti(colorGenesList) {
 
 function openMatePicker() {
   if (currentMode === 0) return;
-  const gallery = loadGallery();
+
+  // Combine classic presets + user saves (skip peppering — can't breed mode 0)
+  const thumbs = ensurePresetThumbnails();
+  const presetSpecs = CLASSIC_PRESETS.map((p, i) => ({
+    ...p, id: `preset-classic-${i}`, thumbnail: thumbs[p.name], _preset: true,
+  }));
+  const userSpecs = loadGallery().filter(s => s.mode !== 0);
+  const allSpecs = [...presetSpecs, ...userSpecs];
+
   const modal = document.getElementById('mate-picker-modal');
   const grid = document.getElementById('mate-picker-grid');
   const confirmBtn = document.getElementById('mate-picker-confirm');
   grid.innerHTML = '';
 
-  if (gallery.length === 0) {
+  if (allSpecs.length === 0) {
     grid.innerHTML = '<p class="mate-picker-empty">No saved specimens. Save biomorphs to your gallery first.</p>';
     confirmBtn.disabled = true;
     modal.style.display = 'flex';
@@ -753,7 +761,7 @@ function openMatePicker() {
 
   const selected = new Set();
 
-  for (const spec of gallery) {
+  for (const spec of allSpecs) {
     const card = document.createElement('div');
     card.className = 'mate-picker-card';
 
@@ -790,7 +798,7 @@ function openMatePicker() {
 
   // Store handler for confirm
   confirmBtn.onclick = () => {
-    const specimens = gallery.filter(s => selected.has(s.id));
+    const specimens = allSpecs.filter(s => selected.has(s.id));
     closeMatePicker();
     if (specimens.length > 0) showBreedModal(specimens);
   };
@@ -1067,6 +1075,107 @@ function hideBreedModal() {
 
 const GALLERY_KEY = 'biomorph-gallery';
 
+const PEPPERING_PRESETS = [
+  {
+    name: 'T-Rex',
+    genes: Array.from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,1,1,0,0,0,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0]),
+    mode: 0,
+  },
+  {
+    name: 'Churchill',
+    genes: Array.from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]),
+    mode: 0,
+  },
+  {
+    name: 'Smiley',
+    genes: Array.from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0,0,0,1,1,0,1,1,0,0,1,1,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,0,1,1,1,1,1,1,0,1,1,0,0,0,0,1,1,1,0,1,1,1,1,0,1,1,1,0,0,0,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]),
+    mode: 0,
+  },
+  {
+    name: 'Heart',
+    genes: Array.from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]),
+    mode: 0,
+  },
+  {
+    name: 'Arrow',
+    genes: Array.from([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]),
+    mode: 0,
+  },
+];
+
+const CLASSIC_PRESETS = [
+  {
+    name: 'Insect',
+    genes: [2, -1, 3, -2, 1, -2, 2, -3, 6],
+    mode: 1, symmetry: 'left-right',
+  },
+  {
+    name: 'Fern',
+    genes: [1, 2, -1, 3, -1, 2, -2, 3, 7],
+    mode: 1, symmetry: 'left-right',
+  },
+  {
+    name: 'Snowflake',
+    genes: [2, 1, -2, 0, 2, -1, 1, -2, 5],
+    mode: 2, symmetry: 'four-way',
+  },
+  {
+    name: 'Caterpillar',
+    genes: [1, -2, 2, -1, 2, -1, 1, -2, 5, 4, 6],
+    mode: 3, symmetry: 'left-right',
+  },
+  {
+    name: 'Centipede',
+    genes: [2, -1, 1, 0, 1, -2, 2, -1, 4, 6, 3],
+    mode: 3, symmetry: 'left-right',
+  },
+  {
+    name: 'Arthropod',
+    genes: [2, -2, 3, -1, 1, -1, 2, -3, 5, 3, 5, 2, -1],
+    mode: 4, symmetry: 'left-right',
+  },
+  {
+    name: 'Coral',
+    genes: [1, 2, -2, 2, -1, 3, -1, 2, 6, 2, 4, 1, 2],
+    mode: 4, symmetry: 'left-right',
+    colorMode: 'depth', colorEnabled: true, colorGenes: { hue: 4, spread: 3 },
+  },
+  {
+    name: 'Mandala',
+    genes: [2, -1, 1, -2, 2, 1, -1, -2, 5, 5, 4, 1, -1],
+    mode: 5, symmetry: 'left-right', radialSym: true,
+  },
+  {
+    name: 'Scorpion',
+    genes: [3, -2, 1, -1, 2, -3, 2, 3, 5, 3, 6, 2, -2],
+    mode: 5, symmetry: 'left-right', alternatingAsym: true,
+  },
+];
+
+const PRESET_THUMBS_KEY = 'biomorph-preset-thumbs';
+let currentCollection = 'classic'; // 'peppering', 'classic', 'saves'
+
+function getPresetThumbnails() {
+  try {
+    return JSON.parse(localStorage.getItem(PRESET_THUMBS_KEY)) || {};
+  } catch { return {}; }
+}
+
+function ensurePresetThumbnails() {
+  const cached = getPresetThumbnails();
+  let dirty = false;
+  const allPresets = [...PEPPERING_PRESETS, ...CLASSIC_PRESETS];
+  for (const p of allPresets) {
+    const key = p.name;
+    if (!cached[key]) {
+      cached[key] = generateThumbnail(p);
+      dirty = true;
+    }
+  }
+  if (dirty) localStorage.setItem(PRESET_THUMBS_KEY, JSON.stringify(cached));
+  return cached;
+}
+
 function loadGallery() {
   try {
     return JSON.parse(localStorage.getItem(GALLERY_KEY)) || [];
@@ -1101,11 +1210,15 @@ function generateThumbnail(specimen) {
   alternatingAsymmetry = specimen.alternatingAsym || false;
   radialSymmetry = specimen.radialSym || false;
 
-  const specCM = specimen.colorMode || (specimen.colorEnabled ? 'depth' : 'none');
-  const opts = specCM === 'depth' && specimen.colorGenes
-    ? { colorEnabled: true, colorGenes: specimen.colorGenes }
-    : (specCM === 'angle' ? { colorMode: 'angle' } : undefined);
-  renderBiomorph(canvas, specimen.genes, opts);
+  if (specimen.mode === 0) {
+    renderPeppering(canvas, specimen.genes);
+  } else {
+    const specCM = specimen.colorMode || (specimen.colorEnabled ? 'depth' : 'none');
+    const opts = specCM === 'depth' && specimen.colorGenes
+      ? { colorEnabled: true, colorGenes: specimen.colorGenes }
+      : (specCM === 'angle' ? { colorMode: 'angle' } : undefined);
+    renderBiomorph(canvas, specimen.genes, opts);
+  }
 
   currentMode = prevMode;
   symmetryType = prevSym;
@@ -1115,75 +1228,10 @@ function generateThumbnail(specimen) {
   return canvas.toDataURL('image/png');
 }
 
-function seedDefaultGallery() {
-  if (localStorage.getItem('biomorph-gallery-seeded')) return;
-
-  const seeds = [
-    {
-      name: 'Insect',
-      genes: [2, -1, 3, -2, 1, -2, 2, -3, 6],
-      mode: 1, symmetry: 'left-right',
-    },
-    {
-      name: 'Fern',
-      genes: [1, 2, -1, 3, -1, 2, -2, 3, 7],
-      mode: 1, symmetry: 'left-right',
-    },
-    {
-      name: 'Snowflake',
-      genes: [2, 1, -2, 0, 2, -1, 1, -2, 5],
-      mode: 2, symmetry: 'four-way',
-    },
-    {
-      name: 'Caterpillar',
-      genes: [1, -2, 2, -1, 2, -1, 1, -2, 5, 4, 6],
-      mode: 3, symmetry: 'left-right',
-    },
-    {
-      name: 'Centipede',
-      genes: [2, -1, 1, 0, 1, -2, 2, -1, 4, 6, 3],
-      mode: 3, symmetry: 'left-right',
-    },
-    {
-      name: 'Arthropod',
-      genes: [2, -2, 3, -1, 1, -1, 2, -3, 5, 3, 5, 2, -1],
-      mode: 4, symmetry: 'left-right',
-    },
-    {
-      name: 'Coral',
-      genes: [1, 2, -2, 2, -1, 3, -1, 2, 6, 2, 4, 1, 2],
-      mode: 4, symmetry: 'left-right',
-      colorMode: 'depth', colorEnabled: true, colorGenes: { hue: 4, spread: 3 },
-    },
-    {
-      name: 'Mandala',
-      genes: [2, -1, 1, -2, 2, 1, -1, -2, 5, 5, 4, 1, -1],
-      mode: 5, symmetry: 'left-right', radialSym: true,
-    },
-    {
-      name: 'Scorpion',
-      genes: [3, -2, 1, -1, 2, -3, 2, 3, 5, 3, 6, 2, -2],
-      mode: 5, symmetry: 'left-right', alternatingAsym: true,
-    },
-  ];
-
-  const gallery = seeds.map((s, i) => ({
-    id: Date.now() + i,
-    name: s.name,
-    genes: s.genes,
-    mode: s.mode,
-    symmetry: s.symmetry || 'left-right',
-    alternatingAsym: s.alternatingAsym || false,
-    radialSym: s.radialSym || false,
-    generation: 0,
-    thumbnail: generateThumbnail(s),
-    colorMode: s.colorMode || 'none',
-    colorEnabled: s.colorEnabled || false,
-    colorGenes: s.colorGenes || { hue: 7, spread: 3 },
-  }));
-
-  localStorage.setItem(GALLERY_KEY, JSON.stringify(gallery));
-  localStorage.setItem('biomorph-gallery-seeded', '1');
+function autoSelectCollection() {
+  currentCollection = currentMode === 0 ? 'peppering' : 'classic';
+  const sel = document.getElementById('gallery-collection');
+  if (sel) sel.value = currentCollection;
 }
 
 function saveToGallery() {
@@ -1204,6 +1252,9 @@ function saveToGallery() {
   };
   gallery.push(specimen);
   localStorage.setItem(GALLERY_KEY, JSON.stringify(gallery));
+  currentCollection = 'saves';
+  const sel = document.getElementById('gallery-collection');
+  if (sel) sel.value = 'saves';
   renderGallery();
 }
 
@@ -1243,6 +1294,9 @@ function saveChildToGallery(childGenes, childColorGenes, iconBtn) {
   };
   gallery.push(specimen);
   localStorage.setItem(GALLERY_KEY, JSON.stringify(gallery));
+  currentCollection = 'saves';
+  const sel = document.getElementById('gallery-collection');
+  if (sel) sel.value = 'saves';
   renderGallery();
   if (iconBtn) flashIcon(iconBtn, '#3fb950');
 }
@@ -1313,35 +1367,58 @@ function renderGallery() {
   const content = document.getElementById('gallery-content');
   if (!content) return;
 
-  const gallery = loadGallery();
   content.innerHTML = '';
 
-  if (gallery.length === 0) {
+  const isPreset = currentCollection === 'peppering' || currentCollection === 'classic';
+  let items;
+
+  if (currentCollection === 'peppering') {
+    const thumbs = ensurePresetThumbnails();
+    items = PEPPERING_PRESETS.map(p => ({ ...p, thumbnail: thumbs[p.name], _preset: true }));
+  } else if (currentCollection === 'classic') {
+    const thumbs = ensurePresetThumbnails();
+    items = CLASSIC_PRESETS.map(p => ({ ...p, thumbnail: thumbs[p.name], _preset: true }));
+  } else {
+    items = loadGallery();
+  }
+
+  if (items.length === 0) {
     content.innerHTML = '<p class="gallery-empty">No saved specimens. Click "Save" to add the current biomorph.</p>';
     return;
   }
 
-  for (const spec of gallery) {
+  for (const spec of items) {
     const card = document.createElement('div');
     card.className = 'gallery-card';
 
-    const delBtn = document.createElement('button');
-    delBtn.className = 'gallery-card-delete';
-    delBtn.innerHTML = '&times;';
-    delBtn.title = 'Delete specimen';
-    delBtn.addEventListener('click', () => deleteFromGallery(spec.id));
-    card.appendChild(delBtn);
+    // Delete button — only for user saves
+    if (!spec._preset) {
+      const delBtn = document.createElement('button');
+      delBtn.className = 'gallery-card-delete';
+      delBtn.innerHTML = '&times;';
+      delBtn.title = 'Delete specimen';
+      delBtn.addEventListener('click', () => deleteFromGallery(spec.id));
+      card.appendChild(delBtn);
+    }
 
     const img = document.createElement('img');
     img.src = spec.thumbnail;
     img.draggable = false;
     card.appendChild(img);
 
-    const nameEl = document.createElement('input');
-    nameEl.className = 'gallery-name';
-    nameEl.value = spec.name;
-    nameEl.addEventListener('change', () => renameInGallery(spec.id, nameEl.value));
-    card.appendChild(nameEl);
+    // Name — editable input for user saves, static label for presets
+    if (spec._preset) {
+      const nameLabel = document.createElement('div');
+      nameLabel.className = 'gallery-name-label';
+      nameLabel.textContent = spec.name;
+      card.appendChild(nameLabel);
+    } else {
+      const nameEl = document.createElement('input');
+      nameEl.className = 'gallery-name';
+      nameEl.value = spec.name;
+      nameEl.addEventListener('change', () => renameInGallery(spec.id, nameEl.value));
+      card.appendChild(nameEl);
+    }
 
     const info = document.createElement('div');
     info.className = 'gallery-info';
@@ -1360,7 +1437,7 @@ function renderGallery() {
     breedBtn.className = 'btn-breed';
     breedBtn.textContent = 'Breed';
     breedBtn.title = 'Cross with current parent';
-    if (currentMode === 0) {
+    if (currentMode === 0 || spec.mode === 0) {
       breedBtn.disabled = true;
       breedBtn.title = 'Cannot breed in Pixel Peppering mode';
     }
@@ -1811,6 +1888,8 @@ function setMode(mode) {
   pushHistory();
 
   syncUIControls();
+  autoSelectCollection();
+  renderGallery();
   updateParent();
   spawnOffspring();
 }
@@ -1907,9 +1986,9 @@ function init() {
   document.getElementById('btn-random').addEventListener('click', () => {
     const mode = document.getElementById('random-mode').value;
     if (mode === 'interesting') {
-      parentGenes = currentMode === 0 ? pepperingRandomGenotype() : randomInteresting();
+      parentGenes = currentMode === 0 ? pepperingOriginGenotype() : randomInteresting();
     } else {
-      parentGenes = currentMode === 0 ? pepperingRandomGenotype() : randomGenotype();
+      parentGenes = currentMode === 0 ? pepperingOriginGenotype() : randomGenotype();
     }
     generation = 0;
     evolutionHistory.reset();
@@ -1933,8 +2012,7 @@ function init() {
     btn.addEventListener('click', () => {
       const content = btn.nextElementSibling;
       const isOpen = content.style.display !== 'none';
-      content.style.display = isOpen ? 'none' :
-        (content.id === 'gallery-content' ? 'grid' : 'block');
+      content.style.display = isOpen ? 'none' : 'block';
       btn.classList.toggle('open', !isOpen);
 
       // Render genealogy when opening its panel
@@ -1944,8 +2022,15 @@ function init() {
     });
   });
 
-  // Seed gallery on first visit, then render
-  seedDefaultGallery();
+  // Gallery collection switcher
+  const collSel = document.getElementById('gallery-collection');
+  if (collSel) {
+    collSel.addEventListener('change', () => {
+      currentCollection = collSel.value;
+      renderGallery();
+    });
+  }
+  autoSelectCollection();
   renderGallery();
   renderGenealogy(evolutionHistory, jumpToHistoryNode);
 
