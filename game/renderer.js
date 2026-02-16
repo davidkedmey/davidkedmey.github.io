@@ -22,6 +22,10 @@ let WORLD_H = ROWS * TILE_SIZE;
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
+// Module-level mouse position for hover highlights (set each frame in render())
+let _mx = 0, _my = 0;
+function _hitRect(rx, ry, rw, rh) { return _mx >= rx && _mx < rx + rw && _my >= ry && _my < ry + rh; }
+
 function grassColor(col, row) {
   const h = ((col * 7 + row * 13) % 5);
   return `rgb(60, ${0x70 + h * 3}, 50)`;
@@ -43,6 +47,7 @@ export function updateCamera(cam, player, dt, worldW, worldH) {
 // ── Main render ──
 
 export function render(ctx, world, player, gs, planted, collection, lab, npcStates, cam, wilds, exhibits) {
+  _mx = gs._mouseX || 0; _my = gs._mouseY || 0;
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
   if (gs.phase === 'title') { drawTitle(ctx, gs); return; }
@@ -896,17 +901,19 @@ function drawSandboxHUD(ctx, gs, player) {
 
   // Palette squares
   const paletteX0 = (CANVAS_W - 7 * 42) / 2;
+  const mx = gs._mouseX, my = gs._mouseY;
   for (let i = 0; i < 7; i++) {
     const x = paletteX0 + i * 42;
     const sel = gs.sandboxTool === i;
+    const hov = !sel && mx >= x && mx < x + 36 && my >= HUD_Y + 4 && my < HUD_Y + 32;
     // Background
-    ctx.fillStyle = sel ? 'rgba(255,220,50,0.2)' : 'rgba(255,255,255,0.04)';
+    ctx.fillStyle = sel ? 'rgba(255,220,50,0.2)' : hov ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)';
     ctx.fillRect(x, HUD_Y + 4, 36, 28);
     // Color swatch
     ctx.fillStyle = SANDBOX_PALETTE_COLORS[i];
     ctx.fillRect(x + 4, HUD_Y + 8, 28, 16);
     // Border
-    ctx.strokeStyle = sel ? '#ffd700' : '#3a3a5a';
+    ctx.strokeStyle = sel ? '#ffd700' : hov ? '#888' : '#3a3a5a';
     ctx.lineWidth = sel ? 2 : 1;
     ctx.strokeRect(x, HUD_Y + 4, 36, 28);
     // Number label
@@ -1113,9 +1120,10 @@ function drawItemCells(ctx, items, maxSlots, cols, cellSize, x, y, selectedIdx, 
     const cx = x + gc * (cellSize + 4);
     const cy = y + gr * (cellSize + 4);
     const sel = i === selectedIdx;
-    ctx.fillStyle = sel && isActive ? hcFaint : 'rgba(255,255,255,0.03)';
+    const hov = !sel && i < items.length && _hitRect(cx, cy, cellSize, cellSize);
+    ctx.fillStyle = sel && isActive ? hcFaint : hov ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)';
     ctx.fillRect(cx, cy, cellSize, cellSize);
-    ctx.strokeStyle = sel && isActive ? hc : '#2a2a3a';
+    ctx.strokeStyle = sel && isActive ? hc : hov ? '#555' : '#2a2a3a';
     ctx.lineWidth = sel && isActive ? 2 : 1;
     ctx.strokeRect(cx, cy, cellSize, cellSize);
     ctx.fillStyle = '#444'; ctx.font = '9px monospace';
@@ -1369,7 +1377,9 @@ function drawTradeOverlay(ctx, gs, player, npcStates) {
   for (let i = 0; i < ns.inventory.length; i++) {
     const iy = topY + 24 + i * 64;
     const sel = npcSel && gs.tradeNpcSlot === i;
+    const thov = !sel && _hitRect(leftX - 4, iy - 2, colW, 60);
     if (sel) { ctx.fillStyle = 'rgba(255,220,50,0.1)'; ctx.fillRect(leftX-4, iy-2, colW, 60); }
+    else if (thov) { ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(leftX-4, iy-2, colW, 60); }
     ctx.drawImage(getSprite(ns.inventory[i], 44), leftX, iy);
     ctx.fillStyle = '#e0e0e0'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
     ctx.fillText(`M${ns.inventory[i].mode} D${ns.inventory[i].genes[8]} ${farmTraitLine(ns.inventory[i])}`, leftX+50, iy+8);
@@ -1387,7 +1397,9 @@ function drawTradeOverlay(ctx, gs, player, npcStates) {
   for (let i = 0; i < Math.min(player.inventory.length, 7); i++) {
     const iy = topY + 24 + i * 64;
     const sel = plSel && gs.tradePlayerSlot === i;
+    const thov2 = !sel && _hitRect(rightX - 4, iy - 2, colW, 60);
     if (sel) { ctx.fillStyle = 'rgba(255,220,50,0.1)'; ctx.fillRect(rightX-4, iy-2, colW, 60); }
+    else if (thov2) { ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(rightX-4, iy-2, colW, 60); }
     const item = player.inventory[i];
     if (item.kind === 'material') {
       const mt = MATERIAL_TYPES[item.materialType];
@@ -1462,12 +1474,16 @@ function drawCraftingOverlay(ctx, gs, player) {
     const sel = i === gs.craftCursor;
     const ry = listY + 8 + i * 56;
 
+    const chov = !sel && _hitRect(listX + 2, ry - 4, leftW - 4, 52);
     if (sel) {
       ctx.fillStyle = 'rgba(255,220,50,0.1)';
       ctx.fillRect(listX + 2, ry - 4, leftW - 4, 52);
+    } else if (chov) {
+      ctx.fillStyle = 'rgba(255,255,255,0.05)';
+      ctx.fillRect(listX + 2, ry - 4, leftW - 4, 52);
     }
 
-    ctx.fillStyle = sel ? '#ffd700' : (craftable ? '#ccc' : '#555');
+    ctx.fillStyle = sel ? '#ffd700' : chov ? '#eee' : (craftable ? '#ccc' : '#555');
     ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillText(recipe.name, listX + 12, ry);
@@ -2152,10 +2168,14 @@ function drawGalleryOverlay(ctx, gs) {
     const sel = i === cursor;
 
     // Row background
-    ctx.fillStyle = sel ? 'rgba(255,220,50,0.12)' : 'rgba(255,255,255,0.03)';
+    const hov = !sel && _hitRect(listX, y, listW, rowH - 2);
+    ctx.fillStyle = sel ? 'rgba(255,220,50,0.12)' : hov ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.03)';
     ctx.fillRect(listX, y, listW, rowH - 2);
     if (sel) {
       ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 2;
+      ctx.strokeRect(listX, y, listW, rowH - 2);
+    } else if (hov) {
+      ctx.strokeStyle = '#555'; ctx.lineWidth = 1;
       ctx.strokeRect(listX, y, listW, rowH - 2);
     }
 

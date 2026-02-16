@@ -71,6 +71,13 @@ export function createInput(canvas) {
     leftDown: false,
     leftX: 0,
     leftY: 0,
+    // Always-current canvas-relative position (updated on every mousemove)
+    x: 0,
+    y: 0,
+    // Click detection: press+release with <5px drag
+    leftStartX: 0,
+    leftStartY: 0,
+    click: null,  // set to {x, y} on qualifying mouseup, consumed by consumeClick()
   };
 
   if (canvas) {
@@ -90,10 +97,16 @@ export function createInput(canvas) {
         const rect = canvas.getBoundingClientRect();
         mouse.leftX = e.clientX - rect.left;
         mouse.leftY = e.clientY - rect.top;
+        mouse.leftStartX = mouse.leftX;
+        mouse.leftStartY = mouse.leftY;
       }
     });
 
     window.addEventListener('mousemove', e => {
+      // Always track canvas-relative position
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
       if (mouse.rightDown) {
         mouse.dragging = true;
         mouse.deltaX += e.clientX - mouse.lastX;
@@ -102,9 +115,8 @@ export function createInput(canvas) {
         mouse.lastY = e.clientY;
       }
       if (mouse.leftDown) {
-        const rect = canvas.getBoundingClientRect();
-        mouse.leftX = e.clientX - rect.left;
-        mouse.leftY = e.clientY - rect.top;
+        mouse.leftX = mouse.x;
+        mouse.leftY = mouse.y;
       }
     });
 
@@ -115,6 +127,14 @@ export function createInput(canvas) {
         mouse.dragging = false;
       }
       if (e.button === 0) {
+        if (mouse.leftDown) {
+          const rect = canvas.getBoundingClientRect();
+          const upX = e.clientX - rect.left;
+          const upY = e.clientY - rect.top;
+          if (Math.hypot(upX - mouse.leftStartX, upY - mouse.leftStartY) < 5) {
+            mouse.click = { x: upX, y: upY };
+          }
+        }
         mouse.leftDown = false;
       }
     });
@@ -146,6 +166,14 @@ export function createInput(canvas) {
     get leftMouseDown() { return mouse.leftDown; },
     get leftMouseX() { return mouse.leftX; },
     get leftMouseY() { return mouse.leftY; },
+    // Always-current mouse position (updated on every mousemove)
+    get mouseX() { return mouse.x; },
+    get mouseY() { return mouse.y; },
+    // Click detection: returns {x,y} once then clears, or null
+    consumeClick() {
+      if (mouse.click) { const c = mouse.click; mouse.click = null; return c; }
+      return null;
+    },
     // Text mode for command bar
     setTextMode(on) { textMode = on; },
     drainCharBuffer() {

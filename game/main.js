@@ -203,6 +203,20 @@ const gameState = {
 for (let i = 0; i < 3; i++) player.inventory.push(createSeed(1));
 gameState.shopStock = generateShopStock(collection.unlockedModes);
 
+// ── Click hit-test helpers (layout constants must match renderer.js draw functions) ──
+function hitRect(mx, my, rx, ry, rw, rh) {
+  return mx >= rx && mx < rx + rw && my >= ry && my < ry + rh;
+}
+
+function gridHitTest(mx, my, gridX, gridY, cellSize, cols, gap, count) {
+  for (let i = 0; i < count; i++) {
+    const cx = gridX + (i % cols) * (cellSize + gap);
+    const cy = gridY + Math.floor(i / cols) * (cellSize + gap);
+    if (hitRect(mx, my, cx, cy, cellSize, cellSize)) return i;
+  }
+  return -1;
+}
+
 // What's New — show once per version
 const GAME_VERSION = 10;
 const whatsNewKey = `biomorph-farm-whatsnew-v${GAME_VERSION}`;
@@ -604,6 +618,29 @@ function handleShopInput() {
   const side = gameState.shopSide || 0;
   const items = side === 0 ? gameState.shopStock : player.inventory;
 
+  // Mouse click on shop grids (layout matches drawShopOverlay)
+  const click = input.consumeClick();
+  if (click) {
+    const ox = 50, oy = 50, ow = 860;
+    const midX = ox + ow / 2;
+    const panelTop = oy + 48;
+    const CELL = 68, cols = 3, gap = 4;
+    const shopGridX = ox + 34, shopGridY = panelTop + 24;
+    const invGridX = midX + 34, invGridY = panelTop + 24;
+    // Buy side
+    const buyHit = gridHitTest(click.x, click.y, shopGridX, shopGridY, CELL, cols, gap, Math.max(gameState.shopStock.length, 3));
+    if (buyHit >= 0 && buyHit < gameState.shopStock.length) {
+      gameState.shopSide = 0;
+      gameState.shopCursor = buyHit;
+    }
+    // Sell side
+    const sellHit = gridHitTest(click.x, click.y, invGridX, invGridY, CELL, cols, gap, 9);
+    if (sellHit >= 0 && sellHit < player.inventory.length) {
+      gameState.shopSide = 1;
+      gameState.shopCursor = sellHit;
+    }
+  }
+
   // Switch panels
   if (input.justPressed('ArrowLeft') && side === 1) {
     gameState.shopSide = 0;
@@ -666,6 +703,26 @@ function handleShopInput() {
 // ── Lab ──
 function handleLabInput() {
   if (input.justPressed('Escape')) { labReset(lab); gameState.overlay = null; return; }
+  // Mouse click on lab (layout matches drawLabOverlay)
+  const click = input.consumeClick();
+  if (click && (lab.step === 'select1' || lab.step === 'select2')) {
+    // Inventory grid in lab: ox=100, oy=50, grid starts at ox+20, cy+30 where cy=oy+50
+    const gridX = 120, gridY = 130, CELL = 48, cols = 9, gap = 4;
+    const hit = gridHitTest(click.x, click.y, gridX, gridY, CELL, cols, gap, player.inventory.length);
+    if (hit >= 0 && hit < player.inventory.length) {
+      if (player.inventory[hit].kind !== 'organism') {
+        showMessage("Can only breed organisms!");
+      } else {
+        labSelectParent(lab, player, hit);
+        if (lab.step === 'offspring') recordBreed(collection);
+      }
+    }
+  } else if (click && lab.step === 'offspring') {
+    // Offspring grid: 4 items shown horizontally
+    const offX = 120, offY = 300, CELL = 80, cols = 4, gap = 8;
+    const hit = gridHitTest(click.x, click.y, offX, offY, CELL, cols, gap, 4);
+    if (hit >= 0) labSelectOffspring(lab, hit);
+  }
   if (lab.step === 'select1' || lab.step === 'select2') {
     for (let i = 1; i <= 9; i++) {
       if (input.justPressed(String(i))) {
@@ -696,6 +753,8 @@ function handleLabInput() {
 // ── Museum ──
 function handleMuseumInput() {
   if (input.justPressed('Escape')) { gameState.overlay = null; return; }
+  // Mouse click — consume to prevent leak, museum is view-only grid
+  input.consumeClick();
   if (input.justPressed(' ') && player.inventory.length > 0) {
     const item = player.inventory[player.selectedSlot];
     // Only donate organisms
@@ -720,6 +779,33 @@ function handleTradeInput() {
   if (input.justPressed('Escape')) { gameState.overlay = null; return; }
   const ns = npcStates[gameState.tradeNpcIdx];
   if (!ns) { gameState.overlay = null; return; }
+
+  // Mouse click on trade lists (layout matches drawTradeOverlay)
+  const click = input.consumeClick();
+  if (click) {
+    const ox = 140, oy = 80, ow = 680;
+    const leftX = ox + 20, rightX = ox + ow / 2 + 10, topY = oy + 50;
+    const colW = (ow - 60) / 2;
+    const rowH = 64;
+    // NPC side
+    for (let i = 0; i < ns.inventory.length; i++) {
+      const iy = topY + 24 + i * rowH;
+      if (hitRect(click.x, click.y, leftX - 4, iy - 2, colW, 60)) {
+        gameState.tradeCursor = 0;
+        gameState.tradeNpcSlot = i;
+        break;
+      }
+    }
+    // Player side
+    for (let i = 0; i < Math.min(player.inventory.length, 7); i++) {
+      const iy = topY + 24 + i * rowH;
+      if (hitRect(click.x, click.y, rightX - 4, iy - 2, colW, 60)) {
+        gameState.tradeCursor = 1;
+        gameState.tradePlayerSlot = i;
+        break;
+      }
+    }
+  }
 
   // Tab/left-right to switch between NPC and player side
   if (input.justPressed('ArrowLeft') || input.justPressed('ArrowRight')) {
@@ -756,6 +842,32 @@ function handleTradeInput() {
 function handleCraftingInput() {
   if (input.justPressed('Escape')) { gameState.overlay = null; return; }
   if (input.justPressed('s') || input.justPressed('S')) { doSave(); showMessage('Game saved!'); return; }
+  // Mouse click on recipe list (layout matches drawCraftingOverlay)
+  const click = input.consumeClick();
+  if (click) {
+    const ox = 80, oy = 50;
+    const listX = ox + 16, listY = oy + 50;
+    const leftW = 280, rowH = 56;
+    if (hitRect(click.x, click.y, listX, listY, leftW, RECIPES.length * rowH)) {
+      const idx = Math.floor((click.y - listY - 8) / rowH);
+      if (idx >= 0 && idx < RECIPES.length) {
+        if (idx === gameState.craftCursor) {
+          // Double-click selected recipe = craft it
+          const recipe = RECIPES[idx];
+          if (recipe && canCraft(recipe, player.inventory)) {
+            const item = executeCraft(recipe, player.inventory);
+            if (item.kind === 'product') addProductToInventory(player.inventory, item);
+            else player.inventory.push(item);
+            showMessage(`Crafted ${recipe.name}!`);
+          } else {
+            showMessage("Missing materials!");
+          }
+        } else {
+          gameState.craftCursor = idx;
+        }
+      }
+    }
+  }
   if (input.justPressed('ArrowUp')) gameState.craftCursor = Math.max(0, gameState.craftCursor - 1);
   if (input.justPressed('ArrowDown')) gameState.craftCursor = Math.min(RECIPES.length - 1, gameState.craftCursor + 1);
   if (input.justPressed(' ')) {
@@ -776,6 +888,7 @@ function handleCraftingInput() {
 }
 
 function handleStudyInfoInput() {
+  input.consumeClick(); // consume to prevent click leak
   if (input.justPressed('Escape')) {
     gameState.overlay = null;
     setMusicMood('farm');
@@ -811,6 +924,7 @@ function handleWorldExamine() {
 }
 
 function handleExamineInput() {
+  input.consumeClick(); // consume to prevent click leak
   if (input.justPressed('Escape') || input.justPressed('e') || input.justPressed('E')) {
     gameState.overlay = null;
     gameState.examineTarget = null;
@@ -819,6 +933,7 @@ function handleExamineInput() {
 
 // ── Exhibit ──
 function handleExhibitInput() {
+  input.consumeClick(); // consume to prevent click leak
   if (input.justPressed('Escape') || input.justPressed(' ') || input.justPressed('Enter')) {
     gameState.overlay = null;
     gameState.exhibitData = null;
@@ -835,6 +950,7 @@ function handleExhibitInput() {
 
 // ── Dawkins ──
 function handleDawkinsInput() {
+  input.consumeClick(); // consume to prevent click leak
   if (input.justPressed('Escape')) {
     gameState.overlay = null;
     stopSpeech();
@@ -882,10 +998,59 @@ function handleDawkinsInput() {
 }
 
 // ── Gallery ──
+function confirmGallerySelection() {
+  const items = gameState.galleryItems;
+  const spec = items[gameState.galleryCursor];
+  if (!spec) return;
+  if (gameState.sandboxMode) {
+    gameState.sandboxBiomorph = spec;
+    gameState.sandboxTool = -1;
+    gameState.overlay = null;
+    showMessage(`Biomorph brush: ${spec.name || 'specimen'} — click to plant`, 3);
+    return;
+  }
+  if (player.inventory.length >= 9) {
+    showMessage('Inventory full! (max 9 items)');
+    return;
+  }
+  const cost = galleryImportCost(spec);
+  if (!gameState.creativeMode && player.wallet < cost) {
+    showMessage(`Not enough gold! Need ${cost}g`);
+    return;
+  }
+  if (!gameState.creativeMode) player.wallet -= cost;
+  const org = breederToOrganism(spec);
+  player.inventory.push(org);
+  const costStr = gameState.creativeMode ? '(free)' : `-${cost}g`;
+  showMessage(`Imported ${org.nickname}! ${costStr}`);
+  doSave();
+}
+
 function handleGalleryInput() {
   if (input.justPressed('Escape')) { gameState.overlay = null; return; }
   const items = gameState.galleryItems;
   if (items.length === 0) return;
+
+  // Mouse click on gallery list rows (layout matches drawGalleryOverlay)
+  const click = input.consumeClick();
+  if (click && items.length > 0) {
+    const pw = 700, ph = 500;
+    const px = (960 - pw) / 2, py = (768 - ph) / 2;
+    const listX = px + 16, listY = py + 48, rowH = 52, listW = 340;
+    const visibleRows = 8;
+    const scroll = gameState.galleryScroll || 0;
+    if (hitRect(click.x, click.y, listX, listY, listW, visibleRows * rowH)) {
+      const rowIdx = Math.floor((click.y - listY) / rowH) + scroll;
+      if (rowIdx >= 0 && rowIdx < items.length) {
+        if (rowIdx === gameState.galleryCursor) {
+          confirmGallerySelection();
+          return;
+        }
+        gameState.galleryCursor = rowIdx;
+      }
+    }
+  }
+
   if (input.justPressed('ArrowUp')) {
     gameState.galleryCursor = Math.max(0, gameState.galleryCursor - 1);
   }
@@ -893,31 +1058,7 @@ function handleGalleryInput() {
     gameState.galleryCursor = Math.min(items.length - 1, gameState.galleryCursor + 1);
   }
   if (input.justPressed(' ')) {
-    const spec = items[gameState.galleryCursor];
-    if (!spec) return;
-    if (gameState.sandboxMode) {
-      // Sandbox: select biomorph brush
-      gameState.sandboxBiomorph = spec;
-      gameState.sandboxTool = -1;
-      gameState.overlay = null;
-      showMessage(`Biomorph brush: ${spec.name || 'specimen'} — click to plant`, 3);
-      return;
-    }
-    if (player.inventory.length >= 9) {
-      showMessage('Inventory full! (max 9 items)');
-      return;
-    }
-    const cost = galleryImportCost(spec);
-    if (!gameState.creativeMode && player.wallet < cost) {
-      showMessage(`Not enough gold! Need ${cost}g`);
-      return;
-    }
-    if (!gameState.creativeMode) player.wallet -= cost;
-    const org = breederToOrganism(spec);
-    player.inventory.push(org);
-    const costStr = gameState.creativeMode ? '(free)' : `-${cost}g`;
-    showMessage(`Imported ${org.nickname}! ${costStr}`);
-    doSave();
+    confirmGallerySelection();
   }
 }
 
@@ -926,6 +1067,14 @@ function handleInventoryInput() {
   if (input.justPressed('Escape')) { gameState.overlay = null; return; }
   const max = player.inventory.length;
   const cols = 3;
+  // Mouse click on inventory grid (layout matches drawInventoryOverlay)
+  const click = input.consumeClick();
+  if (click && max > 0) {
+    const ox = 60, oy = 40, CELL = 68, gap = 4;
+    const gridX = ox + 24, gridY = oy + 58;
+    const hit = gridHitTest(click.x, click.y, gridX, gridY, CELL, cols, gap, 9);
+    if (hit >= 0 && hit < max) player.selectedSlot = hit;
+  }
   if (input.justPressed('ArrowUp') && player.selectedSlot >= cols)
     player.selectedSlot -= cols;
   if (input.justPressed('ArrowDown') && player.selectedSlot + cols < max)
@@ -1615,6 +1764,10 @@ function gameLoop(timestamp) {
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
   lastTime = timestamp;
 
+  // Pass mouse position to renderer for hover highlights
+  gameState._mouseX = input.mouseX;
+  gameState._mouseY = input.mouseY;
+
   // ── Title screen ──
   if (gameState.phase === 'title') {
     // What's New overlay intercepts input
@@ -1800,6 +1953,17 @@ function gameLoop(timestamp) {
     if (gameState.sandboxMode) {
       for (let i = 1; i <= 7; i++) {
         if (input.justPressed(String(i))) gameState.sandboxTool = i - 1;
+      }
+      // Mouse click on sandbox palette (layout matches drawSandboxHUD)
+      const click = input.consumeClick();
+      if (click) {
+        const paletteX0 = (960 - 7 * 42) / 2;
+        for (let i = 0; i < 7; i++) {
+          if (hitRect(click.x, click.y, paletteX0 + i * 42, 720 + 4, 36, 28)) {
+            gameState.sandboxTool = i;
+            break;
+          }
+        }
       }
     } else {
       for (let i = 1; i <= 9; i++) {
