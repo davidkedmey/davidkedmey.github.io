@@ -1,12 +1,26 @@
-# Dawkins' Biomorphs — Claude Code Context
+# Biomorph Builder — Claude Code Context
 
 ## Project Overview
 
-Interactive implementation of Richard Dawkins' biomorphs from "The Evolution of Evolvability" (1988). Two interfaces: a 2D breeding app and a 3D gallery world (Three.js). No build step — vanilla JS, served as static files.
+Interactive implementation of Richard Dawkins' biomorphs from "The Evolution of Evolvability" (1988). Four experiences: breeding app, interactive paper, 2D game, and 3D gallery. No build step — vanilla JS, served as static files.
 
 **Live site:** https://biomorphbuilder.com/
 **Repo:** `davidkedmey/davidkedmey.github.io` (GitHub Pages user site)
 **Local folder:** `~/Desktop/Biomorph Builder/`
+**Local dev:** `python3 -m http.server 8765` from this folder
+
+## Roles
+
+**On startup, before doing anything else:** Ask the user which role they want you to take (Leader, Breeder, Paper, or Game). Also remind them: "Do you already have another instance running this role?" Then follow the scope below. Only edit files you own. Coordinate through the user for cross-cutting changes.
+
+| Role | Scope | Files owned |
+|------|-------|-------------|
+| **Leader** | Landing page, navigation, shared design, cross-project integration | `index.html`, `style.css`, `shared/`, `CLAUDE.md` |
+| **Breeder** | 2D breeding app | `breed.html`, `biomorph.js`, `history.js`, `peppering.js`, `specimen-library.json`, `gallery-preview.html` |
+| **Paper** | Interactive annotated Dawkins paper | `dawkins-paper/` |
+| **Game** | 2D sandbox game + 3D gallery world | `game/`, `3d/` |
+
+If no role is assigned, you have full access to everything.
 
 ## Architecture
 
