@@ -191,6 +191,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   if (gs.overlay === 'crafting') drawCraftingOverlay(ctx, gs, overlayPlayer);
   if (gs.overlay === 'dawkins') drawDawkinsOverlay(ctx, gs);
   if (gs.overlay === 'study-info') drawStudyInfoOverlay(ctx, gs, collection);
+  if (gs.overlay === 'examine') drawExamineOverlay(ctx, gs);
   if (gs.overlay === 'exhibit') drawExhibitOverlay(ctx, gs);
   if (gs.overlay === 'gallery') drawGalleryOverlay(ctx, gs);
   if (gs.overlay === 'help') drawHelpOverlay(ctx);
@@ -1766,6 +1767,65 @@ function drawDawkinsOverlay(ctx, gs) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     ctx.fillText('[Space] continue  [Esc] close', ox + ow / 2, oy + oh - 12);
   }
+}
+
+function drawExamineOverlay(ctx, gs) {
+  const org = gs.examineTarget;
+  if (!org) return;
+
+  const w = 400, h = 440;
+  const x = (CANVAS_W - w) / 2, y = (CANVAS_H - h) / 2;
+
+  // Backdrop
+  overlayBg(ctx);
+
+  // Panel
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = '#6a8a6a';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, w, h);
+
+  // Title (nickname or fallback)
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#c8e6c8';
+  ctx.font = 'bold 16px Georgia, serif';
+  const title = org.nickname || `Biomorph M${org.mode}`;
+  ctx.fillText(title, x + w / 2, y + 24);
+
+  // Large sprite
+  const spriteSize = 200;
+  ctx.drawImage(getSprite(org, spriteSize), x + (w - spriteSize) / 2, y + 42);
+
+  // Stats area
+  const statsY = y + 42 + spriteSize + 14;
+  ctx.font = '11px monospace';
+  ctx.fillStyle = '#8ab88a';
+  const modeNames = ['Peppering', 'Basic', 'Symmetry', 'Segments', 'Gradients', 'Full Dawkins'];
+  ctx.fillText(`Mode: ${modeNames[org.mode] || org.mode}  |  Depth: ${org.genes[8]}`, x + w / 2, statsY);
+
+  // Farm traits
+  const fg = org.farmGenes || { fertility: 2, longevity: 1, vigor: 2 };
+  ctx.fillText(`Fertility: ${fg.fertility}  Longevity: ${fg.longevity}  Vigor: ${fg.vigor}  (${farmLabel(fg)})`, x + w / 2, statsY + 17);
+
+  // Growth stage
+  let stageStr = org.stage || 'seed';
+  if (org.stage === 'growing') {
+    const left = (org.matureDays || org.genes[8]) - (org.growthProgress || 0);
+    stageStr = `growing (${left} day${left !== 1 ? 's' : ''} left)`;
+  }
+  ctx.fillText(`Stage: ${stageStr}`, x + w / 2, statsY + 34);
+
+  // Genes
+  ctx.fillStyle = '#7a9a9a';
+  ctx.fillText(`Genes: [${org.genes.join(', ')}]`, x + w / 2, statsY + 54);
+
+  // Footer
+  ctx.fillStyle = '#668866';
+  ctx.fillText('[E / Esc] Close', x + w / 2, y + h - 14);
+
+  ctx.textAlign = 'left';
 }
 
 function drawExhibitOverlay(ctx, gs) {

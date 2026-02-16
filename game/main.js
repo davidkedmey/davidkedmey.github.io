@@ -152,7 +152,7 @@ const gameState = {
   timeSkip: false,   // true when holding T for fast-forward
   timeSkipSticky: false, // toggled via command bar "time" command
   message: null,
-  overlay: null,  // 'shop' | 'lab' | 'museum' | 'trade' | 'inventory' | 'crafting' | null
+  overlay: null,  // 'shop' | 'lab' | 'museum' | 'trade' | 'inventory' | 'crafting' | 'examine' | null
   shopStock: [],
   shopCursor: 0,
   shopSide: 0,    // 0 = for-sale panel, 1 = your-items panel
@@ -715,6 +715,30 @@ function handleStudyInfoInput() {
   }
   if (input.justPressed('ArrowLeft')) {
     gameState.studyInfoPage = Math.max(0, gameState.studyInfoPage - 1);
+  }
+}
+
+// ── Examine ──
+function handleWorldExamine() {
+  const ft = facingTile(player);
+  // Check player's planted organisms
+  let org = planted.find(o => o.tileCol === ft.col && o.tileRow === ft.row);
+  // Check NPC planted organisms
+  if (!org && npcStates) {
+    for (const ns of npcStates) {
+      org = ns.planted.find(o => o.tileCol === ft.col && o.tileRow === ft.row);
+      if (org) break;
+    }
+  }
+  if (!org) { showMessage('Nothing to examine here.'); return; }
+  gameState.overlay = 'examine';
+  gameState.examineTarget = org;
+}
+
+function handleExamineInput() {
+  if (input.justPressed('Escape') || input.justPressed('e') || input.justPressed('E')) {
+    gameState.overlay = null;
+    gameState.examineTarget = null;
   }
 }
 
@@ -1712,6 +1736,7 @@ function gameLoop(timestamp) {
   else if (gameState.overlay === 'dawkins') handleDawkinsInput();
   else if (gameState.overlay === 'study-info') handleStudyInfoInput();
   else if (gameState.overlay === 'exhibit') handleExhibitInput();
+  else if (gameState.overlay === 'examine') handleExamineInput();
   else if (gameState.overlay === 'gallery') handleGalleryInput();
   else {
     // Arrow keys reset camera pan and cancel auto-walk
@@ -1723,6 +1748,7 @@ function gameLoop(timestamp) {
     }
     updatePlayer(player, input, world, dt);
     if (input.justPressed(' ')) handleWorldAction();
+    if (input.justPressed('e') || input.justPressed('E')) handleWorldExamine();
     if (input.justPressed('i') || input.justPressed('I') || input.justPressed('Enter'))
       gameState.overlay = 'inventory';
   }
