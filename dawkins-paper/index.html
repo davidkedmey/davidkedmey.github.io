@@ -475,9 +475,72 @@
     padding: 10px;
     z-index: 10;
   }
-  body.mode-multimedia .mn-media-panel { display: flex; }
+  body.mode-multimedia .mn-media-panel { display: none; }
+  body.mode-multimedia .mn-media-panel.mn-expanded { display: flex; }
+  body.mode-enhanced .mn-media-panel { display: none; }
+  body.mode-enhanced .mn-media-panel.mn-expanded { display: flex; }
   body.mode-clean .mn-media-panel,
-  body.mode-enhanced .mn-media-panel { display: none !important; }
+  body.mode-clean .mn-media-toggle { display: none !important; }
+
+  /* Toggle icon — visible in Enhanced & Multimedia (when collapsed) */
+  .mn-media-toggle {
+    display: none;
+    position: absolute;
+    left: calc(100% + 10px);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    z-index: 11;
+    transition: background 0.2s, border-color 0.2s;
+    padding: 0;
+    color: var(--accent);
+    font-size: 14px;
+    line-height: 1;
+  }
+  .mn-media-toggle:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .mn-media-toggle svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+  }
+  body.mode-enhanced .mn-media-toggle { display: flex; }
+  body.mode-multimedia .mn-media-toggle { display: flex; }
+  .mn-media-toggle.mn-hidden { display: none !important; }
+
+  /* Dismiss button inside panel */
+  .mn-media-dismiss {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1;
+    padding: 0;
+    transition: background 0.2s, color 0.2s;
+    z-index: 12;
+  }
+  .mn-media-dismiss:hover {
+    background: var(--border);
+    color: var(--text);
+  }
 
   .mn-media-panel .mn-video-wrap {
     position: relative;
@@ -593,6 +656,11 @@
       margin: 16px auto 0;
     }
     .mn-media-connector { display: none !important; }
+    .mn-media-toggle {
+      position: relative;
+      left: auto;
+      margin: 12px auto 0;
+    }
   }
 
   .fig-recreated .fig-row-label {
@@ -1635,11 +1703,15 @@
 <div class="mn-media" id="mn-biomorphs-lecture" data-media-type="video" data-src="https://www.youtube.com/embed/V3yw5KYzLMc?start=214&list=PLBD8AF69ABF37D945" data-title="Dawkins demonstrates biomorphs on stage">
 <p id="p1">A title like "The Evolution of Evolvability" ought to be anathema to a dyed-in-the-wool, radical neo-Darwinian like me! Part of the reason it isn't, is that I really have been led to think differently as a result of creating, and using, computer models of artificial life which, on the face of it, owe more to the imagination than to real biology. The use of artificial life, not as a formal model of real life but as a generator of insight in our understanding of real life, is one that I want to illustrate in this paper. With a program called <em>Blind Watchmaker</em>, I created a world of two-dimensional artificial organisms on the computer screen.<sup>1</sup> Borrowing the word used by Desmond Morris for the animal-like shapes in his surrealistic paintings,<sup>2</sup> I called them biomorphs. My main objectives in designing <em>Blind Watchmaker</em> was to reduce to the barest minimum the extent to which I designed biomorphs. I wanted as much as possible of the biology of biomorphs to emerge. All that I would design was the conditions&mdash;ideally very simple conditions&mdash;under which they might emerge. The process of emergence was to be evolution by the Darwinian process of random mutation followed by nonrandom survival. Once a Darwinian process gets going in a world, it has an open-ended power to generate surprising consequences: us, for example. But before any Darwinian process can get going, there has to be a bare minimum group of conditions set up. These were the conditions that I had to engineer in my computer world:</p>
 
+<button class="mn-media-toggle" aria-label="Show supplementary video" title="Supplementary video">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+</button>
 <div class="mn-media-connector" aria-hidden="true">
   <div class="mn-media-connector-h"></div>
   <div class="mn-media-connector-v"></div>
 </div>
 <div class="mn-media-panel" aria-label="Supplementary video">
+  <button class="mn-media-dismiss" aria-label="Collapse video panel" title="Collapse">&times;</button>
   <div class="mn-video-wrap">
     <div class="mn-video-placeholder" role="button" tabindex="0" aria-label="Play video: Dawkins demonstrates biomorphs">
       <div class="mn-play-icon"></div>
@@ -2107,9 +2179,26 @@
       b.classList.toggle('active', b.getAttribute('data-mode') === mode);
     });
     localStorage.setItem('reading_mode', mode);
-    if (mode === 'multimedia') {
+    if (mode === 'multimedia' || mode === 'enhanced') {
       if (typeof initMarginAnnotation === 'function') initMarginAnnotation();
       if (typeof initMediaMarginNotes === 'function') initMediaMarginNotes();
+    }
+    // In multimedia mode, auto-expand all media panels; in enhanced, collapse them
+    if (typeof initMediaMarginNotes === 'function') {
+      document.querySelectorAll('.mn-media').forEach(function(note) {
+        var panel = note.querySelector('.mn-media-panel');
+        var toggle = note.querySelector('.mn-media-toggle');
+        var connector = note.querySelector('.mn-media-connector');
+        if (mode === 'multimedia') {
+          panel.classList.add('mn-expanded');
+          if (toggle) toggle.classList.add('mn-hidden');
+          if (connector) connector.style.display = '';
+        } else {
+          panel.classList.remove('mn-expanded');
+          if (toggle) toggle.classList.remove('mn-hidden');
+          if (connector) connector.style.display = 'none';
+        }
+      });
     }
   }
 
@@ -4219,9 +4308,10 @@ var initMediaMarginNotes = (function() {
     if (!notes.length) return;
     initialized = true;
 
-    // Lazy-load: only load iframe when user clicks placeholder
     notes.forEach(function(note) {
       var panel = note.querySelector('.mn-media-panel');
+      var toggle = note.querySelector('.mn-media-toggle');
+      var dismiss = note.querySelector('.mn-media-dismiss');
       var placeholder = note.querySelector('.mn-video-placeholder');
       var videoWrap = note.querySelector('.mn-video-wrap');
       var connector = note.querySelector('.mn-media-connector');
@@ -4231,6 +4321,50 @@ var initMediaMarginNotes = (function() {
       var mediaType = note.getAttribute('data-media-type');
       var GAP = 32;
 
+      // Expand / collapse helpers
+      function expand() {
+        panel.classList.add('mn-expanded');
+        if (toggle) toggle.classList.add('mn-hidden');
+        if (connector) connector.style.display = '';
+        requestAnimationFrame(repositionMediaPanel);
+      }
+
+      function collapse() {
+        panel.classList.remove('mn-expanded');
+        if (toggle) toggle.classList.remove('mn-hidden');
+        if (connector) connector.style.display = 'none';
+        requestAnimationFrame(repositionToggle);
+      }
+
+      // Toggle button click → expand
+      if (toggle) {
+        toggle.addEventListener('click', expand);
+      }
+
+      // Dismiss button click → collapse
+      if (dismiss) {
+        dismiss.addEventListener('click', collapse);
+      }
+
+      // In multimedia mode, auto-expand on first init
+      if (document.body.classList.contains('mode-multimedia')) {
+        expand();
+      }
+
+      // Position toggle icon vertically near top of paragraph
+      function repositionToggle() {
+        if (!toggle) return;
+        if (window.innerWidth <= 1080) {
+          toggle.style.top = '';
+          return;
+        }
+        var para = note.querySelector('p[id]');
+        if (!para) return;
+        var noteRect = note.getBoundingClientRect();
+        var paraRect = para.getBoundingClientRect();
+        toggle.style.top = (paraRect.top - noteRect.top + 4) + 'px';
+      }
+
       // Position panel vertically centered on the paragraph
       function repositionMediaPanel() {
         if (window.innerWidth <= 1080) {
@@ -4238,9 +4372,8 @@ var initMediaMarginNotes = (function() {
           if (connector) connector.style.display = 'none';
           return;
         }
-        if (connector) connector.style.display = '';
+        if (connector && panel.classList.contains('mn-expanded')) connector.style.display = '';
         var noteRect = note.getBoundingClientRect();
-        // Find the paragraph inside this mn-media wrapper
         var para = note.querySelector('p[id]');
         if (!para) return;
         var paraRect = para.getBoundingClientRect();
@@ -4251,7 +4384,6 @@ var initMediaMarginNotes = (function() {
         panelTop = Math.max(0, panelTop);
         panel.style.top = panelTop + 'px';
 
-        // Draw simple connector: horizontal line from text edge to panel
         if (!connector || !connH || !connV) return;
         var contentRight = paraRect.right - noteRect.left;
         var panelCenterY = panelTop + panelH / 2;
@@ -4265,12 +4397,10 @@ var initMediaMarginNotes = (function() {
         connector.style.top = topY + 'px';
         connector.style.height = Math.max(1, botY - topY) + 'px';
 
-        // Horizontal arm at paragraph midpoint
         connH.style.top = (paraCenterY - topY) + 'px';
         connH.style.left = '0';
         connH.style.width = GAP + 'px';
 
-        // Vertical arm if panel center differs
         if (Math.abs(panelCenterY - paraCenterY) > 2) {
           connV.style.display = '';
           connV.style.left = (GAP - 1) + 'px';
@@ -4281,7 +4411,7 @@ var initMediaMarginNotes = (function() {
         }
       }
 
-      // Load video on click
+      // Lazy-load video on click
       if (placeholder && src && mediaType === 'video') {
         function loadVideo() {
           var iframe = document.createElement('iframe');
@@ -4298,7 +4428,7 @@ var initMediaMarginNotes = (function() {
         });
       }
 
-      // Load audio on click (for audio type)
+      // Load audio (for audio type)
       if (mediaType === 'audio' && src) {
         var audioWrap = note.querySelector('.mn-audio-wrap');
         if (audioWrap && !audioWrap.querySelector('audio')) {
@@ -4310,28 +4440,33 @@ var initMediaMarginNotes = (function() {
         }
       }
 
-      // Reposition on resize and scroll (throttled)
+      // Reposition on resize (throttled)
       var rafPending = false;
       function scheduleReposition() {
         if (rafPending) return;
         rafPending = true;
         requestAnimationFrame(function() {
           rafPending = false;
-          if (document.body.classList.contains('mode-multimedia')) {
+          var isExpanded = panel.classList.contains('mn-expanded');
+          var isMultimedia = document.body.classList.contains('mode-multimedia');
+          if (isExpanded || isMultimedia) {
             repositionMediaPanel();
           }
+          repositionToggle();
         });
       }
 
       window.addEventListener('resize', scheduleReposition);
-      // Initial position
-      requestAnimationFrame(repositionMediaPanel);
+      requestAnimationFrame(function() {
+        repositionMediaPanel();
+        repositionToggle();
+      });
     });
   };
 })();
 
-// Auto-init if page loaded in multimedia mode
-if (document.body.classList.contains('mode-multimedia')) {
+// Auto-init if page loaded in multimedia or enhanced mode
+if (document.body.classList.contains('mode-multimedia') || document.body.classList.contains('mode-enhanced')) {
   initMarginAnnotation();
   initMediaMarginNotes();
 }
