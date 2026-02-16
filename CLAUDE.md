@@ -6,7 +6,7 @@ Interactive implementation of Richard Dawkins' biomorphs from "The Evolution of 
 
 **Live site:** https://biomorphbuilder.com/
 **Repo:** `davidkedmey/davidkedmey.github.io` (GitHub Pages user site)
-**Local folder:** `~/projects/dawkins-biomorphs/` (repo was renamed on GitHub but local folder kept for clarity)
+**Local folder:** `~/Desktop/Biomorph Builder/`
 
 ## Architecture
 
