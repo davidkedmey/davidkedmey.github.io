@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Specimen Library</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0d1117; color: #e6edf3; font-family: monospace; padding: 20px; }
+    h1 { color: #c8e6c8; margin-bottom: 4px; font-size: 1.6rem; }
+    .subtitle { color: #8b949e; margin-bottom: 20px; font-size: 0.85rem; }
+    h2 { color: #8ab4f8; margin: 28px 0 6px; font-size: 1.1rem; }
+    h2 .desc { color: #6a7a8a; font-weight: normal; font-size: 0.85rem; }
+    .grid { display: flex; flex-wrap: wrap; gap: 10px; }
+    .specimen {
+      background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+      padding: 10px; text-align: center; width: 155px;
+    }
+    .specimen:hover { border-color: #58a6ff; }
+    .specimen canvas { display: block; margin: 0 auto 6px; }
+    .specimen .name { font-size: 12px; color: #c8e6c8; margin-bottom: 2px; font-weight: bold; }
+    .specimen .genes { font-size: 8px; color: #6a7a8a; word-break: break-all; margin-bottom: 2px; }
+    .specimen .meta { font-size: 9px; color: #8b949e; }
+    .specimen .notes { font-size: 9px; color: #6a7a8a; margin-top: 4px; line-height: 1.3; }
+    .specimen a { color: #58a6ff; font-size: 9px; text-decoration: none; }
+    .specimen a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Specimen Library</h1>
+  <div class="subtitle">35 curated biomorphs across all modes and symmetry types</div>
+  <div id="output"></div>
+
+  <script type="module">
+    import { drawTree } from './shared/genotype.js';
+
+    function renderSpecimen(genes, symmetry, size) {
+      size = size || 130;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      let lines = drawTree(genes);
+      if (symmetry === 'up-down' || symmetry === 'four-way') {
+        const extra = [];
+        for (const seg of lines) extra.push({ x0: seg.x0, y0: -seg.y0, x1: seg.x1, y1: -seg.y1, depth: seg.depth });
+        lines = lines.concat(extra);
+      }
+      if (symmetry === 'four-way') {
+        const soFar = lines.slice();
+        for (const seg of soFar) lines.push({ x0: -seg.x0, y0: seg.y0, x1: -seg.x1, y1: seg.y1, depth: seg.depth });
+      }
+      if (lines.length === 0) return canvas;
+
+      let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+      for (const s of lines) {
+        minX=Math.min(minX,s.x0,s.x1); maxX=Math.max(maxX,s.x0,s.x1);
+        minY=Math.min(minY,s.y0,s.y1); maxY=Math.max(maxY,s.y0,s.y1);
+      }
+      const bw=maxX-minX||1, bh=maxY-minY||1, pad=10;
+      const scale=Math.min((size-pad*2)/bw,(size-pad*2)/bh);
+      const cx=size/2, cy=size/2, ox=(minX+maxX)/2, oy=(minY+maxY)/2;
+      const maxD=Math.max(...lines.map(s=>s.depth));
+
+      for (const seg of lines) {
+        const t=maxD>1?(seg.depth-1)/(maxD-1):0;
+        ctx.strokeStyle=`hsl(${120+t*60},50%,${35+t*25}%)`;
+        ctx.lineWidth=1.3; ctx.beginPath();
+        ctx.moveTo(cx+(seg.x0-ox)*scale, cy+(seg.y0-oy)*scale);
+        ctx.lineTo(cx+(seg.x1-ox)*scale, cy+(seg.y1-oy)*scale);
+        ctx.stroke();
+      }
+      return canvas;
+    }
+
+    const resp = await fetch('/specimen-library.json');
+    const lib = await resp.json();
+    const out = document.getElementById('output');
+
+    for (const [cat, data] of Object.entries(lib.categories)) {
+      const h2 = document.createElement('h2');
+      h2.innerHTML = cat.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) +
+        ` <span class="desc">${data.description}</span>`;
+      out.appendChild(h2);
+
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      out.appendChild(grid);
+
+      for (const spec of data.specimens) {
+        const sym = spec.symmetry || 'left-right';
+        const canvas = renderSpecimen(spec.genes, sym);
+        const div = document.createElement('div');
+        div.className = 'specimen';
+
+        div.appendChild(canvas);
+
+        const name = document.createElement('div');
+        name.className = 'name';
+        name.textContent = spec.name;
+        div.appendChild(name);
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.textContent = `Mode ${spec.mode}` + (sym !== 'left-right' ? ` · ${sym}` : '');
+        div.appendChild(meta);
+
+        const genes = document.createElement('div');
+        genes.className = 'genes';
+        genes.textContent = `[${spec.genes.join(',')}]`;
+        div.appendChild(genes);
+
+        if (spec.notes) {
+          const notes = document.createElement('div');
+          notes.className = 'notes';
+          notes.textContent = spec.notes;
+          div.appendChild(notes);
+        }
+
+        const link = document.createElement('a');
+        link.href = spec.url;
+        link.target = '_blank';
+        link.textContent = 'Open in Breeder →';
+        div.appendChild(link);
+
+        grid.appendChild(div);
+      }
+    }
+  </script>
+</body>
+</html>

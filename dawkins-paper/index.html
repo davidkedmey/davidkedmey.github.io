@@ -4384,7 +4384,7 @@ if (document.body.classList.contains('mode-multimedia')) {
   editor.className = 'fc-editor';
   editor.innerHTML =
     '<div class="fc-editor-label"></div>' +
-    '<div class="fc-editor-tabs" style="display:none"><button class="fc-tab fc-tab-active" data-tab="cloze">Cloze</button><button class="fc-tab" data-tab="qa">QA</button><button class="fc-tab" data-tab="note">Note</button></div>' +
+    '<div class="fc-editor-tabs" style="display:none"><button class="fc-tab fc-tab-active" data-tab="note">Note</button><button class="fc-tab" data-tab="qa">QA</button><button class="fc-tab" data-tab="cloze">Cloze</button></div>' +
     '<div class="fc-words"></div>' +
     '<div class="fc-hint"></div>' +
     '<textarea class="fc-q-input" rows="2" placeholder="Question..."></textarea>' +
@@ -4559,6 +4559,7 @@ if (document.body.classList.contains('mode-multimedia')) {
     var aInput = editor.querySelector('.fc-a-input');
 
     label.textContent = 'Question';
+    label.style.display = '';
     tabs.style.display = 'none';
     wordsEl.style.display = 'none';
     hint.style.display = 'none';
@@ -4575,7 +4576,9 @@ if (document.body.classList.contains('mode-multimedia')) {
 
   // ── Show card editor (Card button) with tab bar ──
   function showCardEditor(mode) {
+    var label = editor.querySelector('.fc-editor-label');
     var tabs = editor.querySelector('.fc-editor-tabs');
+    label.style.display = 'none';
     tabs.style.display = '';
     // Set active tab
     editor.querySelectorAll('.fc-tab').forEach(function(t) {
@@ -4650,7 +4653,7 @@ if (document.body.classList.contains('mode-multimedia')) {
       showQuestionEditor();
     }
     if (action === 'card') {
-      showCardEditor('cloze');
+      showCardEditor('note');
     }
   });
 
