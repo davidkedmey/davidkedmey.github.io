@@ -458,6 +458,143 @@
     }
   }
 
+  /* ── Media Margin Notes ── */
+  .mn-media {
+    position: relative;
+  }
+  .mn-media-panel {
+    display: none;
+    position: absolute;
+    left: calc(100% + 32px);
+    width: 280px;
+    flex-direction: column;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    z-index: 10;
+  }
+  body.mode-multimedia .mn-media-panel { display: flex; }
+  body.mode-clean .mn-media-panel,
+  body.mode-enhanced .mn-media-panel { display: none !important; }
+
+  .mn-media-panel .mn-video-wrap {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%; /* 16:9 */
+    border-radius: 4px;
+    overflow: hidden;
+    background: #000;
+  }
+  .mn-media-panel .mn-video-wrap iframe {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border: 0;
+  }
+  .mn-media-panel .mn-video-placeholder {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    background: #161b22;
+    transition: background 0.2s;
+  }
+  .mn-media-panel .mn-video-placeholder:hover {
+    background: #1c2333;
+  }
+  .mn-media-panel .mn-video-placeholder .mn-play-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 6px;
+  }
+  .mn-media-panel .mn-video-placeholder .mn-play-icon::after {
+    content: '';
+    display: block;
+    width: 0; height: 0;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-left: 12px solid #0d1117;
+    margin-left: 2px;
+  }
+  .mn-media-panel .mn-video-placeholder .mn-play-label {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+
+  .mn-media-panel .mn-audio-wrap {
+    width: 100%;
+  }
+  .mn-media-panel .mn-audio-wrap audio {
+    width: 100%;
+    height: 32px;
+    border-radius: 4px;
+  }
+
+  .mn-media-caption {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    font-style: italic;
+    text-align: center;
+    margin-top: 8px;
+    margin-bottom: 0;
+    line-height: 1.4;
+  }
+  .mn-media-caption a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .mn-media-caption a:hover {
+    text-decoration: underline;
+  }
+  .mn-media-source {
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.65rem;
+    color: #484f58;
+    text-align: center;
+    margin-top: 4px;
+    margin-bottom: 0;
+    line-height: 1.3;
+  }
+
+  .mn-media-connector {
+    position: absolute;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .mn-media-connector-h {
+    position: absolute;
+    height: 1px;
+    background: var(--border);
+  }
+  .mn-media-connector-v {
+    position: absolute;
+    width: 1px;
+    background: var(--border);
+  }
+
+  @media (max-width: 1080px) {
+    .mn-media-panel {
+      position: relative;
+      left: auto;
+      width: 100%;
+      max-width: 340px;
+      margin: 16px auto 0;
+    }
+    .mn-media-connector { display: none !important; }
+  }
+
   .fig-recreated .fig-row-label {
     width: 100%;
     font-size: 0.75rem;
@@ -1495,7 +1632,24 @@
 
 <section>
 <h2 id="sec-basic">The Basic Program</h2>
+<div class="mn-media" id="mn-biomorphs-lecture" data-media-type="video" data-src="https://www.youtube.com/embed/V3yw5KYzLMc?start=214&list=PLBD8AF69ABF37D945" data-title="Dawkins demonstrates biomorphs on stage">
 <p id="p1">A title like "The Evolution of Evolvability" ought to be anathema to a dyed-in-the-wool, radical neo-Darwinian like me! Part of the reason it isn't, is that I really have been led to think differently as a result of creating, and using, computer models of artificial life which, on the face of it, owe more to the imagination than to real biology. The use of artificial life, not as a formal model of real life but as a generator of insight in our understanding of real life, is one that I want to illustrate in this paper. With a program called <em>Blind Watchmaker</em>, I created a world of two-dimensional artificial organisms on the computer screen.<sup>1</sup> Borrowing the word used by Desmond Morris for the animal-like shapes in his surrealistic paintings,<sup>2</sup> I called them biomorphs. My main objectives in designing <em>Blind Watchmaker</em> was to reduce to the barest minimum the extent to which I designed biomorphs. I wanted as much as possible of the biology of biomorphs to emerge. All that I would design was the conditions&mdash;ideally very simple conditions&mdash;under which they might emerge. The process of emergence was to be evolution by the Darwinian process of random mutation followed by nonrandom survival. Once a Darwinian process gets going in a world, it has an open-ended power to generate surprising consequences: us, for example. But before any Darwinian process can get going, there has to be a bare minimum group of conditions set up. These were the conditions that I had to engineer in my computer world:</p>
+
+<div class="mn-media-connector" aria-hidden="true">
+  <div class="mn-media-connector-h"></div>
+  <div class="mn-media-connector-v"></div>
+</div>
+<div class="mn-media-panel" aria-label="Supplementary video">
+  <div class="mn-video-wrap">
+    <div class="mn-video-placeholder" role="button" tabindex="0" aria-label="Play video: Dawkins demonstrates biomorphs">
+      <div class="mn-play-icon"></div>
+      <span class="mn-play-label">Click to load video</span>
+    </div>
+  </div>
+  <p class="mn-media-caption">Dawkins breeds biomorphs live on stage</p>
+  <p class="mn-media-source">Royal Institution Christmas Lectures, 1991</p>
+</div>
+</div>
 </section>
 <section>
 <span class="page-num">p. 202</span>
@@ -1953,8 +2107,9 @@
       b.classList.toggle('active', b.getAttribute('data-mode') === mode);
     });
     localStorage.setItem('reading_mode', mode);
-    if (mode === 'multimedia' && typeof initMarginAnnotation === 'function') {
-      initMarginAnnotation();
+    if (mode === 'multimedia') {
+      if (typeof initMarginAnnotation === 'function') initMarginAnnotation();
+      if (typeof initMediaMarginNotes === 'function') initMediaMarginNotes();
     }
   }
 
@@ -4054,9 +4209,131 @@ var initMarginAnnotation = (function() {
   };
 })();
 
+// === Media Margin Notes ===
+var initMediaMarginNotes = (function() {
+  var initialized = false;
+
+  return function initMediaMarginNotes() {
+    if (initialized) return;
+    var notes = document.querySelectorAll('.mn-media');
+    if (!notes.length) return;
+    initialized = true;
+
+    // Lazy-load: only load iframe when user clicks placeholder
+    notes.forEach(function(note) {
+      var panel = note.querySelector('.mn-media-panel');
+      var placeholder = note.querySelector('.mn-video-placeholder');
+      var videoWrap = note.querySelector('.mn-video-wrap');
+      var connector = note.querySelector('.mn-media-connector');
+      var connH = connector ? connector.querySelector('.mn-media-connector-h') : null;
+      var connV = connector ? connector.querySelector('.mn-media-connector-v') : null;
+      var src = note.getAttribute('data-src');
+      var mediaType = note.getAttribute('data-media-type');
+      var GAP = 32;
+
+      // Position panel vertically centered on the paragraph
+      function repositionMediaPanel() {
+        if (window.innerWidth <= 1080) {
+          panel.style.top = '';
+          if (connector) connector.style.display = 'none';
+          return;
+        }
+        if (connector) connector.style.display = '';
+        var noteRect = note.getBoundingClientRect();
+        // Find the paragraph inside this mn-media wrapper
+        var para = note.querySelector('p[id]');
+        if (!para) return;
+        var paraRect = para.getBoundingClientRect();
+
+        var paraMid = (paraRect.top + paraRect.bottom) / 2 - noteRect.top;
+        var panelH = panel.offsetHeight;
+        var panelTop = paraMid - panelH / 2;
+        panelTop = Math.max(0, panelTop);
+        panel.style.top = panelTop + 'px';
+
+        // Draw simple connector: horizontal line from text edge to panel
+        if (!connector || !connH || !connV) return;
+        var contentRight = paraRect.right - noteRect.left;
+        var panelCenterY = panelTop + panelH / 2;
+        var paraCenterY = paraMid;
+
+        connector.style.left = contentRight + 'px';
+        connector.style.width = GAP + 'px';
+
+        var topY = Math.min(paraCenterY, panelCenterY);
+        var botY = Math.max(paraCenterY, panelCenterY);
+        connector.style.top = topY + 'px';
+        connector.style.height = Math.max(1, botY - topY) + 'px';
+
+        // Horizontal arm at paragraph midpoint
+        connH.style.top = (paraCenterY - topY) + 'px';
+        connH.style.left = '0';
+        connH.style.width = GAP + 'px';
+
+        // Vertical arm if panel center differs
+        if (Math.abs(panelCenterY - paraCenterY) > 2) {
+          connV.style.display = '';
+          connV.style.left = (GAP - 1) + 'px';
+          connV.style.top = '0';
+          connV.style.height = Math.max(1, botY - topY) + 'px';
+        } else {
+          connV.style.display = 'none';
+        }
+      }
+
+      // Load video on click
+      if (placeholder && src && mediaType === 'video') {
+        function loadVideo() {
+          var iframe = document.createElement('iframe');
+          iframe.src = src + '&autoplay=1';
+          iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+          iframe.allowFullscreen = true;
+          iframe.setAttribute('loading', 'lazy');
+          placeholder.remove();
+          videoWrap.appendChild(iframe);
+        }
+        placeholder.addEventListener('click', loadVideo);
+        placeholder.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); loadVideo(); }
+        });
+      }
+
+      // Load audio on click (for audio type)
+      if (mediaType === 'audio' && src) {
+        var audioWrap = note.querySelector('.mn-audio-wrap');
+        if (audioWrap && !audioWrap.querySelector('audio')) {
+          var audio = document.createElement('audio');
+          audio.controls = true;
+          audio.preload = 'none';
+          audio.src = src;
+          audioWrap.appendChild(audio);
+        }
+      }
+
+      // Reposition on resize and scroll (throttled)
+      var rafPending = false;
+      function scheduleReposition() {
+        if (rafPending) return;
+        rafPending = true;
+        requestAnimationFrame(function() {
+          rafPending = false;
+          if (document.body.classList.contains('mode-multimedia')) {
+            repositionMediaPanel();
+          }
+        });
+      }
+
+      window.addEventListener('resize', scheduleReposition);
+      // Initial position
+      requestAnimationFrame(repositionMediaPanel);
+    });
+  };
+})();
+
 // Auto-init if page loaded in multimedia mode
 if (document.body.classList.contains('mode-multimedia')) {
   initMarginAnnotation();
+  initMediaMarginNotes();
 }
 
 
