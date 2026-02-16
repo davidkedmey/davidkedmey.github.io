@@ -796,6 +796,10 @@ function handleGalleryInput() {
   if (input.justPressed(' ')) {
     const spec = items[gameState.galleryCursor];
     if (!spec) return;
+    if (player.inventory.length >= 9) {
+      showMessage('Inventory full! (max 9 items)');
+      return;
+    }
     const cost = galleryImportCost(spec);
     if (!gameState.creativeMode && player.wallet < cost) {
       showMessage(`Not enough gold! Need ${cost}g`);
@@ -806,6 +810,7 @@ function handleGalleryInput() {
     player.inventory.push(org);
     const costStr = gameState.creativeMode ? '(free)' : `-${cost}g`;
     showMessage(`Imported ${org.nickname}! ${costStr}`);
+    doSave();
   }
 }
 
