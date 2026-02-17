@@ -269,10 +269,16 @@ const EXHIBITS_PER_ZONE = 4;
 const EXHIBIT_X = 8;       // distance from path center
 const BACKDROP_OFFSET = 3; // how far behind the biomorph
 const GENE_APPROACH_DIST = 6;
-const VISIBILITY_RANGE_SQ = 120 * 120;
+const VISIBILITY_RANGE_SQ = 45 * 45;
 
 // Shared geometry + materials for exhibit furniture
-const backdropGeo = new THREE.BoxGeometry(0.3, 14, 10);
+const ALCOVE_HEIGHT = 14;
+const ALCOVE_DEPTH = 10;   // back wall width (along z)
+const ALCOVE_WING = 5;     // side wall depth (along x, toward path)
+const WALL_THICK = 0.3;
+
+const backWallGeo = new THREE.BoxGeometry(WALL_THICK, ALCOVE_HEIGHT, ALCOVE_DEPTH);
+const sideWallGeo = new THREE.BoxGeometry(ALCOVE_WING, ALCOVE_HEIGHT, WALL_THICK);
 const backdropMat = new THREE.MeshStandardMaterial({
   color: 0x12141a,
   roughness: 0.95,
@@ -288,7 +294,7 @@ const pedestalMat = new THREE.MeshStandardMaterial({
 /**
  * @typedef {{
  *   treeGroup: THREE.Group,
- *   panel: THREE.Mesh,
+ *   walls: THREE.Mesh[],
  *   pedestal: THREE.Mesh,
  *   genes: number[],
  *   x: number, z: number,
@@ -304,7 +310,7 @@ function generateGallery() {
   for (const ex of exhibits) {
     disposeTree(ex.treeGroup);
     scene.remove(ex.treeGroup);
-    scene.remove(ex.panel);
+    for (const w of ex.walls) scene.remove(w);
     scene.remove(ex.pedestal);
   }
   exhibits = [];
@@ -318,11 +324,24 @@ function generateGallery() {
       const side = (i % 2 === 0) ? -1 : 1;
       const x = side * EXHIBIT_X;
 
-      // Backdrop panel
-      const panel = new THREE.Mesh(backdropGeo, backdropMat);
-      panel.position.set(x + side * BACKDROP_OFFSET, 7, z);
-      panel.receiveShadow = true;
-      scene.add(panel);
+      const walls = [];
+
+      // Back wall
+      const backWall = new THREE.Mesh(backWallGeo, backdropMat);
+      backWall.position.set(x + side * BACKDROP_OFFSET, ALCOVE_HEIGHT / 2, z);
+      backWall.receiveShadow = true;
+      scene.add(backWall);
+      walls.push(backWall);
+
+      // Side walls (at z ± ALCOVE_DEPTH/2)
+      const wingX = x + side * (BACKDROP_OFFSET - ALCOVE_WING / 2);
+      for (const zOff of [-1, 1]) {
+        const sideWall = new THREE.Mesh(sideWallGeo, backdropMat);
+        sideWall.position.set(wingX, ALCOVE_HEIGHT / 2, z + zOff * ALCOVE_DEPTH / 2);
+        sideWall.receiveShadow = true;
+        scene.add(sideWall);
+        walls.push(sideWall);
+      }
 
       // Pedestal
       const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
@@ -336,7 +355,7 @@ function generateGallery() {
       treeGroup.position.set(x, 0.4, z);
       scene.add(treeGroup);
 
-      exhibits.push({ treeGroup, panel, pedestal, genes, x, z, mode: zone.mode });
+      exhibits.push({ treeGroup, walls, pedestal, genes, x, z, mode: zone.mode });
     }
   }
 }
@@ -352,7 +371,7 @@ function updateVisibility() {
     const dz = ex.z - cz;
     const vis = (dx * dx + dz * dz) < VISIBILITY_RANGE_SQ;
     ex.treeGroup.visible = vis;
-    ex.panel.visible = vis;
+    for (const w of ex.walls) w.visible = vis;
     ex.pedestal.visible = vis;
   }
 }
