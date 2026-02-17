@@ -83,6 +83,7 @@ const btnNext = document.getElementById('btn-next');
 const btnPause = document.getElementById('btn-pause');
 const btnRegen = document.getElementById('btn-regenerate');
 const btnCollect = document.getElementById('btn-collect');
+const btnWind = document.getElementById('btn-wind');
 
 // ── Specimen management ────────────────────────────────────
 
@@ -193,6 +194,14 @@ btnCollect.addEventListener('click', () => {
   }
 });
 
+let windEnabled = true;
+btnWind.addEventListener('click', () => {
+  windEnabled = !windEnabled;
+  windUniforms.uWindStrength.value = windEnabled ? 0.6 : 0;
+  btnWind.textContent = windEnabled ? 'Wind: ON' : 'Wind: OFF';
+  btnWind.style.borderColor = windEnabled ? '' : '#f85149';
+});
+
 // ── WASD movement ──────────────────────────────────────────
 
 const WALK_SPEED = 8;
@@ -272,6 +281,10 @@ document.addEventListener('keydown', (e) => {
     case 'KeyP':
       e.preventDefault();
       btnPause.click();
+      break;
+    case 'KeyG':
+      e.preventDefault();
+      btnWind.click();
       break;
   }
 });
