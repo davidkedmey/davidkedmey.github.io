@@ -85,6 +85,7 @@ const btnRegen = document.getElementById('btn-regenerate');
 const btnCollect = document.getElementById('btn-collect');
 const btnWind = document.getElementById('btn-wind');
 const envSelect = document.getElementById('env-select');
+const locoSelect = document.getElementById('loco-select');
 
 // ── Specimen management ────────────────────────────────────
 
@@ -207,6 +208,10 @@ envSelect.addEventListener('change', () => {
   switchEnvironment(scene, envSelect.value, lights, pedestalMat);
 });
 
+locoSelect.addEventListener('change', () => {
+  windUniforms.uLocomotion.value = parseInt(locoSelect.value, 10);
+});
+
 // ── WASD movement ──────────────────────────────────────────
 
 const WALK_SPEED = 8;
@@ -251,7 +256,7 @@ function updateMovement(delta) {
 
 document.addEventListener('keydown', (e) => {
   // Don't capture when select is focused
-  if (e.target === modeSelect || e.target === envSelect) return;
+  if (e.target === modeSelect || e.target === envSelect || e.target === locoSelect) return;
 
   // Track movement keys
   if (MOVE_KEYS.has(e.code)) {
@@ -298,6 +303,14 @@ document.addEventListener('keydown', (e) => {
       envSelect.value = nextEnv;
       switchEnvironment(scene, nextEnv, lights, pedestalMat);
       break;
+    case 'KeyL': {
+      e.preventDefault();
+      const curLoco = parseInt(locoSelect.value, 10);
+      const nextLoco = (curLoco + 1) % 4;
+      locoSelect.value = nextLoco;
+      windUniforms.uLocomotion.value = nextLoco;
+      break;
+    }
   }
 });
 

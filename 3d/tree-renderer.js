@@ -29,15 +29,18 @@ const treeMaterial = new THREE.MeshStandardMaterial({
 });
 
 // ── Wind system (Crysis-style two-layer: main bending + detail flutter) ──
+// ── Locomotion system (vertex shader wiggle/crawl/pulse) ──
 
 const windUniforms = {
   uTime:         { value: 0 },
   uWindStrength: { value: 1.0 },
+  uLocomotion:   { value: 0 },   // 0=none, 1=wiggle, 2=crawl, 3=pulse
 };
 
 treeMaterial.onBeforeCompile = (shader) => {
   shader.uniforms.uTime = windUniforms.uTime;
   shader.uniforms.uWindStrength = windUniforms.uWindStrength;
+  shader.uniforms.uLocomotion = windUniforms.uLocomotion;
 
   // Declare uniforms + attribute + helper functions
   shader.vertexShader = shader.vertexShader.replace(
@@ -45,7 +48,8 @@ treeMaterial.onBeforeCompile = (shader) => {
     `#include <common>
      uniform float uTime;
      uniform float uWindStrength;
-     attribute vec2 aWind; // x = flexibility (0=rigid trunk, 1=flexible tip), y = phase
+     uniform int uLocomotion;  // 0=none, 1=wiggle, 2=crawl, 3=pulse
+     attribute vec4 aWind; // x=flexibility, y=phase, z=normalizedY, w=branchSide
 
      // GPU Gems smoothed triangle wave — cheaper than sin, snappier feel
      float triWave(float x) {
@@ -64,8 +68,11 @@ treeMaterial.onBeforeCompile = (shader) => {
 
      float flex = aWind.x;
      float phase = aWind.y;
+     float normY = aWind.z;
+     float side = aWind.w;
      float h = max(transformed.y, 0.0);
 
+     // ── Wind ──
      // Layer 1: Main bending — slow whole-tree lean, height-scaled
      float mainBend = (smoothTriWave(uTime * 0.08) * 2.0 - 1.0) * h * 0.012 * uWindStrength;
 
@@ -77,7 +84,26 @@ treeMaterial.onBeforeCompile = (shader) => {
 
      transformed.x += mainBend + flutter1 * detailScale;
      transformed.z += mainBend * 0.6 + flutter2 * detailScale * 0.7;
-     transformed.y += flutter3 * detailScale * 0.2;`
+     transformed.y += flutter3 * detailScale * 0.2;
+
+     // ── Locomotion ──
+     if (uLocomotion == 1) {
+       // Wiggle/Swim: lateral sine wave traveling down the body
+       float wave = sin(normY * 8.0 - uTime * 3.0) * flex * 0.5;
+       transformed.x += wave;
+       transformed.z += wave * 0.3;
+     } else if (uLocomotion == 2) {
+       // Crawl: alternating compression wave + side-to-side legs
+       float stride = sin(normY * 6.28 - uTime * 2.5);
+       transformed.y += stride * flex * 0.3;
+       transformed.x += side * stride * flex * 0.2;
+     } else if (uLocomotion == 3) {
+       // Pulse/Breathe: radial expansion/contraction
+       float pulse = sin(uTime * 2.0) * flex * 0.3;
+       transformed.x *= 1.0 + pulse;
+       transformed.z *= 1.0 + pulse;
+       transformed.y += sin(uTime * 2.0 + normY * 3.14) * flex * 0.1;
+     }`
   );
 };
 
@@ -104,9 +130,11 @@ function vectorTo3D(index, dx, dy) {
 
 /**
  * Create a positioned + colored cylinder geometry for one branch.
- * Bakes per-vertex wind data: aWind.x = flexibility, aWind.y = phase.
+ * Bakes per-vertex wind data: aWind = vec4(flexibility, phase, normalizedY, branchSide).
+ * normalizedY is initially set to midpoint Y (normalized in post-pass by createTree).
+ * branchSide is set from the branch direction index.
  */
-function createBranchGeo(start, end, depth, maxDepth, scale) {
+function createBranchGeo(start, end, depth, maxDepth, scale, branchIndex) {
   const dir = new THREE.Vector3().subVectors(end, start);
   const length = dir.length();
   if (length < 0.001) return null;
@@ -137,15 +165,20 @@ function createBranchGeo(start, end, depth, maxDepth, scale) {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
 
-  // Bake wind data: flexibility (0=trunk, 1=tip) + per-branch phase
+  // Bake wind + locomotion data as vec4(flexibility, phase, midY, branchSide)
+  // midY stored raw here — normalized to [0,1] in createTree post-pass
   const flexibility = maxDepth > 1 ? (maxDepth - depth) / (maxDepth - 1) : 0;
   const phase = (mid.x * 12.9898 + mid.y * 78.233 + mid.z * 45.164) % 6.2832;
-  const windArr = new Float32Array(count * 2);
+  // branchSide: left branches (i<4) → -1, right (i>4) → +1, center (4) → 0
+  const bSide = branchIndex < 4 ? -1.0 : branchIndex > 4 ? 1.0 : 0.0;
+  const windArr = new Float32Array(count * 4);
   for (let i = 0; i < count; i++) {
-    windArr[i * 2]     = flexibility;
-    windArr[i * 2 + 1] = phase;
+    windArr[i * 4]     = flexibility;
+    windArr[i * 4 + 1] = phase;
+    windArr[i * 4 + 2] = mid.y;   // raw Y, normalized later
+    windArr[i * 4 + 3] = bSide;
   }
-  geo.setAttribute('aWind', new THREE.BufferAttribute(windArr, 2));
+  geo.setAttribute('aWind', new THREE.BufferAttribute(windArr, 4));
 
   return geo;
 }
@@ -180,7 +213,7 @@ export function createTree(genes) {
     const dir3d = vectorTo3D(i, v[0] * sf, v[1] * sf);
     const end = origin.clone().add(dir3d.multiplyScalar(c * scale));
 
-    const branchGeo = createBranchGeo(origin, end, c, maxDepth, scale);
+    const branchGeo = createBranchGeo(origin, end, c, maxDepth, scale, i);
     if (branchGeo) geos.push(branchGeo);
 
     if (c > 1) {
@@ -199,6 +232,24 @@ export function createTree(genes) {
   }
 
   if (geos.length > 0) {
+    // Post-pass: normalize midY stored in aWind.z to [0,1] range
+    let yMin = Infinity, yMax = -Infinity;
+    for (const g of geos) {
+      const wind = g.attributes.aWind;
+      for (let i = 0; i < wind.count; i++) {
+        const rawY = wind.getZ(i);
+        if (rawY < yMin) yMin = rawY;
+        if (rawY > yMax) yMax = rawY;
+      }
+    }
+    const yRange = yMax - yMin || 1;
+    for (const g of geos) {
+      const wind = g.attributes.aWind;
+      for (let i = 0; i < wind.count; i++) {
+        wind.setZ(i, (wind.getZ(i) - yMin) / yRange);
+      }
+    }
+
     const merged = mergeGeometries(geos, false);
     const mesh = new THREE.Mesh(merged, treeMaterial);
     mesh.castShadow = true;
