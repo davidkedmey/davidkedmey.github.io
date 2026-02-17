@@ -31,21 +31,52 @@ The current implementation covers Dawkins' 1988 paper as a progression of embryo
 
 ---
 
-## 2. 3D Biomorphs with Physics (Unity environment)
+## 2. Functional Locomotion — Morphology → Movement (HIGH PRIORITY)
 
-David previously started building a 3D environment in Unity that implemented these concepts with physics attached.
+**The big idea:** Make biomorph locomotion *functional*, not just decorative. A biomorph's shape should determine how it moves through space — wide flat forms glide, long segmented forms crawl, radial forms roll. Physics provides the fitness function; natural selection becomes *natural*.
+
+### Current state (Feb 2026)
+The 3D viewer already has 3 vertex-shader locomotion *animations* (wiggle, crawl, pulse) — but they're purely visual. The biomorph doesn't actually move through space or interact with terrain. This is the gap to close.
+
+David previously started building a 3D environment in Unity with physics attached. The web version (Three.js) could serve as a lighter-weight alternative.
 
 ### What this opens up
 - Biomorphs as actual bodies in a physical world — not just shapes but *functional* organisms
-- Locomotion: can a biomorph walk, swim, crawl? Natural selection becomes *natural* — physics provides the fitness function
 - Morphology → function mapping: the central question of evolutionary biomechanics
+- Fitness landscapes that emerge from physics, not programmer-defined scoring
 - Predator/prey dynamics, resource competition, ecological niches
+- "Can this biomorph walk?" becomes a question the system answers, not the designer
 
-### Questions to capture
+### Implementation path
+1. **Terrain:** Simple ground plane or heightmap that biomorphs exist on
+2. **Physics mapping:** Convert tree morphology to physical properties (mass distribution, contact points, center of gravity)
+3. **Locomotion from morphology:** Branch angles and lengths determine gait — the vertex shader animations become physics-driven
+4. **Fitness emerges:** Distance traveled per unit time = locomotion fitness. No hand-tuned scoring needed.
+5. **Selection pressure:** Breed biomorphs that move furthest. Watch body plans emerge that are good at moving.
+
+### Questions to resolve
 - What was the Unity environment's scope? What worked, what didn't?
-- Could the 2D web version serve as a "theory mode" alongside a 3D "simulation mode"?
-- WebGPU/Three.js as a web-native alternative to Unity?
+- WebGPU/Three.js vs Unity for this? Web-native keeps it accessible but may limit physics fidelity.
 - How much physics is enough? Rigid body? Soft body? Fluid dynamics?
+- Should locomotion fitness feed back into the breeding system, or stay as a separate "test your biomorph" mode?
+
+---
+
+## 2b. Guided Tours of Morphospace (3D Viewer)
+
+Curated walkthroughs of interesting regions of morphospace, narrated or annotated.
+
+### Concept
+- Pre-scripted camera paths through a multi-specimen 3D scene
+- Annotations appear as you approach each specimen: "Notice how gene 7 controls wing sweep..."
+- Tours organized by theme: "Insects," "Symmetry Breaking," "The Alphabet," "Dawkins' Favorites"
+- Could also be user-created: breed a lineage in the Breeder, then "walk the family tree" in 3D
+
+### Implementation ideas
+- Extend 3D viewer to support multiple specimens on pedestals (currently single-specimen)
+- Tour definition: JSON array of waypoints with camera position, target specimen, annotation text
+- Auto-advance with pause-at-specimen, or manual next/prev
+- Record mode: user places specimens and camera waypoints, exports tour as JSON
 
 ---
 
@@ -115,16 +146,39 @@ We now have the infrastructure to support this:
 - "Dawkins Zoo" specimens as limited-edition genesis collection
 - Leaderboard: who has explored the most unique phenotypes?
 
+### Architecture options (Feb 2026 discussion)
+
+**Option A: Lightweight server registry**
+- Simple API (Cloudflare Worker + D1, or Firebase). Endpoints: `POST /discover`, `GET /specimen/:hash`, `GET /leaderboard`
+- No blockchain, no wallet, no tokens. Just usernames and genotype hashes.
+- Could build in an afternoon. Scales easily.
+
+**Option B: Peer-to-peer / local-first (interesting)**
+- Skip the server entirely. Use CRDTs or a shared JSON file on GitHub.
+- Every discovery is a PR or a commit. The "registry" is the git history.
+- Weird but fits the "no frameworks, no build step" ethos. Zero infrastructure cost.
+
+**Option C: Fake multiplayer prototype (START HERE)**
+- Don't build networking at all yet. Simulate multiplayer locally.
+- The player + existing NPCs (Fern, Moss, Sage) + new AI bots all participate as collectors on the same machine.
+- NPCs autonomously explore morphospace, discover specimens, build collections with aesthetic preferences.
+- The discovery registry is just a local JSON/localStorage store shared between player and bots.
+- Purpose: **prototype the feel** — is collecting and exploring compelling? Does rarity feel meaningful? Does competition with AI collectors create interesting dynamics?
+- If the single-machine prototype is fun, then graduate to Option A or B for real multiplayer.
+- This leverages infrastructure that already exists: NPCs in the game, breeding in shared/breeding.js, collection in shared/collection.js.
+
 ### Design questions
-- Does this need blockchain, or could a simpler centralized registry work? **Consensus: simpler is better.**
-- What makes a biomorph "rare" — difficulty to reach? Visual uniqueness? Both?
-- How to handle the combinatorial explosion (mode 1 = ~136B genotypes; mode 5 = vastly larger)
-- Breeding mechanics: crossover? Mutation rate markets? Gene trading?
+- **What counts as a "discovery"?** Genotype = identity is simple, but bilateral symmetry means different genotypes produce identical phenotypes. Deduplicate by genotype (simple) or phenotype/image hash (more biologically honest)?
+- **Breeding economics:** CryptoKitties charged fees. We could skip that — the incentive is discovery, not profit. Or: N breeds per day (biological constraint, not artificial scarcity).
+- **The Alphabet problem:** Letter-shaped biomorphs need genes up to ±68, way beyond [-9,9]. If you expand the search space, rarity gets weird. Maybe Alphabet specimens are a special "legendary" tier requiring a different breeding mode.
+- **The hook:** Biomorphs are abstract — the hook needs to be *the exploration itself*. A morphospace map (t-SNE/UMAP) showing explored vs unexplored regions would make collective exploration tangible. "I found something no one has ever seen."
+- **NPC personalities for fake multiplayer:** Fern could prefer symmetrical forms, Moss could collect deep/bushy specimens, a new NPC could be a completionist trying to fill the morphospace map. Their different strategies make the prototype more interesting.
 
 ### Cautionary notes
 - Crypto fatigue — the concept is interesting independent of blockchain
 - Could work as a simpler "discovery registry" without financialization
 - The pedagogical value shouldn't be sacrificed for gamification
+- **Start with the prototype (Option C) before building any infrastructure**
 
 ---
 
