@@ -31,7 +31,7 @@ const treeMaterial = new THREE.MeshStandardMaterial({
 // Wind sway uniforms — updated each frame from main.js
 const windUniforms = {
   uTime: { value: 0 },
-  uWindStrength: { value: 0.6 },
+  uWindStrength: { value: 0.4 },
 };
 
 treeMaterial.onBeforeCompile = (shader) => {
