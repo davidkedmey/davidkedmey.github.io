@@ -24,6 +24,26 @@
     margin: 0 auto;
     padding: 80px 24px 80px;
   }
+  .paper-nav {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-bottom: 12px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 0.8rem;
+  }
+  .paper-nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .paper-nav a:hover {
+    color: var(--heading);
+    border-color: var(--heading);
+  }
   header {
     text-align: center;
     margin-bottom: 16px;
@@ -1694,6 +1714,7 @@
 </nav>
 <article>
 <header>
+  <nav class="paper-nav"><a href="../">Hub</a> <a href="../breed.html">Breed</a> <a href="../game/">Play</a> <a href="../3d/">3D</a></nav>
   <h1>The Evolution of Evolvability</h1>
   <p class="author">Richard Dawkins</p>
 </header>
@@ -2216,11 +2237,11 @@
 // ── Biomorph Renderer (extracted from biomorph.js) ─────────────
 
 const PAPER_MODE_CONFIGS = {
-  1: { geneCount: 9, geneMin: [-3,-3,-3,-3,-3,-3,-3,-3,1], geneMax: [3,3,3,3,3,3,3,3,8] },
-  2: { geneCount: 9, geneMin: [-3,-3,-3,-3,-3,-3,-3,-3,1], geneMax: [3,3,3,3,3,3,3,3,8] },
-  3: { geneCount: 11, geneMin: [-3,-3,-3,-3,-3,-3,-3,-3,1,1,2], geneMax: [3,3,3,3,3,3,3,3,8,8,12] },
-  4: { geneCount: 13, geneMin: [-3,-3,-3,-3,-3,-3,-3,-3,1,1,2,-3,-3], geneMax: [3,3,3,3,3,3,3,3,8,8,12,3,3] },
-  5: { geneCount: 13, geneMin: [-3,-3,-3,-3,-3,-3,-3,-3,1,1,2,-3,-3], geneMax: [3,3,3,3,3,3,3,3,8,8,12,3,3] },
+  1: { geneCount: 9, geneMin: [-9,-9,-9,-9,-9,-9,-9,-9,1], geneMax: [9,9,9,9,9,9,9,9,8] },
+  2: { geneCount: 9, geneMin: [-9,-9,-9,-9,-9,-9,-9,-9,1], geneMax: [9,9,9,9,9,9,9,9,8] },
+  3: { geneCount: 11, geneMin: [-9,-9,-9,-9,-9,-9,-9,-9,1,1,2], geneMax: [9,9,9,9,9,9,9,9,8,8,12] },
+  4: { geneCount: 13, geneMin: [-9,-9,-9,-9,-9,-9,-9,-9,1,1,2,-9,-9], geneMax: [9,9,9,9,9,9,9,9,8,8,12,9,9] },
+  5: { geneCount: 13, geneMin: [-9,-9,-9,-9,-9,-9,-9,-9,1,1,2,-9,-9], geneMax: [9,9,9,9,9,9,9,9,8,8,12,9,9] },
 };
 
 function paperDefineVectors(genes) {
@@ -2596,7 +2617,8 @@ function renderFigure3(container) {
 // ── Figure 4: High-order branching ──
 
 function renderFigure4(container) {
-  const genes = [1, -1, 0, -1, 1, -2, 0, 1, 8];
+  // Dawkins' BasicTree preset: raw [-10,-20,-20,-15,-15,0,15,15,7] / trickle=9
+  const genes = [-1, -2, -2, -2, -2, 0, 2, 2, 7];
   const { item, canvas } = makeCanvasItem(320, 280, '');
   container.appendChild(item);
   const lines = paperDrawBiomorph(genes, { mode: 1 });
@@ -2608,7 +2630,8 @@ function renderFigure4(container) {
 function renderFigure5(container) {
   // Use a fixed seed for reproducible mutations
   Math.seedrandom && Math.seedrandom(42);
-  const parentGenes = [2, -1, 1, -2, 1, -1, 0, 2, 5];
+  // Dawkins' BasicTree preset as parent (rounded from trickle=9)
+  const parentGenes = [-1, -2, -2, -2, -2, 0, 2, 2, 5];
 
   // Parent in center-top
   const labels = ['', '', 'Parent', '', '', '', '', '', ''];
@@ -2617,7 +2640,7 @@ function renderFigure5(container) {
   for (let i = 0; i < 8; i++) {
     const child = parentGenes.slice();
     const geneIdx = i % 9;
-    child[geneIdx] = Math.max(-3, Math.min(geneIdx === 8 ? 8 : 3, child[geneIdx] + (i % 2 === 0 ? 1 : -1)));
+    child[geneIdx] = Math.max(-9, Math.min(geneIdx === 8 ? 8 : 9, child[geneIdx] + (i % 2 === 0 ? 1 : -1)));
     offspringList.push(child);
   }
 
@@ -2648,17 +2671,18 @@ function renderFigure5(container) {
 // ── Figure 6: Portfolio (9 genes) ──
 
 function renderFigure6(container) {
+  // Real genotypes from Dawkins' Exhibition zoo (effective = raw/trickle)
   const specimens = [
-    [2, -1, 3, -2, 1, -2, 2, -3, 6],   // insect-like
-    [1, 2, -1, 3, -1, 2, -2, 3, 7],     // fern-like
-    [-1, 3, -2, -3, 2, 1, -1, 2, 5],    // creature
-    [3, -1, 2, -1, -2, 3, -1, -3, 6],   // winged
-    [2, 2, -2, 0, 2, -1, 1, -2, 5],     // snowflake-ish
-    [-2, 1, 3, -2, 1, -3, 2, 1, 6],     // spider
-    [1, -2, 1, 3, -1, -2, 3, -1, 7],    // plant
-    [-3, 2, -1, -2, 3, 1, -2, 3, 5],    // alien
-    [2, -3, 1, -1, 2, -2, 1, -2, 6],    // butterfly
-    [1, 1, -3, 2, -1, 2, -3, 2, 7],     // tree-like
+    [1, 1, -4, 1, -1, -2, 8, -4, 6],          // Zoo #1: Insect variant
+    [-1, -1, -1, -1, -1, 0, 1, 1, 6],          // Zoo #6: simple symmetric
+    [0, 1, -3, 3, -2, -3, 6, -2, 7],           // Zoo #5: spread wings
+    [1, 1, -2, 1, -1, 0, 3, 2, 7],             // Zoo #13: delicate
+    [-1, 3, 2, -2, 2, -1, -2, -2, 7],          // Zoo #4: branching
+    [0, 1, -1, 0, -1, 2, 2, 1, 7],             // Zoo #8: compact
+    [5, -9, 4, 1, -1, -1, 8, -9, 5],           // Zoo #9: dramatic spiky
+    [1, -7, 3, -3, 3, 5, 5, -1, 5],            // Zoo #14: spread
+    [1, -6, 8, 2, -4, -1, 3, -2, 6],           // Zoo #11: swept back
+    [1, 2, -4, 1, -1, -2, 8, -4, 7],           // Zoo #12: Insect at depth 7
   ];
   const row = document.createElement('div');
   row.className = 'grid-row';
@@ -2771,15 +2795,18 @@ function renderFigure9(container) {
 // ── Figure 10: Segmented portfolio ──
 
 function renderFigure10(container) {
+  // Real genotypes from Dawkins' Exhibition zoo — segmented specimens
+  // Format: [g1-g8, depth, segNo, segDist, grad1, grad2]
+  // Note: segDist from zoo is in raw Dawkins units; our mode uses smaller values
   const specimens = [
-    [2, -2, 3, -1, 1, -1, 2, -3, 5, 3, 5, 2, -1],
-    [1, 2, -2, 2, -1, 3, -1, 2, 5, 2, 4, 1, 2],
-    [-1, 2, 1, -3, 2, -1, 2, 2, 4, 4, 4, -1, 1],
-    [2, -1, -2, 1, -2, 2, -1, -2, 5, 3, 6, 2, -2],
-    [1, -2, 2, -1, 2, -1, 1, -2, 5, 5, 3, 1, 1],
-    [-2, 1, 3, -2, 1, -3, 2, 1, 4, 3, 5, -2, 2],
-    [3, -1, 1, 0, 1, -2, 2, -1, 4, 6, 3, 0, 0],
-    [1, -1, -1, -2, 2, 1, -2, 3, 5, 2, 7, 1, -1],
+    [5, 5, -5, 2, -9, -3, 5, 6, 4, 9, 1, 0, 0],     // Zoo #18: 9 segments
+    [5, -8, 4, 0, -2, -3, 7, -9, 4, 4, 5, 0, 0],     // Zoo #19: swept 4-seg
+    [1, -3, -1, 0, -3, -1, 2, 2, 4, 8, 5, 0, 0],     // Zoo #20: caterpillar
+    [0, -2, -2, -1, -3, 0, 2, 3, 5, 3, 8, 0, 0],     // Zoo #21: tall 3-seg
+    [2, 3, -2, -1, 5, 4, -4, 2, 5, 4, 7, 0, 0],      // Zoo #22: branching
+    [-2, 6, 2, 4, -4, -5, 0, -1, 4, 5, 8, 0, 0],     // Zoo #23: fanning
+    [1, -2, 3, 1, -1, 0, -1, 2, 5, 4, 6, 0, 0],      // Zoo #25: ribbed
+    [1, -2, 2, 1, -1, 1, -1, 1, 5, 4, 6, 0, 0],      // Zoo #27: variation
   ];
   const row = document.createElement('div');
   row.className = 'grid-row';
@@ -2818,13 +2845,15 @@ function renderFigure11(container) {
 // ── Figure 12: Asymm+seg portfolio ──
 
 function renderFigure12(container) {
+  // Real genotypes from Dawkins' Exhibition zoo — segmented with asymmetry
+  // These are the "plants" Dawkins found botanically interesting
   const specimens = [
-    [2, -2, 1, -1, 1, -2, 2, -3, 5, 4, 5, 2, -1],
-    [1, -1, 2, -2, 2, -1, 1, -2, 4, 3, 6, 1, 2],
-    [-1, 2, -1, 3, -1, 2, -2, 3, 5, 5, 4, -1, 1],
-    [3, -1, 1, -2, 1, -3, 2, 1, 4, 4, 5, 2, -2],
-    [2, -2, 3, -1, 2, -1, 1, -1, 5, 3, 6, -1, 2],
-    [1, 1, -2, 2, -1, 2, -1, -2, 4, 4, 4, 1, -1],
+    [2, 4, -3, -5, 4, 7, 1, -5, 2, 6, 3, 0, 0],     // Zoo #17: NSouth symmetry
+    [-2, 4, 0, 0, -3, -4, -9, -4, 5, 6, 2, 0, 0],    // Zoo #16: clamped from g7=-13
+    [5, 5, -5, 2, -9, -3, 5, 6, 4, 9, 1, 0, 0],      // Zoo #18: many segments
+    [0, -2, -2, -1, -3, 0, 2, 3, 5, 3, 8, 0, 0],     // Zoo #21: NSouth
+    [-2, -6, -3, -4, -8, -8, 2, -2, 3, 8, 3, 0, 0],  // Zoo #24: clamped, 22-seg worm
+    [1, -2, 2, 1, -1, 0, -1, 1, 6, 4, 7, 0, 0],      // Zoo #26: NSouth
   ];
   const row = document.createElement('div');
   row.className = 'grid-row';
@@ -2846,13 +2875,14 @@ function renderFigure12(container) {
 // ── Figure 13: Radial portfolio ──
 
 function renderFigure13(container) {
+  // Real genotypes from Dawkins' Exhibition zoo — radial specimens
   const specimens = [
-    [2, -1, 1, -2, 2, 1, -1, -2, 5, 5, 4, 0, 0],
-    [1, 2, -1, 0, 1, -2, 2, -1, 4, 4, 5, 0, 0],
-    [-1, 1, 2, -1, -1, 2, -1, 1, 5, 6, 3, 0, 0],
-    [2, -2, 1, -1, 1, -1, 2, -2, 4, 3, 5, 0, 0],
-    [1, -1, -1, 2, 2, -1, 1, -1, 5, 5, 4, 0, 0],
-    [-2, 1, 2, -2, 1, 2, -1, 2, 4, 4, 4, 0, 0],
+    [-2, 1, -3, -3, 3, -3, 0, 4, 4, 3, 7, 0, 0],     // Zoo #28: radial star
+    [-2, 3, -9, 1, -8, 0, 1, 0, 4, 6, 1, 0, 0],       // Zoo #34: sea urchin
+    [0, -1, -1, -1, 0, 0, 1, 1, 7, 2, 4, 0, 0],       // Zoo #35: simple radial
+    [-2, 2, -3, -3, 3, -3, 0, 4, 4, 3, 7, 0, 0],      // Zoo #36: variant star
+    [2, -4, 1, 2, -6, -1, 6, 2, 4, 2, 8, 0, 0],       // Zoo #37: complex
+    [-7, 0, 6, 3, 0, -5, 4, 6, 2, 1, 8, 0, 0],        // Zoo #39: flower
   ];
   const row = document.createElement('div');
   row.className = 'grid-row';
@@ -2874,13 +2904,15 @@ function renderFigure13(container) {
 // ── Figure 14: Echinoderms ──
 
 function renderFigure14(container) {
+  // Real genotypes from Dawkins' Exhibition zoo — radial specimens with gradients
+  // These are the "echinoderms" Dawkins found zoologically interesting
   const specimens = [
-    [2, -1, 1, -2, 2, 1, -1, -2, 5, 5, 4, 1, -1],
-    [1, 2, -1, 0, 1, -2, 2, -1, 4, 4, 5, 2, 1],
-    [-1, 1, 2, -1, -1, 2, -1, 1, 5, 6, 3, -1, 2],
-    [2, -2, 1, -1, 1, -1, 2, -2, 5, 3, 5, 1, -2],
-    [1, -1, -1, 2, 2, -1, 1, -1, 5, 5, 4, -2, 1],
-    [-2, 1, 2, -2, 1, 2, -1, 2, 4, 4, 4, 2, -1],
+    [6, -7, 3, 8, -5, 6, 3, -8, 4, 4, 5, 0, 0],      // Zoo #41: complex echinoderm
+    [6, 3, -9, -4, 0, -1, 0, -6, 2, 7, 1, 0, 0],      // Zoo #42: compact radial
+    [-1, -1, -1, 0, 0, 1, 3, 2, 7, 1, 5, 0, 0],       // Zoo #40: simple radial
+    [2, -4, 1, 2, -6, -1, 6, 2, 4, 2, 8, 0, 0],       // Zoo #37: branching radial
+    [1.5, -0.5, 0, 1, -1.5, 0, 0, 0, 6, 3, 5, 0, 0],  // Zoo #38: minimal radial
+    [-2, 1, -3, -3, 3, -3, 0, 4, 4, 3, 7, 0, 0],      // Zoo #28: star form
   ];
   const row = document.createElement('div');
   row.className = 'grid-row';

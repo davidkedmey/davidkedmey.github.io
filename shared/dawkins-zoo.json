@@ -1,0 +1,127 @@
+{
+  "_comment": "Genotypes extracted from Dawkins' original Blind Watchmaker program (WatchmakerSuite repo). Raw gene values divided by each specimen's trickle value to produce effective values for our trickle-free implementation. Depth (gene 9) is NOT divided by trickle.",
+  "_source": "github.com/Aronnax9000/WatchmakerSuite — binary 'person' records parsed from Exhibition zoo, Alphabet zoo, and singleton saved animal files",
+
+  "presets": {
+    "BasicTree": {
+      "raw": [-10, -20, -20, -15, -15, 0, 15, 15, 7],
+      "trickle": 9,
+      "genes": [-1.1, -2.2, -2.2, -1.7, -1.7, 0, 1.7, 1.7, 7],
+      "segNo": 2, "segDist": 150,
+      "completeness": "Single", "spokes": "NorthOnly"
+    },
+    "Insect": {
+      "raw": [10, 10, -40, 10, -10, -20, 80, -40, 6],
+      "trickle": 10,
+      "genes": [1, 1, -4, 1, -1, -2, 8, -4, 6],
+      "segNo": 1, "segDist": 150,
+      "completeness": "Double", "spokes": "NorthOnly"
+    },
+    "Chess": {
+      "raw": [-10, 30, -30, -30, 10, -20, 60, -50, 7],
+      "trickle": 10,
+      "genes": [-1, 3, -3, -3, 1, -2, 6, -5, 7],
+      "segNo": 1, "segDist": 150,
+      "completeness": "Double", "spokes": "NorthOnly"
+    }
+  },
+
+  "namedSpecimens": {
+    "Stunted": {
+      "raw": [-10, -20, -25, -15, -15, -5, 15, 15, 6],
+      "trickle": 8,
+      "genes": [-1.25, -2.5, -3.125, -1.875, -1.875, -0.625, 1.875, 1.875, 6],
+      "segNo": 2, "segDist": 149,
+      "completeness": "Single", "spokes": "NorthOnly",
+      "note": "Close to BasicTree with slight mutations — likely after a few generations of drift"
+    },
+    "ChineseCharacter": {
+      "raw": [-16, -16, 18, -8, 6, -8, 18, 16, 3],
+      "trickle": 5,
+      "genes": [-3.2, -3.2, 3.6, -1.6, 1.2, -1.6, 3.6, 3.2, 3],
+      "segNo": 5, "segDist": 5,
+      "completeness": "Single", "spokes": "NorthOnly"
+    },
+    "HandkerchiefWithBows": {
+      "raw": [18, -18, -12, 6, 10, -12, -18, -4, 4],
+      "trickle": 2,
+      "genes": [9, -9, -6, 3, 5, -6, -9, -2, 4],
+      "segNo": 4, "segDist": 6,
+      "completeness": "Double", "spokes": "Radial"
+    }
+  },
+
+  "exhibitionZoo": [
+    {"id": 1, "raw": [10,15,-50,10,-10,-20,80,-40,6], "trickle": 10, "genes": [1,1.5,-5,1,-1,-2,8,-4,6], "completeness": "Double", "spokes": "NorthOnly", "note": "Very close to Insect preset"},
+    {"id": 2, "raw": [20,-30,60,29,-13,-69,61,-10,5], "trickle": 6, "genes": [3.3,-5,10,4.8,-2.2,-11.5,10.2,-1.7,5], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 3, "raw": [-5,0,5,0,0,15,-15,30,7], "trickle": 7, "genes": [-0.7,0,0.7,0,0,2.1,-2.1,4.3,7], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 4, "raw": [-10,30,20,-20,20,-10,-20,-20,7], "trickle": 10, "genes": [-1,3,2,-2,2,-1,-2,-2,7], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 5, "raw": [0,10,-30,30,-20,-30,60,-20,7], "trickle": 10, "genes": [0,1,-3,3,-2,-3,6,-2,7], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 6, "raw": [-10,-10,-10,-10,-10,0,10,10,6], "trickle": 10, "genes": [-1,-1,-1,-1,-1,0,1,1,6], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 7, "raw": [10,10,-50,10,-10,-20,80,-40,6], "trickle": 10, "genes": [1,1,-5,1,-1,-2,8,-4,6], "completeness": "Double", "spokes": "NorthOnly", "note": "Nearly identical to Insect preset (gene3: -5 vs -4)"},
+    {"id": 8, "raw": [0,10,-10,0,-10,20,20,10,7], "trickle": 10, "genes": [0,1,-1,0,-1,2,2,1,7], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 9, "raw": [50,-90,40,10,-10,-10,80,-90,5], "trickle": 10, "genes": [5,-9,4,1,-1,-1,8,-9,5], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 10, "raw": [0,10,-30,20,-10,-10,50,-20,7], "trickle": 10, "genes": [0,1,-3,2,-1,-1,5,-2,7], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 11, "raw": [10,-60,80,20,-40,-10,30,-20,6], "trickle": 10, "genes": [1,-6,8,2,-4,-1,3,-2,6], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 12, "raw": [10,20,-40,10,-10,-20,80,-40,7], "trickle": 10, "genes": [1,2,-4,1,-1,-2,8,-4,7], "completeness": "Double", "spokes": "NorthOnly", "note": "Insect-like but depth 7 instead of 6"},
+    {"id": 13, "raw": [10,10,-20,10,-10,0,30,20,7], "trickle": 10, "genes": [1,1,-2,1,-1,0,3,2,7], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 14, "raw": [10,-70,30,-30,30,50,50,-10,5], "trickle": 10, "genes": [1,-7,3,-3,3,5,5,-1,5], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 15, "raw": [10,-40,30,10,-30,-70,70,-20,6], "trickle": 10, "genes": [1,-4,3,1,-3,-7,7,-2,6], "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 16, "raw": [-20,40,0,0,-30,-40,-130,-40,5], "trickle": 10, "genes": [-2,4,0,0,-3,-4,-13,-4,5], "segNo": 6, "segDist": 20, "completeness": "Double", "spokes": "NorthOnly", "note": "Segmented; g7=-13 exceeds [-9,9]"},
+    {"id": 17, "raw": [20,40,-30,-50,40,70,10,-50,2], "trickle": 10, "genes": [2,4,-3,-5,4,7,1,-5,2], "segNo": 6, "segDist": 30, "completeness": "Double", "spokes": "NSouth"},
+    {"id": 18, "raw": [50,50,-50,20,-90,-30,50,60,4], "trickle": 10, "genes": [5,5,-5,2,-9,-3,5,6,4], "segNo": 9, "segDist": 10, "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 19, "raw": [50,-80,40,0,-20,-30,70,-90,4], "trickle": 10, "genes": [5,-8,4,0,-2,-3,7,-9,4], "segNo": 4, "segDist": 50, "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 20, "raw": [10,-30,-10,0,-30,-10,20,20,4], "trickle": 10, "genes": [1,-3,-1,0,-3,-1,2,2,4], "segNo": 8, "segDist": 50, "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 21, "raw": [0,-20,-20,-10,-30,0,20,30,5], "trickle": 10, "genes": [0,-2,-2,-1,-3,0,2,3,5], "segNo": 3, "segDist": 150, "completeness": "Single", "spokes": "NSouth"},
+    {"id": 22, "raw": [20,30,-20,-10,50,40,-40,20,5], "trickle": 10, "genes": [2,3,-2,-1,5,4,-4,2,5], "segNo": 4, "segDist": 70, "completeness": "Single", "spokes": "NorthOnly"},
+    {"id": 23, "raw": [-20,60,20,40,-40,-50,0,-10,4], "trickle": 10, "genes": [-2,6,2,4,-4,-5,0,-1,4], "segNo": 5, "segDist": 120, "completeness": "Single", "spokes": "NorthOnly"},
+    {"id": 24, "raw": [-20,-60,-30,-40,-75,-80,15,-20,3], "trickle": 10, "genes": [-2,-6,-3,-4,-7.5,-8,1.5,-2,3], "segNo": 22, "segDist": 29, "completeness": "Single", "spokes": "NorthOnly"},
+    {"id": 25, "raw": [10,-20,30,10,-10,0,-10,20,5], "trickle": 10, "genes": [1,-2,3,1,-1,0,-1,2,5], "segNo": 4, "segDist": 60, "completeness": "Single", "spokes": "NSouth"},
+    {"id": 26, "raw": [10,-20,20,10,-10,0,-10,10,6], "trickle": 10, "genes": [1,-2,2,1,-1,0,-1,1,6], "segNo": 4, "segDist": 70, "completeness": "Single", "spokes": "NSouth"},
+    {"id": 27, "raw": [10,-20,20,10,-10,10,-10,10,5], "trickle": 10, "genes": [1,-2,2,1,-1,1,-1,1,5], "segNo": 4, "segDist": 60, "completeness": "Single", "spokes": "NSouth"},
+    {"id": 28, "raw": [-20,10,-30,-30,30,-30,0,40,4], "trickle": 10, "genes": [-2,1,-3,-3,3,-3,0,4,4], "segNo": 3, "segDist": 70, "completeness": "Double", "spokes": "Radial"},
+    {"id": 29, "raw": [10,30,10,-10,-60,30,-110,-40,3], "trickle": 10, "genes": [1,3,1,-1,-6,3,-11,-4,3], "segNo": 4, "segDist": 20, "completeness": "Double", "spokes": "Radial", "note": "g7=-11 exceeds [-9,9]"},
+    {"id": 30, "raw": [10,360,10,-30,30,-60,0,10,3], "trickle": 10, "genes": [1,36,1,-3,3,-6,0,1,3], "segNo": 6, "segDist": 50, "completeness": "Double", "spokes": "Radial", "note": "g2=36 far exceeds [-9,9]"},
+    {"id": 31, "raw": [10,350,0,-30,40,-70,0,10,3], "trickle": 10, "genes": [1,35,0,-3,4,-7,0,1,3], "segNo": 6, "segDist": 50, "completeness": "Double", "spokes": "Radial", "note": "g2=35 far exceeds [-9,9]"},
+    {"id": 32, "raw": [10,360,20,0,10,-30,10,40,3], "trickle": 10, "genes": [1,36,2,0,1,-3,1,4,3], "segNo": 6, "segDist": 50, "completeness": "Double", "spokes": "Radial", "note": "g2=36 far exceeds [-9,9]"},
+    {"id": 33, "raw": [20,30,10,-10,-60,30,-110,-40,3], "trickle": 10, "genes": [2,3,1,-1,-6,3,-11,-4,3], "segNo": 4, "segDist": 20, "completeness": "Double", "spokes": "Radial", "note": "g7=-11 exceeds [-9,9]"},
+    {"id": 34, "raw": [-20,30,-90,10,-80,0,10,0,4], "trickle": 10, "genes": [-2,3,-9,1,-8,0,1,0,4], "segNo": 6, "segDist": 10, "completeness": "Double", "spokes": "Radial"},
+    {"id": 35, "raw": [0,-10,-10,-10,0,0,10,10,7], "trickle": 10, "genes": [0,-1,-1,-1,0,0,1,1,7], "segNo": 2, "segDist": 40, "completeness": "Double", "spokes": "Radial"},
+    {"id": 36, "raw": [-20,20,-30,-30,30,-30,0,40,4], "trickle": 10, "genes": [-2,2,-3,-3,3,-3,0,4,4], "segNo": 3, "segDist": 70, "completeness": "Double", "spokes": "Radial"},
+    {"id": 37, "raw": [20,-40,10,20,-60,-10,60,20,4], "trickle": 10, "genes": [2,-4,1,2,-6,-1,6,2,4], "segNo": 2, "segDist": 190, "completeness": "Double", "spokes": "Radial"},
+    {"id": 38, "raw": [15,-5,0,10,-15,0,0,0,6], "trickle": 10, "genes": [1.5,-0.5,0,1,-1.5,0,0,0,6], "segNo": 3, "segDist": 50, "completeness": "Single", "spokes": "Radial"},
+    {"id": 39, "raw": [-70,0,60,30,0,-50,40,60,2], "trickle": 10, "genes": [-7,0,6,3,0,-5,4,6,2], "segNo": 1, "segDist": 190, "completeness": "Single", "spokes": "Radial"},
+    {"id": 40, "raw": [-10,-10,-10,0,0,10,30,20,7], "trickle": 10, "genes": [-1,-1,-1,0,0,1,3,2,7], "segNo": 1, "segDist": 50, "completeness": "Single", "spokes": "Radial"},
+    {"id": 41, "raw": [60,-70,30,80,-50,60,30,-80,4], "trickle": 10, "genes": [6,-7,3,8,-5,6,3,-8,4], "segNo": 4, "segDist": 50, "completeness": "Double", "spokes": "Radial"},
+    {"id": 42, "raw": [60,30,-90,-40,0,-10,0,-60,2], "trickle": 10, "genes": [6,3,-9,-4,0,-1,0,-6,2], "segNo": 7, "segDist": 10, "completeness": "Double", "spokes": "Radial"}
+  ],
+
+  "_alphabetZooNote": "24 biomorphs bred by Dawkins to resemble letters. Letter assignments from WatchmakerSuite album screenshots (MonochromeAlbumAlphabetZooPage1.png, Page2.png). Records 2 and 19 are identical (both 'I'). Records 22 and 24 share the same raw genes but different trickle values. Many effective gene values far exceed [-9,9] — these extreme shapes were needed to approximate letter forms. Some letters (B, E, G, K, Q, R) are absent — presumably too difficult to evolve with the basic biomorph body plan.",
+
+  "alphabetZoo": [
+    {"id": 1, "letter": "A", "raw": [50,-130,110,80,10,-330,-20,60,3], "trickle": 12, "genes": [4.2,-10.8,9.2,6.7,0.8,-27.5,-1.7,5.0,3], "segNo": 2, "segDist": 10, "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 2, "letter": "I", "raw": [60,10,80,70,5,-410,-70,30,2], "trickle": 6, "genes": [10.0,1.7,13.3,11.7,0.8,-68.3,-11.7,5.0,2], "segNo": 7, "segDist": 0, "completeness": "Single", "spokes": "NSouth"},
+    {"id": 3, "letter": "J", "raw": [100,0,70,40,10,-510,110,20,3], "trickle": 10, "genes": [10.0,0.0,7.0,4.0,1.0,-51.0,11.0,2.0,3], "segNo": 1, "segDist": 10, "completeness": "Single", "spokes": "NorthOnly"},
+    {"id": 4, "letter": "L", "raw": [-80,0,70,0,0,-340,90,20,3], "trickle": 10, "genes": [-8.0,0.0,7.0,0.0,0.0,-34.0,9.0,2.0,3], "segNo": 1, "segDist": 10, "completeness": "Single", "spokes": "NorthOnly"},
+    {"id": 5, "letter": "M", "raw": [90,-30,-10,10,-100,240,40,10,3], "trickle": 6, "genes": [15.0,-5.0,-1.7,1.7,-16.7,40.0,6.7,1.7,3], "segNo": 6, "segDist": 10, "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 6, "letter": "U", "raw": [50,10,50,0,-30,-120,80,20,3], "trickle": 10, "genes": [5.0,1.0,5.0,0.0,-3.0,-12.0,8.0,2.0,3], "segNo": 3, "segDist": 10, "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 7, "letter": "V", "raw": [90,-30,-10,0,-50,-60,60,10,3], "trickle": 10, "genes": [9.0,-3.0,-1.0,0.0,-5.0,-6.0,6.0,1.0,3], "segNo": 8, "segDist": 10, "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 8, "letter": "W", "raw": [90,-30,-10,0,130,-260,-40,-20,3], "trickle": 10, "genes": [9.0,-3.0,-1.0,0.0,13.0,-26.0,-4.0,-2.0,3], "segNo": 6, "segDist": 10, "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 9, "letter": "X", "raw": [10,90,10,-30,50,70,90,10,4], "trickle": 10, "genes": [1.0,9.0,1.0,-3.0,5.0,7.0,9.0,1.0,4], "segNo": 4, "segDist": 10, "completeness": "Double", "spokes": "Radial"},
+    {"id": 10, "letter": "Y", "raw": [0,90,0,40,-60,-70,-90,0,4], "trickle": 10, "genes": [0.0,9.0,0.0,4.0,-6.0,-7.0,-9.0,0.0,4], "segNo": 1, "segDist": 20, "completeness": "Double", "spokes": "NorthOnly"},
+    {"id": 11, "letter": "Z", "raw": [150,10,80,60,-30,-440,-100,30,2], "trickle": 10, "genes": [15.0,1.0,8.0,6.0,-3.0,-44.0,-10.0,3.0,2], "segNo": 1, "segDist": 10, "completeness": "Single", "spokes": "NSouth"},
+    {"id": 12, "letter": "l", "raw": [5,10,80,70,0,-410,-70,30,2], "trickle": 10, "genes": [0.5,1.0,8.0,7.0,0.0,-41.0,-7.0,3.0,2], "segNo": 7, "segDist": 0, "completeness": "Single", "spokes": "NSouth", "note": "Lowercase l or thin I variant"},
+    {"id": 13, "letter": "P", "raw": [80,-160,-50,-80,40,50,40,-10,3], "trickle": 10, "genes": [8.0,-16.0,-5.0,-8.0,4.0,5.0,4.0,-1.0,3], "segNo": 1, "segDist": -10, "completeness": "Single", "spokes": "NorthOnly"},
+    {"id": 14, "letter": "F", "raw": [35,-60,75,-15,-15,25,-100,10,4], "trickle": 5, "genes": [7.0,-12.0,15.0,-3.0,-3.0,5.0,-20.0,2.0,4], "segNo": 1, "segDist": 200, "completeness": "Single", "spokes": "NSouth", "note": "Possibly F or a script letter — hard to identify from screenshot"},
+    {"id": 15, "letter": "N", "raw": [50,0,64,0,45,-197,102,22,3], "trickle": 4, "genes": [12.5,0.0,16.0,0.0,11.2,-49.2,25.5,5.5,3], "segNo": 1, "segDist": 10, "completeness": "Single", "spokes": "NSouth"},
+    {"id": 16, "letter": "D", "raw": [80,-160,-50,-80,95,50,40,-10,3], "trickle": 6, "genes": [13.3,-26.7,-8.3,-13.3,15.8,8.3,6.7,-1.7,3], "segNo": 1, "segDist": -10, "completeness": "Single", "spokes": "NorthOnly", "note": "Triangular D shape; shares genes 1-4 and 7-8 with P (record 13)"},
+    {"id": 17, "letter": "T", "raw": [165,15,80,-170,0,-350,-195,-55,2], "trickle": 8, "genes": [20.6,1.9,10.0,-21.2,0.0,-43.8,-24.4,-6.9,2], "segNo": 7, "segDist": 0, "completeness": "Single", "spokes": "NorthOnly"},
+    {"id": 18, "letter": "H", "raw": [50,-10,80,-10,35,-310,-30,60,3], "trickle": 10, "genes": [5.0,-1.0,8.0,-1.0,3.5,-31.0,-3.0,6.0,3], "segNo": 3, "segDist": 0, "completeness": "Double", "spokes": "NSouth"},
+    {"id": 19, "letter": "I2", "raw": [60,10,80,70,5,-410,-70,30,2], "trickle": 6, "genes": [10.0,1.7,13.3,11.7,0.8,-68.3,-11.7,5.0,2], "segNo": 7, "segDist": 0, "completeness": "Single", "spokes": "NSouth", "note": "Identical to record 2 (I)"},
+    {"id": 20, "letter": "O", "raw": [-70,130,45,0,70,100,100,30,3], "trickle": 6, "genes": [-11.7,21.7,7.5,0.0,11.7,16.7,16.7,5.0,3], "segNo": 4, "segDist": -10, "completeness": "Double", "spokes": "NorthOnly", "note": "Diamond-shaped O"},
+    {"id": 21, "letter": "C", "raw": [-55,110,50,0,-30,-120,80,20,3], "trickle": 3, "genes": [-18.3,36.7,16.7,0.0,-10.0,-40.0,26.7,6.7,3], "segNo": 1, "segDist": 10, "completeness": "Single", "spokes": "NorthOnly", "note": "Angle-bracket shape resembling C or <"},
+    {"id": 22, "letter": "S", "raw": [5,-5,-15,5,-5,15,10,-15,6], "trickle": 9, "genes": [0.6,-0.6,-1.7,0.6,-0.6,1.7,1.1,-1.7,6], "segNo": 1, "segDist": 1, "completeness": "Single", "spokes": "NSouth"},
+    {"id": 23, "letter": "S2", "raw": [7,-5,-15,5,-5,17,4,-5,6], "trickle": 6, "genes": [1.2,-0.8,-2.5,0.8,-0.8,2.8,0.7,-0.8,6], "segNo": 1, "segDist": 1, "completeness": "Single", "spokes": "NSouth", "note": "S variant with slightly different genes"},
+    {"id": 24, "letter": "S3", "raw": [5,-5,-15,5,-5,15,10,-15,6], "trickle": 5, "genes": [1.0,-1.0,-3.0,1.0,-1.0,3.0,2.0,-3.0,6], "segNo": 1, "segDist": 1, "completeness": "Single", "spokes": "NSouth", "note": "Same raw genes as S (record 22) but trickle=5 instead of 9, producing larger form"}
+  ]
+}

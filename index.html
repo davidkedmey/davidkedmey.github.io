@@ -67,7 +67,7 @@
       display: flex;
       gap: 24px;
       padding: 20px 24px 60px;
-      max-width: 960px;
+      max-width: 1240px;
       width: 100%;
       flex-wrap: wrap;
       justify-content: center;
@@ -78,7 +78,8 @@
       border: 1px solid #2a3444;
       border-radius: 12px;
       padding: 32px 28px 28px;
-      width: 280px;
+      width: 260px;
+      flex: 1 1 220px;
       text-align: center;
       transition: border-color 0.2s, transform 0.2s;
       text-decoration: none;
@@ -232,12 +233,50 @@
       </div>
       <span class="enter">Enter 3D Gallery</span>
     </a>
+
+    <a class="card" href="dawkins-paper/">
+      <span class="card-icon">&#128214;</span>
+      <h2>Read</h2>
+      <div class="desc">
+        The original 1988 paper, annotated and interactive.
+        Live widgets, reading modes, and a built-in study system.
+      </div>
+      <span class="enter">Read the Paper</span>
+    </a>
+
+    <a class="card" href="museum.html" style="flex-grow:0">
+      <span class="card-icon">&#127963;</span>
+      <h2>Museum</h2>
+      <div class="desc">
+        70+ original specimens from Dawkins' Blind Watchmaker program,
+        extracted from 1988 binary save files. The real creatures.
+      </div>
+      <span class="enter">Browse the Zoo</span>
+    </a>
+
+    <a class="card" href="search.html" style="flex-grow:0">
+      <span class="card-icon">&#128269;</span>
+      <h2>Search</h2>
+      <div class="desc">
+        Upload a target shape and watch a genetic algorithm evolve toward it.
+        Dawkins' method, finding Dawkins' creatures.
+      </div>
+      <span class="enter">Open Gene Search</span>
+    </a>
+
+    <a class="card" href="how-we-built-this.html" style="flex-grow:0">
+      <span class="card-icon">&#128295;</span>
+      <h2>How We Built This</h2>
+      <div class="desc">
+        Algorithm auditing, binary archaeology, and genetic search.
+        The methodology behind verified fidelity.
+      </div>
+      <span class="enter">Read the Story</span>
+    </a>
   </div>
 
   <div class="footer">
     <a href="https://github.com/davidkedmey/dawkins-biomorphs">GitHub</a>
-    &middot;
-    <a href="dawkins-paper/">Read the Paper</a>
     <br>
     No frameworks. No build step. Just vanilla JS and the evolution of form.
   </div>
@@ -249,23 +288,32 @@
     }
   </script>
   <script type="module">
-    // Animated hero: draw a row of biomorphs at increasing depth
-    import { drawTree, defineVectors } from './shared/genotype.js';
+    // Animated hero: cycle through genotypes with crossfade
+    import { drawTree } from './shared/genotype.js';
 
     const canvas = document.getElementById('hero-canvas');
     const ctx = canvas.getContext('2d');
-
-    const baseGenes = [-1, 3, -1, -1, 2, 2, 2, 3];
     const depths = [2, 3, 4, 5, 6, 7];
     const cellW = canvas.width / depths.length;
 
-    function renderHero() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Curated genotypes that produce visually distinct, interesting forms
+    const genesets = [
+      [-1, 3, -1, -1, 2, 2, 2, 3],   // the classic tree
+      [ 1, -1, 1, -1, 1, -1, 1, -1],  // symmetric insect
+      [ 3, 3, 3, 3, 3, 3, 3, 3],      // dense bush
+      [-2, 2, -2, 2, -2, 2, -2, 2],   // fern-like
+      [ 0, 1, -1, 2, -2, 3, -3, 1],   // asymmetric sprawl
+    ];
 
+    const CYCLE_MS = 4000;  // time per genotype
+    const FADE_MS = 1500;   // crossfade duration
+    let current = 0;
+    let startTime = performance.now();
+
+    function renderRow(genes8, alpha) {
       for (let i = 0; i < depths.length; i++) {
-        const genes = [...baseGenes, depths[i]];
+        const genes = [...genes8, depths[i]];
         const allLines = drawTree(genes);
-
         if (allLines.length === 0) continue;
 
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -279,17 +327,18 @@
         const bw = maxX - minX || 1;
         const bh = maxY - minY || 1;
         const pad = 12;
-        const scale = Math.min((cellW - pad * 2) / bw, (canvas.height - pad * 2) / bh);
+        const scale = Math.min((cellW - pad * 2) / bw, (canvas.height - pad * 2 - 14) / bh);
         const cx = i * cellW + cellW / 2;
-        const cy = canvas.height / 2;
+        const cy = (canvas.height - 14) / 2;
         const ox = (minX + maxX) / 2;
         const oy = (minY + maxY) / 2;
         const maxD = Math.max(...allLines.map(s => s.depth));
 
         for (const seg of allLines) {
           const t = maxD > 1 ? (seg.depth - 1) / (maxD - 1) : 0;
-          const hue = 120 + t * 60; // green → teal
+          const hue = 120 + t * 60;
           const light = 35 + t * 25;
+          ctx.globalAlpha = alpha;
           ctx.strokeStyle = `hsl(${hue}, 50%, ${light}%)`;
           ctx.lineWidth = 1.2;
           ctx.beginPath();
@@ -297,16 +346,40 @@
           ctx.lineTo(cx + (seg.x1 - ox) * scale, cy + (seg.y1 - oy) * scale);
           ctx.stroke();
         }
-
-        // Depth label
-        ctx.fillStyle = '#4a5a6a';
-        ctx.font = '10px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(`depth ${depths[i]}`, cx, canvas.height - 4);
       }
     }
 
-    renderHero();
+    function renderLabels() {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#4a5a6a';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'center';
+      for (let i = 0; i < depths.length; i++) {
+        ctx.fillText(`depth ${depths[i]}`, i * cellW + cellW / 2, canvas.height - 4);
+      }
+    }
+
+    function animate(now) {
+      const elapsed = now - startTime;
+      const inCycle = elapsed % CYCLE_MS;
+      const idx = Math.floor(elapsed / CYCLE_MS) % genesets.length;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (inCycle > CYCLE_MS - FADE_MS) {
+        // Crossfading: outgoing fades out, incoming fades in
+        const fadeProgress = (inCycle - (CYCLE_MS - FADE_MS)) / FADE_MS;
+        renderRow(genesets[idx], 1 - fadeProgress);
+        renderRow(genesets[(idx + 1) % genesets.length], fadeProgress);
+      } else {
+        renderRow(genesets[idx], 1);
+      }
+
+      renderLabels();
+      requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
   </script>
 </body>
 </html>

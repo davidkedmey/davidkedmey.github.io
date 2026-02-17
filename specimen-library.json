@@ -18,11 +18,11 @@
         },
         {
           "name": "Insect",
-          "genes": [1, -1, 1, 2, -2, 1, -1, 3, 6],
+          "genes": [1, 1, -4, 1, -1, -2, 8, -4, 6],
           "mode": 1,
           "symmetry": "left-right",
-          "notes": "Six-legged body with antennae. One of the forms Dawkins described discovering.",
-          "url": "breed.html#m=1&g=1,-1,1,2,-2,1,-1,3,6&s=lr"
+          "notes": "Dawkins' original Insect preset from the Blind Watchmaker program. Raw genes [10,10,-40,10,-10,-20,80,-40,6] / trickle=10.",
+          "url": "breed.html#m=1&g=1,1,-4,1,-1,-2,8,-4,6&s=lr"
         },
         {
           "name": "Spider",

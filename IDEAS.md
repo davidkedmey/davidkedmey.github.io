@@ -91,10 +91,34 @@ A system where discovering a novel biomorph lets you claim it — like CryptoKit
 - "Convergent evolution" becomes visible: many paths lead to similar-looking biomorphs
 - Provenance matters: the evolutionary history of a biomorph is part of its identity
 
+### Integration with existing experiences (Feb 2026)
+We now have the infrastructure to support this:
+- **Breeder** already does breeding with mutation — the core gameplay loop
+- **Game farm** already has an economy (buy/sell organisms, import from gallery)
+- **3D gallery** has collecting (press F) → localStorage → game import pipeline
+- **shared/collection.js** manages cross-experience specimen flow
+- **shared/dawkins-zoo.json** has 42 Exhibition + 24 Alphabet + 6 named specimens as "genesis" creatures with verified Dawkins provenance
+- **Gene ranges [-9,9]** give 19^8 × 8 ≈ 136B mode-1 genotypes — vast enough for meaningful rarity
+
+### Rarity dimensions
+- **Mode**: Higher modes (segmented, gradient, radial) are rarer developmental plans
+- **Gene extremity**: Specimens using genes near ±9 are harder to breed to (require many mutations)
+- **Dawkins provenance**: The 70+ specimens from the original program are "first editions"
+- **Visual novelty**: Structurally unique phenotypes (could use image hashing)
+- **Breeding difficulty**: Some target shapes are nearly unreachable (Dawkins couldn't breed K!)
+- **Alphabet specimens**: Letter-shaped biomorphs require extreme gene values (up to ±68) — genuinely rare
+
+### Possible architecture
+- **No blockchain needed** — a simple server-side registry with user accounts
+- Specimens are identified by genotype hash (mode + genes = unique ID)
+- Breeding = crossover + mutation, server-validated
+- "Dawkins Zoo" specimens as limited-edition genesis collection
+- Leaderboard: who has explored the most unique phenotypes?
+
 ### Design questions
-- Does this need blockchain, or could a simpler centralized registry work?
+- Does this need blockchain, or could a simpler centralized registry work? **Consensus: simpler is better.**
 - What makes a biomorph "rare" — difficulty to reach? Visual uniqueness? Both?
-- How to handle the combinatorial explosion (9-gene space = ~7^8 * 8 ≈ 46M; 13-gene space = much larger)
+- How to handle the combinatorial explosion (mode 1 = ~136B genotypes; mode 5 = vastly larger)
 - Breeding mechanics: crossover? Mutation rate markets? Gene trading?
 
 ### Cautionary notes
@@ -194,6 +218,34 @@ The sandbox mode (implemented Feb 2026) is a terrain painter + biomorph planter 
 - **Biomorph placement rules** — define zones where biomorphs grow wild, spawn points, exhibit areas
 - **Decorative objects** — signs, fences, benches, lanterns beyond the basic tile palette
 - **Terrain templates** — preset patterns (river, lake, mountain, forest clearing) as stamp brushes
+
+---
+
+---
+
+## 9. New Experience Ideas (Feb 2026)
+
+### Dawkins Zoo Museum Page
+Browsable catalog of all specimens extracted from Dawkins' original Blind Watchmaker program:
+- 42 Exhibition zoo (basic → segmented → radial)
+- 24 Alphabet zoo (letters A–Z, minus B/E/G/K/Q/R that Dawkins couldn't breed)
+- 3 presets (BasicTree, Insect, Chess)
+- 3 named specimens (Stunted, ChineseCharacter, HandkerchiefWithBows)
+
+Each entry: live-rendered thumbnail, genotype, raw/trickle values, provenance notes. Could be a new landing page card ("Museum") or a section within the breeder. Data already exists in `shared/dawkins-zoo.json`.
+
+### "How We Built This" Page
+The `reverse-engineering-dawkins.md` writeup documents our methodology for achieving high fidelity: algorithm verification, binary archaeology, trickle factor discovery, GA image matching, and scoring function evolution. Compelling standalone content for anyone interested in faithful software reimplementation. Could be a simple markdown-rendered page linked from the landing page footer or a new card.
+
+### Gene Search as an Experience
+`gene-search-test.html` already exists. Polish into a "Search" card on the landing page:
+- Upload or draw a target shape
+- Watch the GA evolve toward it in real-time (population visualization)
+- See the meta-circularity: using Dawkins' method to find Dawkins' creatures
+- Display scoring function comparison (chamfer vs NCC) as a teaching moment about fitness landscapes
+
+### Game → Breeder Export
+Currently one-way: Breeder/3D → Game. Add "Export to Breeder" button in game's examine overlay (press B already opens breeder with exhibit genotype — extend to player-owned organisms).
 
 ---
 

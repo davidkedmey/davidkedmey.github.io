@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dawkins' Zoo — Original Specimens from the Blind Watchmaker</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #0a0e14;
+      color: #d4dce6;
+      min-height: 100vh;
+    }
+
+    .site-nav {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #0d1117;
+      border-bottom: 1px solid #1a2030;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.8rem;
+    }
+    .site-nav a {
+      color: #8a9aaa;
+      text-decoration: none;
+      padding: 4px 10px;
+      border: 1px solid #2a3444;
+      border-radius: 4px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .site-nav a:hover {
+      color: #c8e6c8;
+      border-color: #4a6a5a;
+    }
+
+    .hero {
+      text-align: center;
+      padding: 48px 24px 32px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .hero h1 {
+      font-size: 2rem;
+      color: #c8e6c8;
+      margin-bottom: 10px;
+    }
+    .hero .subtitle {
+      font-size: 1rem;
+      color: #8a9aaa;
+      line-height: 1.6;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .hero .source {
+      font-size: 0.8rem;
+      color: #5a6a7a;
+      margin-top: 12px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .hero .source a { color: #7a9aba; text-decoration: none; }
+
+    .collection {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 24px 48px;
+    }
+
+    .collection-header {
+      margin: 40px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1a2a3a;
+    }
+    .collection-header h2 {
+      font-size: 1.3rem;
+      color: #c8e6c8;
+      margin-bottom: 4px;
+    }
+    .collection-header p {
+      font-size: 0.85rem;
+      color: #6a7a8a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .specimen-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 16px;
+    }
+
+    .specimen {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+      transition: border-color 0.2s, transform 0.15s;
+      cursor: default;
+    }
+    .specimen:hover {
+      border-color: #4a6a5a;
+      transform: translateY(-2px);
+    }
+    .specimen canvas {
+      display: block;
+      margin: 0 auto 8px;
+      border-radius: 4px;
+      background: #0a0e14;
+    }
+    .specimen .name {
+      font-size: 0.85rem;
+      color: #c8e6c8;
+      margin-bottom: 4px;
+      font-weight: bold;
+    }
+    .specimen .genes {
+      font-size: 0.7rem;
+      color: #6a7a8a;
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+    .specimen .meta {
+      font-size: 0.7rem;
+      color: #5a6a7a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin-top: 4px;
+    }
+    .specimen .note {
+      font-size: 0.65rem;
+      color: #4a5a6a;
+      font-style: italic;
+      margin-top: 4px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .specimen .actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+    }
+    .specimen .actions a {
+      font-size: 0.7rem;
+      color: #7a9aba;
+      text-decoration: none;
+      padding: 3px 8px;
+      border: 1px solid #2a3444;
+      border-radius: 3px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .specimen .actions a:hover {
+      color: #a8d8a8;
+      border-color: #4a6a5a;
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 32px;
+      justify-content: center;
+      padding: 20px 24px;
+      flex-wrap: wrap;
+    }
+    .stat { text-align: center; }
+    .stat .num { font-size: 1.4rem; color: #c8e6c8; display: block; }
+    .stat .label {
+      font-size: 0.7rem;
+      color: #6a7a8a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 20px 24px 40px;
+      color: #4a5a6a;
+      font-size: 0.8rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .footer a { color: #6a8a9a; text-decoration: none; }
+
+    @media (max-width: 600px) {
+      .specimen-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+      .hero h1 { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="site-nav">
+    <a href="./">Hub</a>
+    <a href="breed.html">Breed</a>
+    <a href="game/">Play</a>
+    <a href="3d/">3D</a>
+    <a href="dawkins-paper/">Read</a>
+  </nav>
+
+  <div class="hero">
+    <h1>Dawkins' Zoo</h1>
+    <div class="subtitle">
+      The original biomorphs from Richard Dawkins' Blind Watchmaker program (1986&ndash;1988),
+      extracted from binary save files preserved in the
+      <a href="https://github.com/Aronnax9000/WatchmakerSuite" style="color:#7a9aba">WatchmakerSuite</a> archive.
+    </div>
+    <div class="source">
+      Every specimen rendered live using the same recursive algorithm Dawkins published.
+      Gene values are effective values (raw &divide; trickle factor).
+    </div>
+  </div>
+
+  <div class="stats-bar" id="stats-bar"></div>
+
+  <div class="collection" id="collection"></div>
+
+  <div class="footer">
+    Part of <a href="./">Biomorph Builder</a>.
+    Read about <a href="dawkins-paper/">the paper</a> or
+    <a href="reverse-engineering-dawkins.md">how we verified fidelity</a>.
+  </div>
+
+  <script type="module">
+    import { drawTree, MODE_CONFIGS } from './shared/genotype.js';
+
+    const CANVAS_SIZE = 140;
+
+    // ── Rendering ──
+
+    function renderSpecimen(canvas, genes, opts = {}) {
+      const size = canvas.width;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0a0e14';
+      ctx.fillRect(0, 0, size, size);
+
+      // Build full gene array for modes with segments/gradients
+      const mode = opts.mode || 1;
+      const lines = drawTree(genes);
+      if (lines.length === 0) return;
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      for (const seg of lines) {
+        minX = Math.min(minX, seg.x0, seg.x1);
+        maxX = Math.max(maxX, seg.x0, seg.x1);
+        minY = Math.min(minY, seg.y0, seg.y1);
+        maxY = Math.max(maxY, seg.y0, seg.y1);
+      }
+
+      const bw = maxX - minX || 1;
+      const bh = maxY - minY || 1;
+      const pad = 8;
+      const scale = Math.min((size - pad * 2) / bw, (size - pad * 2) / bh);
+      const cx = size / 2;
+      const cy = size / 2;
+      const ox = (minX + maxX) / 2;
+      const oy = (minY + maxY) / 2;
+
+      const maxD = Math.max(1, ...lines.map(s => s.depth));
+      for (const seg of lines) {
+        const t = maxD > 1 ? (seg.depth - 1) / (maxD - 1) : 0;
+        const hue = 140 + t * 40;
+        const light = 30 + t * 30;
+        ctx.strokeStyle = `hsl(${hue}, 40%, ${light}%)`;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(cx + (seg.x0 - ox) * scale, cy + (seg.y0 - oy) * scale);
+        ctx.lineTo(cx + (seg.x1 - ox) * scale, cy + (seg.y1 - oy) * scale);
+        ctx.stroke();
+      }
+    }
+
+    function breederURL(genes, mode) {
+      const symCode = 'lr';
+      return `breed.html#m=${mode}&g=${genes.join(',')}&s=${symCode}`;
+    }
+
+    // ── Build specimen card ──
+
+    function createCard(name, genes, opts = {}) {
+      const div = document.createElement('div');
+      div.className = 'specimen';
+
+      const canvas = document.createElement('canvas');
+      canvas.width = CANVAS_SIZE;
+      canvas.height = CANVAS_SIZE;
+      div.appendChild(canvas);
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'name';
+      nameEl.textContent = name;
+      div.appendChild(nameEl);
+
+      const genesEl = document.createElement('div');
+      genesEl.className = 'genes';
+      const displayGenes = genes.map(g => Number.isInteger(g) ? g : g.toFixed(1));
+      genesEl.textContent = `[${displayGenes.join(', ')}]`;
+      div.appendChild(genesEl);
+
+      if (opts.meta) {
+        const metaEl = document.createElement('div');
+        metaEl.className = 'meta';
+        metaEl.textContent = opts.meta;
+        div.appendChild(metaEl);
+      }
+
+      if (opts.note) {
+        const noteEl = document.createElement('div');
+        noteEl.className = 'note';
+        noteEl.textContent = opts.note;
+        div.appendChild(noteEl);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+      const mode = opts.mode || 1;
+      const breedLink = document.createElement('a');
+      breedLink.href = breederURL(genes, mode);
+      breedLink.textContent = 'Breed';
+      breedLink.title = 'Open in breeder';
+      actions.appendChild(breedLink);
+
+      const threeDLink = document.createElement('a');
+      threeDLink.href = `3d/#m=${mode}&g=${genes.join(',')}`;
+      threeDLink.textContent = '3D';
+      threeDLink.title = 'View in 3D gallery';
+      actions.appendChild(threeDLink);
+      div.appendChild(actions);
+
+      // Render after append for reliable sizing
+      requestAnimationFrame(() => renderSpecimen(canvas, genes, { mode }));
+
+      return div;
+    }
+
+    // ── Determine mode from specimen data ──
+
+    function specimenMode(entry) {
+      if (entry.spokes === 'Radial') return 5;
+      if (entry.segNo && entry.segNo > 1) return 3;
+      return 1;
+    }
+
+    function metaText(entry) {
+      const parts = [];
+      if (entry.trickle) parts.push(`trickle=${entry.trickle}`);
+      if (entry.completeness) parts.push(entry.completeness);
+      if (entry.spokes && entry.spokes !== 'NorthOnly') parts.push(entry.spokes);
+      if (entry.segNo && entry.segNo > 1) parts.push(`${entry.segNo} segs`);
+      return parts.join(' · ');
+    }
+
+    // ── Build page ──
+
+    async function init() {
+      const resp = await fetch('./shared/dawkins-zoo.json');
+      const zoo = await resp.json();
+      const container = document.getElementById('collection');
+
+      let totalSpecimens = 0;
+
+      // ── Presets ──
+      addSection(container, 'Presets', 'The three default starting biomorphs in Dawkins\' program.');
+      const presetsGrid = addGrid(container);
+      for (const [name, entry] of Object.entries(zoo.presets)) {
+        const mode = specimenMode(entry);
+        presetsGrid.appendChild(createCard(name, entry.genes, {
+          mode, meta: metaText(entry), note: entry.note
+        }));
+        totalSpecimens++;
+      }
+
+      // ── Named Specimens ──
+      addSection(container, 'Named Specimens', 'Individually saved biomorphs from Dawkins\' personal collection.');
+      const namedGrid = addGrid(container);
+      for (const [name, entry] of Object.entries(zoo.namedSpecimens)) {
+        const mode = specimenMode(entry);
+        namedGrid.appendChild(createCard(name, entry.genes, {
+          mode, meta: metaText(entry), note: entry.note
+        }));
+        totalSpecimens++;
+      }
+
+      // ── Exhibition Zoo — split by type ──
+      const basic = zoo.exhibitionZoo.filter(e => !e.segNo || e.segNo <= 1);
+      const segmented = zoo.exhibitionZoo.filter(e => e.segNo > 1 && e.spokes !== 'Radial');
+      const radial = zoo.exhibitionZoo.filter(e => e.spokes === 'Radial');
+
+      if (basic.length) {
+        addSection(container, 'Exhibition Zoo — Basic', `${basic.length} biomorphs using the original 9-gene embryology. Bilateral symmetry, no segments.`);
+        const grid = addGrid(container);
+        for (const entry of basic) {
+          grid.appendChild(createCard(`#${entry.id}`, entry.genes, {
+            mode: 1, meta: metaText(entry), note: entry.note
+          }));
+          totalSpecimens++;
+        }
+      }
+
+      if (segmented.length) {
+        addSection(container, 'Exhibition Zoo — Segmented', `${segmented.length} biomorphs with body segments. The "invention of segmentation" that Dawkins compared to the annelid/arthropod lineage.`);
+        const grid = addGrid(container);
+        for (const entry of segmented) {
+          grid.appendChild(createCard(`#${entry.id}`, entry.genes, {
+            mode: 3, meta: metaText(entry), note: entry.note
+          }));
+          totalSpecimens++;
+        }
+      }
+
+      if (radial.length) {
+        addSection(container, 'Exhibition Zoo — Radial', `${radial.length} biomorphs with radial symmetry. Dawkins' "echinoderms" — starfish and sea urchins with four-way symmetry.`);
+        const grid = addGrid(container);
+        for (const entry of radial) {
+          grid.appendChild(createCard(`#${entry.id}`, entry.genes, {
+            mode: 5, meta: metaText(entry), note: entry.note
+          }));
+          totalSpecimens++;
+        }
+      }
+
+      // ── Alphabet Zoo ──
+      if (zoo.alphabetZoo && zoo.alphabetZoo.length) {
+        addSection(container, 'Alphabet Zoo',
+          `${zoo.alphabetZoo.length} letter-shaped biomorphs. Dawkins bred these to spell his name and "MACINTOSH." ` +
+          `Missing: B, E, G, K, Q, R — shapes the embryology couldn't easily produce. ` +
+          `Many use extreme gene values (up to ±68) that push far beyond the normal range.`
+        );
+        const grid = addGrid(container);
+        for (const entry of zoo.alphabetZoo) {
+          const label = entry.letter || `#${entry.id}`;
+          grid.appendChild(createCard(label, entry.genes, {
+            mode: specimenMode(entry), meta: metaText(entry), note: entry.note
+          }));
+          totalSpecimens++;
+        }
+      }
+
+      // ── Stats bar ──
+      const statsBar = document.getElementById('stats-bar');
+      const collections = [
+        { n: Object.keys(zoo.presets).length, l: 'Presets' },
+        { n: Object.keys(zoo.namedSpecimens).length, l: 'Named' },
+        { n: zoo.exhibitionZoo.length, l: 'Exhibition' },
+        { n: zoo.alphabetZoo ? zoo.alphabetZoo.length : 0, l: 'Alphabet' },
+      ];
+      for (const c of collections) {
+        const stat = document.createElement('div');
+        stat.className = 'stat';
+        stat.innerHTML = `<span class="num">${c.n}</span><span class="label">${c.l}</span>`;
+        statsBar.appendChild(stat);
+      }
+      const totalStat = document.createElement('div');
+      totalStat.className = 'stat';
+      totalStat.innerHTML = `<span class="num">${totalSpecimens}</span><span class="label">Total</span>`;
+      statsBar.appendChild(totalStat);
+    }
+
+    function addSection(container, title, desc) {
+      const header = document.createElement('div');
+      header.className = 'collection-header';
+      header.innerHTML = `<h2>${title}</h2><p>${desc}</p>`;
+      container.appendChild(header);
+    }
+
+    function addGrid(container) {
+      const grid = document.createElement('div');
+      grid.className = 'specimen-grid';
+      container.appendChild(grid);
+      return grid;
+    }
+
+    init();
+  </script>
+</body>
+</html>

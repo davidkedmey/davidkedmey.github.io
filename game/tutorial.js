@@ -283,6 +283,16 @@ export const SAGE_TIPS = [
     targetCol: null,
     arrival: null,
   },
+  {
+    tip: "Type /gallery to import specimens from the Breeder app!",
+    targetCol: null,
+    arrival: null,
+  },
+  {
+    tip: "Press E near an exhibit, then B to open it in the Breeder.",
+    targetCol: null,
+    arrival: null,
+  },
 ];
 
 export function createSageShowState() {

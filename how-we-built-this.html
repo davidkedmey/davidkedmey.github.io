@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How We Built This — Reverse-Engineering Dawkins' Biomorphs</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #0a0e14;
+      color: #d4dce6;
+      min-height: 100vh;
+      line-height: 1.7;
+    }
+
+    .site-nav {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #0d1117;
+      border-bottom: 1px solid #1a2030;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.8rem;
+    }
+    .site-nav a {
+      color: #8a9aaa;
+      text-decoration: none;
+      padding: 4px 10px;
+      border: 1px solid #2a3444;
+      border-radius: 4px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .site-nav a:hover {
+      color: #c8e6c8;
+      border-color: #4a6a5a;
+    }
+
+    .article {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: #c8e6c8;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+
+    .lead {
+      font-size: 1.05rem;
+      color: #8a9aaa;
+      font-style: italic;
+      margin-bottom: 32px;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      color: #c8e6c8;
+      margin: 40px 0 12px;
+      padding-top: 16px;
+      border-top: 1px solid #1a2434;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      color: #a0b8c8;
+      margin: 24px 0 8px;
+    }
+
+    p {
+      margin-bottom: 16px;
+      color: #b8c8d8;
+    }
+
+    a { color: #7a9aba; }
+    a:hover { color: #a8d8a8; }
+
+    strong { color: #d4dce6; }
+
+    code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      background: #12161e;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.88em;
+      color: #c8e6c8;
+    }
+
+    pre {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      border-radius: 8px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin: 12px 0 20px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: #b8c8d8;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: inherit;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.85rem;
+    }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      background: #12161e;
+      color: #c8e6c8;
+      border-bottom: 2px solid #2a3444;
+      font-weight: 600;
+    }
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #1a2434;
+      color: #b8c8d8;
+    }
+    tr:hover td { background: #0d1117; }
+
+    ol, ul {
+      margin: 8px 0 16px 24px;
+      color: #b8c8d8;
+    }
+    li { margin-bottom: 6px; }
+
+    blockquote {
+      border-left: 3px solid #3a5a4a;
+      padding: 12px 20px;
+      margin: 16px 0;
+      background: #0d1117;
+      border-radius: 0 6px 6px 0;
+      font-style: italic;
+      color: #8a9aaa;
+    }
+
+    .callout {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 20px 0;
+    }
+    .callout-title {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.8rem;
+      color: #a8d8a8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .hero-demo {
+      text-align: center;
+      margin: 32px 0;
+    }
+    .hero-demo canvas {
+      border: 1px solid #2a3444;
+      border-radius: 8px;
+    }
+    .hero-demo .caption {
+      font-size: 0.8rem;
+      color: #5a6a7a;
+      margin-top: 8px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 40px 24px;
+      color: #4a5a6a;
+      font-size: 0.8rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      border-top: 1px solid #1a2434;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .footer a { color: #6a8a9a; text-decoration: none; }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.6rem; }
+      .article { padding: 32px 16px 60px; }
+      pre { font-size: 0.75rem; padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="./">Hub</a>
+  <a href="breed.html">Breed</a>
+  <a href="game/">Play</a>
+  <a href="3d/">3D</a>
+  <a href="dawkins-paper/">Read</a>
+  <a href="museum.html">Museum</a>
+</nav>
+
+<article class="article">
+
+  <h1>Reverse-Engineering Dawkins' Biomorphs</h1>
+  <p class="lead">How we went from guesswork to verified fidelity — using algorithm auditing, binary archaeology, and genetic algorithm search.</p>
+
+  <div class="hero-demo">
+    <canvas id="demo-canvas" width="560" height="100"></canvas>
+    <div class="caption">The Insect: gene 7 = 3 (old range) vs gene 7 = 8 (real Dawkins value)</div>
+  </div>
+
+  <h2>The Problem</h2>
+
+  <p>Richard Dawkins' 1988 paper <em>The Evolution of Evolvability</em> contains roughly 50 biomorph figures — insects, ferns, trees, letters of the alphabet, echinoderms. These are the canonical examples that made the concept famous. But the paper never lists their genotypes.</p>
+
+  <p>When we built <a href="./">Biomorph Builder</a> — an interactive reimplementation of Dawkins' system — we wanted to reproduce these exact figures. Our first attempt: stare at the paper, guess the gene values, tweak until it looks "close enough." The results were recognizable but unconvincing. The proportions were off. The branching angles were wrong. We were eyeballing 9-dimensional space.</p>
+
+  <p>This is the story of how we went from guesswork to verified fidelity.</p>
+
+  <h2>Step 1: Verify the Algorithm</h2>
+
+  <p>Before blaming the genes, we verified the algorithm. Dawkins published his <code>Tree</code> and <code>PlugIn</code> procedures in Pascal on page 207 of the paper:</p>
+
+  <pre><code>procedure PlugIn(ThisGenotype: Genotype);
+begin
+  order := gene[9];
+  dx[3] := gene[1]; dx[4] := gene[2]; dx[5] := gene[3];
+  dx[1] := -dx[3]; dx[0] := -dx[4]; dx[2] := 0; dx[6] := 0; dx[7] := -dx[5];
+  dy[2] := gene[4]; dy[3] := gene[5]; dy[4] := gene[6]; dy[5] := gene[7]; dy[6] := gene[8];
+  dy[0] := dy[4]; dy[1] := dy[3]; dy[7] := dy[5];
+end;</code></pre>
+
+  <p>We compared this line-by-line against our JavaScript <code>defineVectors</code> function. The result: <strong>exact match</strong>. Our implementation uses array indices offset by +2 from Dawkins' (our indices 1–8 vs Dawkins' 0–7), but this is compensated by starting the recursion at index 4 instead of Dawkins' index 2. Every direction vector is identical.</p>
+
+  <p>The recursion logic (<code>drawTree</code>) also matches: same binary branching, same depth decrement, same direction accumulation. The algorithm isn't the problem.</p>
+
+  <h2>Step 2: Discover the Real Gene Range</h2>
+
+  <p>This was the breakthrough. Our initial implementation used gene ranges of [-3, 3] for genes 1–8 — a reasonable guess based on the paper's description and the fact that small values produce recognizable biomorphs. But something was wrong: Dawkins' famous Insect biomorph has gene 7 = 8. His Chess piece has gene 7 = 6. These are <strong>literally impossible</strong> in a [-3, 3] range.</p>
+
+  <h3>The Trickle Factor</h3>
+
+  <p>The key to understanding Dawkins' gene values is a variable called <code>trickle</code> that appears in the original Blind Watchmaker source code but is <strong>never mentioned in the paper</strong>. Here's how it works:</p>
+
+  <ul>
+    <li>Dawkins stored gene values as large integers internally (e.g., raw gene 7 = 80 for the Insect)</li>
+    <li>The <code>trickle</code> value (typically 9 or 10) acts as a scaling divisor</li>
+    <li><strong>Effective gene value = raw value / trickle</strong> (except for gene 9, the depth, which is used directly)</li>
+    <li>So raw 80 / trickle 10 = effective gene 7 value of 8</li>
+  </ul>
+
+  <p>We expanded our gene ranges from [-3, 3] to [-9, 9], which covers >90% of Dawkins' original specimens. The visual difference was immediate and dramatic — the Insect's swept-back wings, previously invisible, suddenly appeared with full fidelity.</p>
+
+  <div class="callout">
+    <div class="callout-title">How we found the range</div>
+    <ol>
+      <li><strong>Algorithm audit</strong> against Dawkins' published Pascal confirmed our code was correct</li>
+      <li><strong>Source code archaeology</strong> of the <a href="https://github.com/Aronnax9000/WatchmakerSuite">WatchmakerSuite</a> repository (a preservation of Dawkins' original Macintosh program) revealed the <code>trickle</code> scaling factor</li>
+      <li><strong>Binary parsing</strong> of the zoo files provided ground truth effective gene values</li>
+      <li><strong>Statistical analysis</strong> of all 42 Exhibition zoo specimens showed effective ranges clustering in [-9, 9]</li>
+    </ol>
+  </div>
+
+  <h2>Step 3: Extract the Original Specimens</h2>
+
+  <p>The WatchmakerSuite repository contains Dawkins' original saved biomorphs as binary files — the actual creatures he bred and curated in 1986–1988. These are the ground truth.</p>
+
+  <h3>Binary File Format</h3>
+
+  <p>Each biomorph is stored as a 40-byte "person" record in big-endian format:</p>
+
+  <table>
+    <tr><th>Bytes</th><th>Field</th><th>Description</th></tr>
+    <tr><td>0–17</td><td>genes[1..9]</td><td>16-bit signed integers (9 genes × 2 bytes)</td></tr>
+    <tr><td>18–19</td><td>segNo</td><td>Segment count</td></tr>
+    <tr><td>20–21</td><td>segDist</td><td>Segment spacing</td></tr>
+    <tr><td>22–23</td><td>completeness</td><td>Single or Double</td></tr>
+    <tr><td>24–25</td><td>spokes</td><td>NorthOnly, NSouth, or Radial</td></tr>
+    <tr><td>26–39</td><td>gradient genes</td><td>Per-gene gradient factors</td></tr>
+  </table>
+
+  <p>We parsed three collections:</p>
+  <ul>
+    <li><strong>Exhibition zoo</strong>: 42 curated biomorphs (15 basic, 12 segmented, 15 radial)</li>
+    <li><strong>Alphabet zoo</strong>: 24 letter-shaped biomorphs (A–Z, minus some Dawkins couldn't breed)</li>
+    <li><strong>Named specimens</strong>: Standalone saved animals (Stunted, ChineseCharacter, HandkerchiefWithBows)</li>
+    <li><strong>Presets</strong>: The three default starting biomorphs (BasicTree, Insect, Chess)</li>
+  </ul>
+
+  <p>All 74 extracted genotypes are stored in <code>shared/dawkins-zoo.json</code> and browsable in the <a href="museum.html">Museum</a>.</p>
+
+  <div class="callout">
+    <div class="callout-title">Example: The Insect</div>
+    <pre><code>Raw genes:  [10, 10, -40, 10, -10, -20, 80, -40, 6]
+Trickle:    10
+Effective:  [ 1,  1,  -4,  1,  -1,  -2,  8,  -4, 6]</code></pre>
+    <p style="margin-bottom:0;">Gene 7 = 8 creates those iconic swept-back wings. Under our old [-3, 3] range, this was clamped to 3 — producing a completely different, much less dramatic shape.</p>
+  </div>
+
+  <h2>Step 4: Automated Image Matching</h2>
+
+  <p>For figures where we don't have the original binary data — or where we want to verify our matches against the paper's printed figures — we built an automated search using a genetic algorithm.</p>
+
+  <h3>The Meta-Circularity</h3>
+
+  <p>Dawkins' whole point was that cumulative selection — small random mutations filtered by a fitness criterion — can navigate enormous search spaces efficiently. We're using <em>his method to find his specimens</em>. The selection criterion changed from "looks interesting to a zoologist" to "looks like this specific picture" — but the evolutionary machinery is the same.</p>
+
+  <h3>The Search Space</h3>
+
+  <p>With the expanded [-9, 9] range: genes 1–8 have 19 values each, giving 19<sup>8</sup> ≈ 16.9 billion combinations. Multiply by 8 depth values and there are <strong>~135 billion possible mode-1 genotypes</strong>. Far too large for exhaustive search. The GA is essential.</p>
+
+  <h3>Scoring Functions: A Hard-Won Lesson</h3>
+
+  <p>We tried three scoring approaches, each solving a different problem:</p>
+
+  <p><strong>1. Intersection-over-Union (IoU):</strong> Score = |A ∩ B| / |A ∪ B|. Too strict — even a 1-pixel shift produces near-zero overlap. The fitness landscape is effectively flat, giving the GA no gradient to follow.</p>
+
+  <p><strong>2. Chamfer Distance:</strong> For each black pixel in image A, compute the distance to the nearest black pixel in image B. Much better — captures "almost right" matches. Achieved a perfect 1.0 on clean ground truth. But scored only 0.065 on real PDF scans — blurry gray scan pixels don't match crisp 1px rendered lines.</p>
+
+  <p><strong>3. Grayscale Blur + NCC:</strong> Both images converted to grayscale, inverted, blurred, then compared using normalized cross-correlation. Scored <strong>0.795 on the same PDF scan</strong> where chamfer scored 0.065 — a 12× improvement. NCC is invariant to brightness scaling; the blur creates tolerance for thickness and position differences.</p>
+
+  <blockquote>The optimal scoring function depends on the noise characteristics of the data. A function that works perfectly for clean-on-clean comparison can completely fail when the reference is noisy. This mirrors a deep truth about evolution: the fitness landscape's shape matters more than the search algorithm.</blockquote>
+
+  <p>You can try the search yourself in the <a href="search.html">Gene Search</a> tool.</p>
+
+  <h2>Step 5: Populate the Paper</h2>
+
+  <p>With all three data sources — binary archaeology, GA search, and manual fitting — we replaced the guessed genotypes throughout the <a href="dawkins-paper/">interactive paper</a>:</p>
+
+  <table>
+    <tr><th>Figure</th><th>Description</th><th>Source</th><th># Specimens</th></tr>
+    <tr><td>4</td><td>Basic tree</td><td>BasicTree preset (trickle=9)</td><td>1</td></tr>
+    <tr><td>5</td><td>Breeding screen</td><td>BasicTree as parent</td><td>9</td></tr>
+    <tr><td>6</td><td>Mode 1 portfolio</td><td>Exhibition zoo #1–15</td><td>10</td></tr>
+    <tr><td>10</td><td>Segmented portfolio</td><td>Exhibition zoo #18–27</td><td>8</td></tr>
+    <tr><td>12</td><td>Asymmetric segmented</td><td>Exhibition zoo #16–26</td><td>6</td></tr>
+    <tr><td>13</td><td>Radial portfolio</td><td>Exhibition zoo #28–39</td><td>6</td></tr>
+    <tr><td>14</td><td>Echinoderms</td><td>Exhibition zoo #28–42</td><td>6</td></tr>
+  </table>
+
+  <p>The visual improvement was dramatic. The old guessed specimens (all constrained to [-3, 3]) looked generic and repetitive. The real Dawkins specimens use the full [-9, 9] range and show the extraordinary morphological diversity that made biomorphs famous.</p>
+
+  <h2>What We Learned</h2>
+
+  <ol>
+    <li><strong>The gene range was the real problem.</strong> We spent significant effort on sophisticated image-matching algorithms, only to discover that the fundamental issue was much simpler: our gene ranges were too narrow. Check your assumptions before optimizing your algorithms.</li>
+
+    <li><strong>Source code archaeology beats reverse engineering.</strong> The GA search was elegant and meta-circular, but parsing the actual binary files from Dawkins' original program gave us ground truth in minutes. When the original data exists, go find it.</li>
+
+    <li><strong>Hidden scaling factors change everything.</strong> The <code>trickle</code> variable isn't mentioned in the paper, doesn't appear in the published Pascal code, and only exists in the full program source. Documentation debt from 1988 is real.</li>
+
+    <li><strong>The fitness function is everything — and context-dependent.</strong> IoU made the landscape flat. Chamfer distance worked for clean references but failed on scans. Grayscale NCC handled noise. The optimal scoring function depends on the data's noise characteristics.</li>
+
+    <li><strong>Genotypic degeneracy is real even in simple systems.</strong> The GA found a correct phenotype via a different genotype — negated horizontal genes producing a mirror-identical biomorph. Multiple genotypes map to identical phenotypes. A real biological parallel: codon degeneracy in DNA.</li>
+
+    <li><strong>Selection really is powerful.</strong> With correct scoring, the GA found a perfect match in 20 generations (~6,000 evaluations) out of 46 million possible genotypes. That's 0.013% of the search space. Dawkins' central argument demonstrated by the very tool we built to study his work.</li>
+
+    <li><strong>Reference quality sets the ceiling.</strong> A blurry 170×160 crop from a 1988 paper scan doesn't contain enough information to uniquely identify a genotype. Higher-confidence results need either better references, the original binary data, or human-in-the-loop refinement.</li>
+
+    <li><strong>Dawkins' algorithm is remarkably compact.</strong> The entire generative procedure is ~20 lines of code. Yet it produces enough morphological diversity that 42 curated specimens fill six distinct figure portfolios, each with its own visual character.</li>
+  </ol>
+
+  <h2>Fidelity Summary</h2>
+
+  <table>
+    <tr><th>Component</th><th>Status</th><th>Notes</th></tr>
+    <tr><td><code>defineVectors</code></td><td>Exact match</td><td>Verified gene by gene against published Pascal</td></tr>
+    <tr><td><code>drawTree</code></td><td>Exact match</td><td>Same binary recursion, direction accumulation</td></tr>
+    <tr><td>Gene ranges (g1–g8)</td><td>[-9, 9]</td><td>Covers >90% of Exhibition zoo</td></tr>
+    <tr><td>Depth range (g9)</td><td>[1, 8]</td><td>Matches original</td></tr>
+    <tr><td>Bilateral symmetry</td><td>Correct</td><td>Built into vector definitions</td></tr>
+    <tr><td>Segmentation</td><td>Correct</td><td>Repeat loop with segment count and spacing</td></tr>
+    <tr><td>Gradients</td><td>Simplified</td><td>2 gradient genes vs Dawkins' per-gene gradients</td></tr>
+    <tr><td>Radial symmetry</td><td>Approximate</td><td>4-way only (Dawkins also 4-way)</td></tr>
+  </table>
+
+</article>
+
+<div class="footer">
+  Part of <a href="./">Biomorph Builder</a>.
+  Read <a href="dawkins-paper/">the paper</a> or <a href="museum.html">browse the zoo</a>.
+</div>
+
+<script type="module">
+  import { drawTree } from './shared/genotype.js';
+
+  const canvas = document.getElementById('demo-canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Show the Insect at two gene ranges: clamped [-3,3] vs real [-9,9]
+  const clampedInsect = [1, 1, -3, 1, -1, -2, 3, -3, 6]; // clamped to [-3,3]
+  const realInsect = [1, 1, -4, 1, -1, -2, 8, -4, 6];     // real Dawkins values
+
+  function renderBiomorph(genes, cx, cy, maxW, maxH) {
+    const lines = drawTree(genes);
+    if (lines.length === 0) return;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const seg of lines) {
+      minX = Math.min(minX, seg.x0, seg.x1);
+      maxX = Math.max(maxX, seg.x0, seg.x1);
+      minY = Math.min(minY, seg.y0, seg.y1);
+      maxY = Math.max(maxY, seg.y0, seg.y1);
+    }
+
+    const bw = maxX - minX || 1;
+    const bh = maxY - minY || 1;
+    const pad = 8;
+    const scale = Math.min((maxW - pad * 2) / bw, (maxH - pad * 2) / bh);
+    const ox = (minX + maxX) / 2;
+    const oy = (minY + maxY) / 2;
+    const maxD = Math.max(...lines.map(s => s.depth));
+
+    for (const seg of lines) {
+      const t = maxD > 1 ? (seg.depth - 1) / (maxD - 1) : 0;
+      const hue = 120 + t * 60;
+      const light = 35 + t * 25;
+      ctx.strokeStyle = `hsl(${hue}, 50%, ${light}%)`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(cx + (seg.x0 - ox) * scale, cy + (seg.y0 - oy) * scale);
+      ctx.lineTo(cx + (seg.x1 - ox) * scale, cy + (seg.y1 - oy) * scale);
+      ctx.stroke();
+    }
+  }
+
+  // Left: clamped, Right: real
+  const w = canvas.width;
+  const h = canvas.height;
+  const half = w / 2;
+
+  // Divider
+  ctx.strokeStyle = '#2a3444';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(half, 10);
+  ctx.lineTo(half, h - 18);
+  ctx.stroke();
+
+  renderBiomorph(clampedInsect, half / 2, h / 2 - 8, half, h - 16);
+  renderBiomorph(realInsect, half + half / 2, h / 2 - 8, half, h - 16);
+
+  // Labels
+  ctx.fillStyle = '#5a6a7a';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('genes clamped to [-3, 3]', half / 2, h - 4);
+  ctx.fillText('real Dawkins genes [-9, 9]', half + half / 2, h - 4);
+</script>
+
+</body>
+</html>

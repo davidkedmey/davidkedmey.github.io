@@ -8,32 +8,32 @@
 const MODE_CONFIGS = {
   1: { // Basic biomorphs — 9 genes, bilateral symmetry
     geneCount: 9,
-    geneMin: [-3, -3, -3, -3, -3, -3, -3, -3, 1],
-    geneMax: [ 3,  3,  3,  3,  3,  3,  3,  3, 8],
+    geneMin: [-9, -9, -9, -9, -9, -9, -9, -9, 1],
+    geneMax: [ 9,  9,  9,  9,  9,  9,  9,  9, 8],
     geneLabels: ['g1','g2','g3','g4','g5','g6','g7','g8','depth'],
   },
   2: { // + Symmetry options — same 9 genes, symmetry applied post-render
     geneCount: 9,
-    geneMin: [-3, -3, -3, -3, -3, -3, -3, -3, 1],
-    geneMax: [ 3,  3,  3,  3,  3,  3,  3,  3, 8],
+    geneMin: [-9, -9, -9, -9, -9, -9, -9, -9, 1],
+    geneMax: [ 9,  9,  9,  9,  9,  9,  9,  9, 8],
     geneLabels: ['g1','g2','g3','g4','g5','g6','g7','g8','depth'],
   },
   3: { // + Segmentation — 11 genes
     geneCount: 11,
-    geneMin: [-3, -3, -3, -3, -3, -3, -3, -3, 1, 1, 2],
-    geneMax: [ 3,  3,  3,  3,  3,  3,  3,  3, 8, 8, 12],
+    geneMin: [-9, -9, -9, -9, -9, -9, -9, -9, 1, 1, 2],
+    geneMax: [ 9,  9,  9,  9,  9,  9,  9,  9, 8, 8, 12],
     geneLabels: ['g1','g2','g3','g4','g5','g6','g7','g8','depth','segs','segDist'],
   },
   4: { // + Gradients — 13 genes
     geneCount: 13,
-    geneMin: [-3, -3, -3, -3, -3, -3, -3, -3, 1, 1, 2, -3, -3],
-    geneMax: [ 3,  3,  3,  3,  3,  3,  3,  3, 8, 8, 12, 3,  3],
+    geneMin: [-9, -9, -9, -9, -9, -9, -9, -9, 1, 1, 2, -9, -9],
+    geneMax: [ 9,  9,  9,  9,  9,  9,  9,  9, 8, 8, 12, 9,  9],
     geneLabels: ['g1','g2','g3','g4','g5','g6','g7','g8','depth','segs','segDist','grad1','grad2'],
   },
   5: { // Full Dawkins — 13 base genes + toggles via UI
     geneCount: 13,
-    geneMin: [-3, -3, -3, -3, -3, -3, -3, -3, 1, 1, 2, -3, -3],
-    geneMax: [ 3,  3,  3,  3,  3,  3,  3,  3, 8, 8, 12, 3,  3],
+    geneMin: [-9, -9, -9, -9, -9, -9, -9, -9, 1, 1, 2, -9, -9],
+    geneMax: [ 9,  9,  9,  9,  9,  9,  9,  9, 8, 8, 12, 9,  9],
     geneLabels: ['g1','g2','g3','g4','g5','g6','g7','g8','depth','segs','segDist','grad1','grad2'],
   },
 };
@@ -1106,13 +1106,15 @@ const PEPPERING_PRESETS = [
 const CLASSIC_PRESETS = [
   {
     name: 'Insect',
-    genes: [2, -1, 3, -2, 1, -2, 2, -3, 6],
+    genes: [1, 1, -4, 1, -1, -2, 8, -4, 6],
     mode: 1, symmetry: 'left-right',
+    notes: "Dawkins' original Insect preset (raw [10,10,-40,10,-10,-20,80,-40,6] / trickle=10)",
   },
   {
     name: 'Fern',
-    genes: [1, 2, -1, 3, -1, 2, -2, 3, 7],
+    genes: [-1, -2, -2, -2, -2, 0, 2, 2, 7],
     mode: 1, symmetry: 'left-right',
+    notes: "Dawkins' BasicTree preset (raw [-10,-20,-20,-15,-15,0,15,15,7] / trickle=9, rounded)",
   },
   {
     name: 'Snowflake',

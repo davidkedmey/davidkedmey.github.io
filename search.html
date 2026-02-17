@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gene Search — Find Biomorphs by Shape</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0a0e14;
+      color: #d4dce6;
+      min-height: 100vh;
+    }
+
+    .site-nav {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #0d1117;
+      border-bottom: 1px solid #1a2030;
+      font-size: 0.8rem;
+    }
+    .site-nav a {
+      color: #8a9aaa;
+      text-decoration: none;
+      padding: 4px 10px;
+      border: 1px solid #2a3444;
+      border-radius: 4px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .site-nav a:hover {
+      color: #c8e6c8;
+      border-color: #4a6a5a;
+    }
+
+    .hero {
+      text-align: center;
+      padding: 40px 24px 24px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    .hero h1 {
+      font-family: Georgia, serif;
+      font-size: 1.8rem;
+      color: #c8e6c8;
+      margin-bottom: 8px;
+    }
+    .hero p {
+      color: #8a9aaa;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .workspace {
+      display: flex;
+      gap: 24px;
+      padding: 20px 24px 40px;
+      max-width: 960px;
+      margin: 0 auto;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .panel {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .panel h2 {
+      font-size: 0.85rem;
+      color: #6a7a8a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    canvas.display {
+      border: 1px solid #2a3444;
+      border-radius: 6px;
+      display: block;
+      margin: 0 auto 12px;
+      image-rendering: pixelated;
+      width: 200px;
+      height: 200px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 8px 0;
+    }
+
+    button {
+      background: #1a2a22;
+      border: 1px solid #3a5a4a;
+      color: #a8d8a8;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.2s;
+    }
+    button:hover { background: #2a3a32; }
+    button:disabled { opacity: 0.4; cursor: default; }
+
+    select {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      color: #d4dce6;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    label {
+      font-size: 0.85rem;
+      color: #8a9aaa;
+    }
+
+    input[type="file"] { display: none; }
+
+    .gene-display {
+      font-family: 'SF Mono', monospace;
+      font-size: 0.85rem;
+      color: #c8e6c8;
+      margin: 4px 0;
+      text-align: center;
+    }
+    .score-display {
+      text-align: center;
+      font-size: 0.9rem;
+    }
+    .score-value {
+      color: #a8d8a8;
+      font-weight: bold;
+      font-family: 'SF Mono', monospace;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #1a2434;
+      border-radius: 3px;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #4a8a5a;
+      border-radius: 3px;
+      transition: width 0.2s;
+      width: 0%;
+    }
+
+    .status {
+      font-size: 0.8rem;
+      color: #6a7a8a;
+      text-align: center;
+      min-height: 1.2em;
+    }
+
+    .results {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 0 24px 40px;
+      max-width: 960px;
+      margin: 0 auto;
+      justify-content: center;
+    }
+    .results h2 {
+      width: 100%;
+      font-family: Georgia, serif;
+      font-size: 1.1rem;
+      color: #c8e6c8;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .result-card {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .result-card:hover {
+      border-color: #4a6a5a;
+      transform: translateY(-2px);
+    }
+    .result-card canvas {
+      border: 1px solid #1a2434;
+      border-radius: 4px;
+      display: block;
+      margin: 0 auto 8px;
+      image-rendering: pixelated;
+      width: 100px;
+      height: 100px;
+    }
+    .result-card .info {
+      font-size: 0.72rem;
+      color: #6a7a8a;
+      font-family: 'SF Mono', monospace;
+    }
+    .result-card .result-score {
+      color: #a8d8a8;
+      font-weight: bold;
+    }
+
+    .log {
+      background: #080a0e;
+      border: 1px solid #1a2434;
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-family: 'SF Mono', monospace;
+      font-size: 0.75rem;
+      max-height: 200px;
+      overflow-y: auto;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      color: #6a7a8a;
+      max-width: 960px;
+      margin: 0 auto 40px;
+    }
+
+    .meta-note {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 0 24px 24px;
+      text-align: center;
+    }
+    .meta-note p {
+      font-family: Georgia, serif;
+      font-size: 0.85rem;
+      color: #5a6a7a;
+      font-style: italic;
+      line-height: 1.5;
+    }
+    .meta-note a { color: #6a8a9a; }
+
+    .footer {
+      text-align: center;
+      padding: 20px 24px 40px;
+      color: #4a5a6a;
+      font-size: 0.8rem;
+      line-height: 1.6;
+    }
+    .footer a { color: #6a8a9a; text-decoration: none; }
+
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 1.4rem; }
+      .workspace { flex-direction: column; align-items: center; }
+      .panel { width: 100%; max-width: 320px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="./">Hub</a>
+  <a href="breed.html">Breed</a>
+  <a href="game/">Play</a>
+  <a href="3d/">3D</a>
+  <a href="dawkins-paper/">Read</a>
+  <a href="museum.html">Museum</a>
+</nav>
+
+<div class="hero">
+  <h1>Gene Search</h1>
+  <p>
+    Find the genotype that produces a target shape. Upload an image or run a ground-truth test,
+    then watch a genetic algorithm evolve toward the answer — using Dawkins' own method
+    to find Dawkins' creatures.
+  </p>
+</div>
+
+<div class="workspace">
+  <!-- Target -->
+  <div class="panel">
+    <h2>Target</h2>
+    <canvas id="target-canvas" class="display" width="80" height="80"></canvas>
+    <div class="controls" style="justify-content:center;">
+      <button id="btn-ground-truth">Ground Truth</button>
+      <button id="btn-load-image">Upload Image</button>
+      <input type="file" id="file-input" accept="image/*">
+    </div>
+    <div id="target-info" class="gene-display" style="color:#6a7a8a; font-size:0.8rem; margin-top:8px;">No target loaded</div>
+  </div>
+
+  <!-- Best match -->
+  <div class="panel">
+    <h2>Best Match</h2>
+    <canvas id="best-canvas" class="display" width="80" height="80"></canvas>
+    <div id="best-info" class="gene-display">—</div>
+    <div id="best-score" class="score-display">Score: <span class="score-value">—</span></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="panel" style="min-width:220px;">
+    <h2>Search</h2>
+    <div class="controls">
+      <label>Mode:
+        <select id="mode-select">
+          <option value="1" selected>1 — Basic</option>
+          <option value="2">2 — Symmetry</option>
+          <option value="3">3 — Segments</option>
+          <option value="4">4 — Gradients</option>
+          <option value="5">5 — Full Dawkins</option>
+        </select>
+      </label>
+    </div>
+    <div class="controls">
+      <label>Method:
+        <select id="method-select">
+          <option value="ga" selected>Genetic Algorithm</option>
+          <option value="brute">Brute Force (Mode 1)</option>
+        </select>
+      </label>
+    </div>
+    <div class="controls" style="justify-content:center; margin-top:12px;">
+      <button id="btn-run" disabled>Run Search</button>
+      <button id="btn-stop" disabled>Stop</button>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+    <div id="status" class="status">Load a target to begin.</div>
+  </div>
+</div>
+
+<div class="meta-note">
+  <p>
+    The search space is ~135 billion genotypes. The GA typically finds a match in 200–500 generations
+    (~60K evaluations) — 0.00004% of the space. Cumulative selection really works.
+    <a href="how-we-built-this.html">Read how we built this.</a>
+  </p>
+</div>
+
+<!-- Top results -->
+<div class="results" id="top-results">
+  <h2>Top Results</h2>
+</div>
+
+<!-- Log -->
+<div class="log" id="log"></div>
+
+<div class="footer">
+  Part of <a href="./">Biomorph Builder</a>.
+  Open a result in the <a href="breed.html">Breeder</a> by clicking it.
+</div>
+
+<script type="module">
+  import { drawTree, MODE_CONFIGS, randomGenotype } from './shared/genotype.js';
+  import { GeneSearch, prepareReference, bruteForceMode1 } from './shared/gene-search.js';
+
+  const targetCanvas = document.getElementById('target-canvas');
+  const bestCanvas = document.getElementById('best-canvas');
+  const targetCtx = targetCanvas.getContext('2d');
+  const bestCtx = bestCanvas.getContext('2d');
+  const logEl = document.getElementById('log');
+  const statusEl = document.getElementById('status');
+  const progressEl = document.getElementById('progress');
+  const topResultsEl = document.getElementById('top-results');
+
+  let referenceBinary = null;
+  let running = false;
+  let stopRequested = false;
+
+  function log(msg) {
+    logEl.textContent += msg + '\n';
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  // ── Render a genotype to a visible canvas ──
+
+  function renderToCanvas(ctx, genes) {
+    const w = ctx.canvas.width;
+    const h = ctx.canvas.height;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, h);
+
+    const lines = drawTree(genes);
+    if (lines.length === 0) return;
+
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const seg of lines) {
+      minX = Math.min(minX, seg.x0, seg.x1);
+      maxX = Math.max(maxX, seg.x0, seg.x1);
+      minY = Math.min(minY, seg.y0, seg.y1);
+      maxY = Math.max(maxY, seg.y0, seg.y1);
+    }
+
+    const bw = maxX - minX || 1;
+    const bh = maxY - minY || 1;
+    const pad = 4;
+    const scale = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh);
+    const cx = w / 2;
+    const cy = h / 2;
+    const ox = (minX + maxX) / 2;
+    const oy = (minY + maxY) / 2;
+
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const seg of lines) {
+      ctx.moveTo(Math.round(cx + (seg.x0 - ox) * scale), Math.round(cy + (seg.y0 - oy) * scale));
+      ctx.lineTo(Math.round(cx + (seg.x1 - ox) * scale), Math.round(cy + (seg.y1 - oy) * scale));
+    }
+    ctx.stroke();
+  }
+
+  // ── Ground truth test ──
+
+  document.getElementById('btn-ground-truth').addEventListener('click', () => {
+    const secretGenes = [-1, 3, -1, -1, 2, 2, 2, 3, 7];
+    renderToCanvas(targetCtx, secretGenes);
+    referenceBinary = prepareReference(targetCanvas);
+    document.getElementById('target-info').textContent = 'Ground truth test loaded';
+    document.getElementById('btn-run').disabled = false;
+    statusEl.textContent = 'Ready to search.';
+    log(`Ground truth test: secret genes = [${secretGenes.join(', ')}]`);
+    log(`The GA must rediscover these from the rendered image alone.\n`);
+  });
+
+  // ── Load image from file ──
+
+  document.getElementById('btn-load-image').addEventListener('click', () => {
+    document.getElementById('file-input').click();
+  });
+
+  document.getElementById('file-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const img = new Image();
+    img.onload = () => {
+      targetCtx.fillStyle = '#fff';
+      targetCtx.fillRect(0, 0, 80, 80);
+      const scale = Math.min(80 / img.width, 80 / img.height) * 0.9;
+      const dw = img.width * scale;
+      const dh = img.height * scale;
+      targetCtx.drawImage(img, (80 - dw) / 2, (80 - dh) / 2, dw, dh);
+
+      referenceBinary = prepareReference(targetCanvas);
+      document.getElementById('target-info').textContent = file.name;
+      document.getElementById('btn-run').disabled = false;
+      statusEl.textContent = 'Image loaded. Ready to search.';
+      log(`Loaded: ${file.name} (${img.width}×${img.height})\n`);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+
+  // ── Run search ──
+
+  document.getElementById('btn-run').addEventListener('click', async () => {
+    if (!referenceBinary || running) return;
+    running = true;
+    stopRequested = false;
+    document.getElementById('btn-run').disabled = true;
+    document.getElementById('btn-stop').disabled = false;
+
+    // Clear old results but keep heading
+    const heading = topResultsEl.querySelector('h2');
+    topResultsEl.innerHTML = '';
+    if (heading) topResultsEl.appendChild(heading);
+
+    const mode = parseInt(document.getElementById('mode-select').value);
+    const method = document.getElementById('method-select').value;
+    const topResults = [];
+
+    if (method === 'brute' && mode === 1) {
+      log(`\nBrute force search starting...`);
+      statusEl.textContent = 'Brute force running...';
+
+      try {
+        const results = await bruteForceMode1(referenceBinary, {
+          topN: 10,
+          onProgress: (checked, total, best) => {
+            if (stopRequested) throw new Error('stopped');
+            const pct = (checked / total * 100).toFixed(1);
+            progressEl.style.width = pct + '%';
+            statusEl.textContent = `Brute force: ${pct}% (${(checked/1e6).toFixed(1)}M / ${(total/1e6).toFixed(1)}M)`;
+
+            if (best) {
+              renderToCanvas(bestCtx, best.genes);
+              document.getElementById('best-info').textContent = `[${best.genes.join(', ')}]`;
+              document.getElementById('best-score').innerHTML = `Score: <span class="score-value">${best.score.toFixed(4)}</span>`;
+            }
+          }
+        });
+
+        log(`\nBrute force complete!`);
+        for (const r of results) {
+          log(`  ${r.score.toFixed(4)}: [${r.genes.join(', ')}]`);
+          addTopResult(r.genes, r.score, mode);
+        }
+      } catch (e) {
+        if (e.message === 'stopped') log('\nStopped.');
+        else throw e;
+      }
+
+    } else {
+      log(`\nGA search: mode ${mode}, population 300, max 500 generations...`);
+      statusEl.textContent = 'GA running...';
+
+      const search = new GeneSearch(referenceBinary, {
+        mode,
+        populationSize: 300,
+        generations: 500,
+      });
+
+      const seen = new Set();
+
+      search.onProgress = (gen, best, population) => {
+        if (stopRequested) throw new Error('stopped');
+
+        const pct = (gen / 500 * 100).toFixed(0);
+        progressEl.style.width = pct + '%';
+
+        if (gen % 20 === 0) {
+          log(`  Gen ${gen}: score=${best.score.toFixed(4)}  [${best.genes.join(',')}]`);
+          renderToCanvas(bestCtx, best.genes);
+          document.getElementById('best-info').textContent = `[${best.genes.join(', ')}]`;
+          document.getElementById('best-score').innerHTML = `Score: <span class="score-value">${best.score.toFixed(4)}</span>`;
+          statusEl.textContent = `Gen ${gen}/500 — score ${best.score.toFixed(4)}`;
+
+          for (const ind of population.slice(0, 5)) {
+            const key = ind.genes.join(',');
+            if (!seen.has(key) && ind.score > 0.3) {
+              seen.add(key);
+              topResults.push({ genes: ind.genes.slice(), score: ind.score });
+            }
+          }
+        }
+      };
+
+      try {
+        const result = await search.run();
+        log(`\nComplete! Best: ${result.score.toFixed(4)} — [${result.genes.join(', ')}]`);
+
+        topResults.sort((a, b) => b.score - a.score);
+        const heading = topResultsEl.querySelector('h2');
+        topResultsEl.innerHTML = '';
+        if (heading) topResultsEl.appendChild(heading);
+        for (const r of topResults.slice(0, 10)) {
+          addTopResult(r.genes, r.score, mode);
+        }
+      } catch (e) {
+        if (e.message === 'stopped') log('\nStopped.');
+        else throw e;
+      }
+    }
+
+    running = false;
+    document.getElementById('btn-run').disabled = false;
+    document.getElementById('btn-stop').disabled = true;
+    statusEl.textContent = 'Done.';
+    progressEl.style.width = '100%';
+  });
+
+  document.getElementById('btn-stop').addEventListener('click', () => {
+    stopRequested = true;
+  });
+
+  // ── Result card (clickable → opens in breeder) ──
+
+  function addTopResult(genes, score, mode) {
+    const card = document.createElement('a');
+    card.className = 'result-card';
+    card.href = `breed.html#genes=${genes.join(',')}&mode=${mode}`;
+    card.title = 'Open in Breeder';
+
+    const c = document.createElement('canvas');
+    c.width = 80;
+    c.height = 80;
+    renderToCanvas(c.getContext('2d'), genes);
+
+    const info = document.createElement('div');
+    info.className = 'info';
+    info.innerHTML = `<span class="result-score">${score.toFixed(3)}</span><br>[${genes.join(', ')}]`;
+
+    card.appendChild(c);
+    card.appendChild(info);
+    topResultsEl.appendChild(card);
+  }
+</script>
+
+</body>
+</html>
