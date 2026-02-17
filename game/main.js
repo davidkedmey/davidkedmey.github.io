@@ -20,7 +20,7 @@ import { loadDawkinsDialogue, createDawkinsState, canStartVisit, startVisit, adv
 import { loadAudioSettings, getAudioSettings, initOnInteraction, toggleMusic, toggleVoice, toggleAutoFollow, startMusic, stopMusic, setMusicMood, speak, stopSpeech, resetLastSpoken } from './audio.js';
 import { loadLLMSettings, getLLMSettings, setLLMSetting, interpretCommand, buildGameContext } from './llm.js';
 import { initExhibits, exhibitBreederURL } from './exhibits.js';
-import { loadBreederGallery, breederToOrganism, galleryImportCost } from './gallery-bridge.js';
+import { loadBreederGallery, loadAllImportable, breederToOrganism, galleryImportCost } from './gallery-bridge.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -1643,9 +1643,9 @@ function cmdAI(arg, parts) {
 }
 
 function cmdGallery() {
-  const items = loadBreederGallery();
+  const items = loadAllImportable();
   if (items.length === 0) {
-    showMessage('No specimens in breeder gallery.');
+    showMessage('No specimens available.');
     return;
   }
   gameState.galleryItems = items;

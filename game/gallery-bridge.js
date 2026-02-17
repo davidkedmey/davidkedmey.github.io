@@ -1,7 +1,9 @@
-// Gallery bridge: reads breeder gallery from localStorage, converts to farm organisms
+// Gallery bridge: reads breeder gallery + collected specimens from localStorage,
+// converts to farm organisms
 
 import { createOrganism, randomFarmGenes } from './organisms.js';
 import { generateName } from './naming.js';
+import { loadCollection } from '../shared/collection.js';
 
 const GALLERY_KEY = 'biomorph-gallery';
 
@@ -15,6 +17,18 @@ export function loadBreederGallery() {
   } catch {
     return [];
   }
+}
+
+// Load specimens collected from the 3D gallery (and any other source)
+export function loadCollectedSpecimens() {
+  return loadCollection().filter(spec => spec.mode >= 1 && spec.mode <= 5);
+}
+
+// Combined: all importable specimens from both breeder and collected
+export function loadAllImportable() {
+  const breeder = loadBreederGallery().map(s => ({ ...s, _source: 'breeder' }));
+  const collected = loadCollectedSpecimens().map(s => ({ ...s, _source: s.source || '3d-gallery' }));
+  return [...breeder, ...collected];
 }
 
 // Convert a breeder gallery specimen into a fresh farm organism

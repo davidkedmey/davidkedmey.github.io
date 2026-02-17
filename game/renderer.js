@@ -2132,7 +2132,7 @@ function drawGalleryOverlay(ctx, gs) {
   overlayBg(ctx);
   const pw = 700, ph = 500;
   const px = (CANVAS_W - pw) / 2, py = (CANVAS_H - ph) / 2;
-  drawPanel(ctx, px, py, pw, ph, 'Breeder Gallery');
+  drawPanel(ctx, px, py, pw, ph, 'Specimen Gallery');
 
   const items = gs.galleryItems || [];
   if (items.length === 0) {

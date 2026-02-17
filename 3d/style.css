@@ -196,3 +196,10 @@ body {
   line-height: 1.6;
   word-break: break-all;
 }
+
+#collect-prompt {
+  font-size: 0.7rem;
+  text-align: center;
+  margin-top: 6px;
+  color: #8b949e;
+}

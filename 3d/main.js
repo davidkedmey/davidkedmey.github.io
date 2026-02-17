@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { createEnvironment } from './environment.js';
 import { createTree, disposeTree, clearMaterialCache } from './tree-renderer.js';
 import { randomInteresting, MODE_CONFIGS } from '../shared/genotype.js';
+import { saveToCollection, isInCollection } from '../shared/collection.js';
 
 // ── Renderer ────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ const hud = document.getElementById('hud');
 const geneOverlay = document.getElementById('gene-overlay');
 const geneDisplay = document.getElementById('gene-display');
 const zoneNameEl = document.getElementById('zone-name');
+const collectPromptEl = document.getElementById('collect-prompt');
 
 // ── Activation (no pointer lock) ────────────────────────────
 
@@ -73,7 +75,7 @@ const keys = new Set();
 const GAME_KEYS = new Set([
   'KeyW', 'KeyS', 'KeyA', 'KeyD',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
-  'Space', 'KeyC', 'ShiftLeft', 'ShiftRight',
+  'Space', 'KeyC', 'ShiftLeft', 'ShiftRight', 'KeyF',
 ]);
 
 document.addEventListener('keydown', (e) => {
@@ -357,7 +359,7 @@ function updateVisibility() {
 
 // ── Gene display on approach ────────────────────────────────
 
-let nearestGenes = null;
+let nearestExhibit = null;
 
 function checkProximity() {
   if (!active) return;
@@ -379,8 +381,8 @@ function checkProximity() {
   }
 
   if (closest) {
-    if (closest.genes !== nearestGenes) {
-      nearestGenes = closest.genes;
+    if (closest !== nearestExhibit) {
+      nearestExhibit = closest;
       const config = MODE_CONFIGS[closest.mode] || MODE_CONFIGS[1];
       const chips = [];
       for (let i = 0; i < config.geneCount && i < closest.genes.length; i++) {
@@ -388,9 +390,30 @@ function checkProximity() {
       }
       geneDisplay.textContent = chips.join('  ');
     }
+    // Update collect prompt
+    if (isInCollection(closest.genes, closest.mode)) {
+      collectPromptEl.textContent = '\u2713 Collected';
+      collectPromptEl.style.color = '#4c4';
+    } else {
+      collectPromptEl.textContent = 'Press F to collect';
+      collectPromptEl.style.color = '#8b949e';
+    }
+    // Handle F key
+    if (keys.has('KeyF')) {
+      keys.delete('KeyF');
+      if (!isInCollection(closest.genes, closest.mode)) {
+        saveToCollection({
+          genes: closest.genes,
+          mode: closest.mode,
+          source: '3d-gallery',
+        });
+        collectPromptEl.textContent = '\u2713 Collected';
+        collectPromptEl.style.color = '#4c4';
+      }
+    }
     geneOverlay.style.display = 'block';
   } else {
-    nearestGenes = null;
+    nearestExhibit = null;
     geneOverlay.style.display = 'none';
   }
 }
