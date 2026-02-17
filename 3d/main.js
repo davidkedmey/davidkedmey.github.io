@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createEnvironment } from './environment.js';
+import { createEnvironment, switchEnvironment, PRESET_NAMES } from './environment.js';
 import { createTree, disposeTree, clearMaterialCache, windUniforms } from './tree-renderer.js';
 import { randomInteresting, MODE_CONFIGS } from '../shared/genotype.js';
 import { saveToCollection, isInCollection } from '../shared/collection.js';
@@ -31,7 +31,7 @@ container.appendChild(renderer.domElement);
 // ── Scene ──────────────────────────────────────────────────
 
 const scene = new THREE.Scene();
-createEnvironment(scene);
+const lights = createEnvironment(scene);
 
 // ── Camera + OrbitControls ─────────────────────────────────
 
@@ -84,6 +84,7 @@ const btnPause = document.getElementById('btn-pause');
 const btnRegen = document.getElementById('btn-regenerate');
 const btnCollect = document.getElementById('btn-collect');
 const btnWind = document.getElementById('btn-wind');
+const envSelect = document.getElementById('env-select');
 
 // ── Specimen management ────────────────────────────────────
 
@@ -202,6 +203,10 @@ btnWind.addEventListener('click', () => {
   btnWind.style.borderColor = windEnabled ? '' : '#f85149';
 });
 
+envSelect.addEventListener('change', () => {
+  switchEnvironment(scene, envSelect.value, lights, pedestalMat);
+});
+
 // ── WASD movement ──────────────────────────────────────────
 
 const WALK_SPEED = 8;
@@ -246,7 +251,7 @@ function updateMovement(delta) {
 
 document.addEventListener('keydown', (e) => {
   // Don't capture when select is focused
-  if (e.target === modeSelect) return;
+  if (e.target === modeSelect || e.target === envSelect) return;
 
   // Track movement keys
   if (MOVE_KEYS.has(e.code)) {
@@ -285,6 +290,13 @@ document.addEventListener('keydown', (e) => {
     case 'KeyG':
       e.preventDefault();
       btnWind.click();
+      break;
+    case 'KeyE':
+      e.preventDefault();
+      const curIdx = PRESET_NAMES.indexOf(envSelect.value);
+      const nextEnv = PRESET_NAMES[(curIdx + 1) % PRESET_NAMES.length];
+      envSelect.value = nextEnv;
+      switchEnvironment(scene, nextEnv, lights, pedestalMat);
       break;
   }
 });
