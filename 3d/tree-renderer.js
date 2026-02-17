@@ -28,6 +28,59 @@ const treeMaterial = new THREE.MeshStandardMaterial({
   metalness: 0.05,
 });
 
+// ── Wind system (Crysis-style two-layer: main bending + detail flutter) ──
+
+const windUniforms = {
+  uTime:         { value: 0 },
+  uWindStrength: { value: 1.0 },
+};
+
+treeMaterial.onBeforeCompile = (shader) => {
+  shader.uniforms.uTime = windUniforms.uTime;
+  shader.uniforms.uWindStrength = windUniforms.uWindStrength;
+
+  // Declare uniforms + attribute + helper functions
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <common>',
+    `#include <common>
+     uniform float uTime;
+     uniform float uWindStrength;
+     attribute vec2 aWind; // x = flexibility (0=rigid trunk, 1=flexible tip), y = phase
+
+     // GPU Gems smoothed triangle wave — cheaper than sin, snappier feel
+     float triWave(float x) {
+       return abs(fract(x + 0.5) * 2.0 - 1.0);
+     }
+     float smoothTriWave(float x) {
+       float t = triWave(x);
+       return t * t * (3.0 - 2.0 * t);
+     }`
+  );
+
+  // Vertex displacement after begin_vertex sets up 'transformed'
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <begin_vertex>',
+    `#include <begin_vertex>
+
+     float flex = aWind.x;
+     float phase = aWind.y;
+     float h = max(transformed.y, 0.0);
+
+     // Layer 1: Main bending — slow whole-tree lean, height-scaled
+     float mainBend = (smoothTriWave(uTime * 0.08) * 2.0 - 1.0) * h * 0.012 * uWindStrength;
+
+     // Layer 2: Detail flutter — fast per-branch, flexibility-scaled
+     float flutter1 = (smoothTriWave(uTime * 0.35 + phase) * 2.0 - 1.0);
+     float flutter2 = (smoothTriWave(uTime * 0.47 + phase * 1.3 + 0.7) * 2.0 - 1.0);
+     float flutter3 = (smoothTriWave(uTime * 0.62 + phase * 0.8 + 1.4) * 2.0 - 1.0);
+     float detailScale = flex * flex * uWindStrength * 0.4;
+
+     transformed.x += mainBend + flutter1 * detailScale;
+     transformed.z += mainBend * 0.6 + flutter2 * detailScale * 0.7;
+     transformed.y += flutter3 * detailScale * 0.2;`
+  );
+};
+
 // Reusable objects to avoid per-call allocation
 const _up = new THREE.Vector3(0, 1, 0);
 const _matrix = new THREE.Matrix4();
@@ -51,6 +104,7 @@ function vectorTo3D(index, dx, dy) {
 
 /**
  * Create a positioned + colored cylinder geometry for one branch.
+ * Bakes per-vertex wind data: aWind.x = flexibility, aWind.y = phase.
  */
 function createBranchGeo(start, end, depth, maxDepth, scale) {
   const dir = new THREE.Vector3().subVectors(end, start);
@@ -82,6 +136,16 @@ function createBranchGeo(start, end, depth, maxDepth, scale) {
     colorArr[i * 3 + 2] = _color.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
+
+  // Bake wind data: flexibility (0=trunk, 1=tip) + per-branch phase
+  const flexibility = maxDepth > 1 ? (maxDepth - depth) / (maxDepth - 1) : 0;
+  const phase = (mid.x * 12.9898 + mid.y * 78.233 + mid.z * 45.164) % 6.2832;
+  const windArr = new Float32Array(count * 2);
+  for (let i = 0; i < count; i++) {
+    windArr[i * 2]     = flexibility;
+    windArr[i * 2 + 1] = phase;
+  }
+  geo.setAttribute('aWind', new THREE.BufferAttribute(windArr, 2));
 
   return geo;
 }
@@ -176,3 +240,5 @@ export function disposeTree(treeGroup) {
  * No-op — kept for API compatibility. Material is shared, not cached.
  */
 export function clearMaterialCache() {}
+
+export { windUniforms };

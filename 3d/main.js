@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createEnvironment } from './environment.js';
-import { createTree, disposeTree, clearMaterialCache } from './tree-renderer.js';
+import { createTree, disposeTree, clearMaterialCache, windUniforms } from './tree-renderer.js';
 import { randomInteresting, MODE_CONFIGS } from '../shared/genotype.js';
 import { saveToCollection, isInCollection } from '../shared/collection.js';
 
@@ -83,6 +83,7 @@ const btnNext = document.getElementById('btn-next');
 const btnPause = document.getElementById('btn-pause');
 const btnRegen = document.getElementById('btn-regenerate');
 const btnCollect = document.getElementById('btn-collect');
+const btnWind = document.getElementById('btn-wind');
 
 // ── Specimen management ────────────────────────────────────
 
@@ -193,6 +194,14 @@ btnCollect.addEventListener('click', () => {
   }
 });
 
+let windEnabled = true;
+btnWind.addEventListener('click', () => {
+  windEnabled = !windEnabled;
+  windUniforms.uWindStrength.value = windEnabled ? 1.0 : 0;
+  btnWind.textContent = windEnabled ? 'Wind: ON' : 'Wind: OFF';
+  btnWind.style.borderColor = windEnabled ? '' : '#f85149';
+});
+
 // ── WASD movement ──────────────────────────────────────────
 
 const WALK_SPEED = 8;
@@ -273,6 +282,10 @@ document.addEventListener('keydown', (e) => {
       e.preventDefault();
       btnPause.click();
       break;
+    case 'KeyG':
+      e.preventDefault();
+      btnWind.click();
+      break;
   }
 });
 
@@ -307,6 +320,7 @@ function animate() {
     treeGroup.rotation.y += ROTATE_SPEED * delta;
   }
 
+  windUniforms.uTime.value = clock.getElapsedTime();
   renderer.render(scene, camera);
 }
 
