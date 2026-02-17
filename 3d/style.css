@@ -203,3 +203,11 @@ body {
   margin-top: 6px;
   color: #8b949e;
 }
+
+#specimen-counter {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.7rem;
+  text-align: center;
+  margin-top: 4px;
+  color: #8b949e;
+}

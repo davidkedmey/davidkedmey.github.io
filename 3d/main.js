@@ -76,6 +76,7 @@ const GAME_KEYS = new Set([
   'KeyW', 'KeyS', 'KeyA', 'KeyD',
   'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
   'Space', 'KeyC', 'ShiftLeft', 'ShiftRight', 'KeyF',
+  'KeyQ', 'KeyE',
 ]);
 
 document.addEventListener('keydown', (e) => {
@@ -263,22 +264,14 @@ function updateDayNight(delta) {
   sun.color.lerpColors(COLOR_SUN_NEUTRAL, COLOR_SUN_WARM, warmth);
 }
 
-// ── Gallery exhibits ────────────────────────────────────────
+// ── Showcase pedestal gallery ────────────────────────────────
 
-const EXHIBITS_PER_ZONE = 4;
-const EXHIBIT_X = 8;       // distance from path center
-const BACKDROP_OFFSET = 3; // how far behind the biomorph
-const GENE_APPROACH_DIST = 6;
-const VISIBILITY_RANGE_SQ = 45 * 45;
+const SPECIMENS_PER_ZONE = 4;
+const PEDESTAL_X = 6;
+const BACKDROP_OFFSET = 3;
+const ROTATE_SPEED = 0.3;
+const GENE_APPROACH_DIST = 8;
 
-// Shared geometry + materials for exhibit furniture
-const ALCOVE_HEIGHT = 14;
-const ALCOVE_DEPTH = 10;   // back wall width (along z)
-const ALCOVE_WING = 5;     // side wall depth (along x, toward path)
-const WALL_THICK = 0.3;
-
-const backWallGeo = new THREE.BoxGeometry(WALL_THICK, ALCOVE_HEIGHT, ALCOVE_DEPTH);
-const sideWallGeo = new THREE.BoxGeometry(ALCOVE_WING, ALCOVE_HEIGHT, WALL_THICK);
 const backdropMat = new THREE.MeshStandardMaterial({
   color: 0x12141a,
   roughness: 0.95,
@@ -290,149 +283,151 @@ const pedestalMat = new THREE.MeshStandardMaterial({
   roughness: 0.8,
   metalness: 0.1,
 });
+const backWallGeo = new THREE.BoxGeometry(0.3, 14, 10);
 
-/**
- * @typedef {{
- *   treeGroup: THREE.Group,
- *   walls: THREE.Mesh[],
- *   pedestal: THREE.Mesh,
- *   genes: number[],
- *   x: number, z: number,
- *   mode: number,
- * }} Exhibit
- */
+const counterEl = document.getElementById('specimen-counter');
 
-/** @type {Exhibit[]} */
-let exhibits = [];
+const zoneExhibits = ZONES.map((zone, i) => ({
+  zone,
+  specimens: [],
+  currentIndex: 0,
+  side: (i % 2 === 0) ? -1 : 1,
+  centerZ: (zone.zMin + zone.zMax) / 2,
+  treeGroup: null,
+  pedestal: null,
+  backWall: null,
+}));
 
-function generateGallery() {
-  // Dispose old exhibits
-  for (const ex of exhibits) {
-    disposeTree(ex.treeGroup);
-    scene.remove(ex.treeGroup);
-    for (const w of ex.walls) scene.remove(w);
-    scene.remove(ex.pedestal);
+function showSpecimen(zoneIdx, specimenIdx) {
+  const ze = zoneExhibits[zoneIdx];
+  // Dispose old tree
+  if (ze.treeGroup) {
+    disposeTree(ze.treeGroup);
+    scene.remove(ze.treeGroup);
+    ze.treeGroup = null;
   }
-  exhibits = [];
-  clearMaterialCache();
-
-  for (const zone of ZONES) {
-    const spacing = (zone.zMax - zone.zMin) / (EXHIBITS_PER_ZONE + 1);
-
-    for (let i = 0; i < EXHIBITS_PER_ZONE; i++) {
-      const z = zone.zMin + spacing * (i + 1);
-      const side = (i % 2 === 0) ? -1 : 1;
-      const x = side * EXHIBIT_X;
-
-      const walls = [];
-
-      // Back wall
-      const backWall = new THREE.Mesh(backWallGeo, backdropMat);
-      backWall.position.set(x + side * BACKDROP_OFFSET, ALCOVE_HEIGHT / 2, z);
-      backWall.receiveShadow = true;
-      scene.add(backWall);
-      walls.push(backWall);
-
-      // Side walls (at z ± ALCOVE_DEPTH/2)
-      const wingX = x + side * (BACKDROP_OFFSET - ALCOVE_WING / 2);
-      for (const zOff of [-1, 1]) {
-        const sideWall = new THREE.Mesh(sideWallGeo, backdropMat);
-        sideWall.position.set(wingX, ALCOVE_HEIGHT / 2, z + zOff * ALCOVE_DEPTH / 2);
-        sideWall.receiveShadow = true;
-        scene.add(sideWall);
-        walls.push(sideWall);
-      }
-
-      // Pedestal
-      const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
-      pedestal.position.set(x, 0.2, z);
-      pedestal.receiveShadow = true;
-      scene.add(pedestal);
-
-      // Biomorph
-      const genes = randomInteresting(zone.mode);
-      const treeGroup = createTree(genes);
-      treeGroup.position.set(x, 0.4, z);
-      scene.add(treeGroup);
-
-      exhibits.push({ treeGroup, walls, pedestal, genes, x, z, mode: zone.mode });
-    }
-  }
+  ze.currentIndex = specimenIdx;
+  const specimen = ze.specimens[specimenIdx];
+  const tree = createTree(specimen.genes);
+  tree.position.set(ze.side * PEDESTAL_X, 0.4, ze.centerZ);
+  scene.add(tree);
+  ze.treeGroup = tree;
 }
 
-// ── Distance culling ────────────────────────────────────────
+function generateGallery() {
+  // Dispose everything
+  for (const ze of zoneExhibits) {
+    if (ze.treeGroup) { disposeTree(ze.treeGroup); scene.remove(ze.treeGroup); ze.treeGroup = null; }
+    if (ze.pedestal) { scene.remove(ze.pedestal); ze.pedestal = null; }
+    if (ze.backWall) { scene.remove(ze.backWall); ze.backWall = null; }
+    ze.specimens = [];
+    ze.currentIndex = 0;
+  }
+  clearMaterialCache();
 
-function updateVisibility() {
-  const cx = camera.position.x;
-  const cz = camera.position.z;
-
-  for (const ex of exhibits) {
-    const dx = ex.x - cx;
-    const dz = ex.z - cz;
-    const vis = (dx * dx + dz * dz) < VISIBILITY_RANGE_SQ;
-    ex.treeGroup.visible = vis;
-    for (const w of ex.walls) w.visible = vis;
-    ex.pedestal.visible = vis;
+  for (let i = 0; i < zoneExhibits.length; i++) {
+    const ze = zoneExhibits[i];
+    // Generate specimen data
+    for (let j = 0; j < SPECIMENS_PER_ZONE; j++) {
+      ze.specimens.push({ genes: randomInteresting(ze.zone.mode), mode: ze.zone.mode });
+    }
+    // Pedestal
+    const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
+    pedestal.position.set(ze.side * PEDESTAL_X, 0.2, ze.centerZ);
+    pedestal.receiveShadow = true;
+    scene.add(pedestal);
+    ze.pedestal = pedestal;
+    // Back wall
+    const wall = new THREE.Mesh(backWallGeo, backdropMat);
+    wall.position.set(ze.side * (PEDESTAL_X + BACKDROP_OFFSET), 7, ze.centerZ);
+    wall.receiveShadow = true;
+    scene.add(wall);
+    ze.backWall = wall;
+    // Show first specimen
+    showSpecimen(i, 0);
   }
 }
 
 // ── Gene display on approach ────────────────────────────────
 
-let nearestExhibit = null;
+let nearestZoneIdx = -1;
 
 function checkProximity() {
   if (!active) return;
 
   const cx = camera.position.x;
   const cz = camera.position.z;
-  let closest = null;
+  let closestIdx = -1;
   let closestDist = GENE_APPROACH_DIST;
 
-  for (const ex of exhibits) {
-    if (!ex.treeGroup.visible) continue;
-    const dx = ex.x - cx;
-    const dz = ex.z - cz;
+  for (let i = 0; i < zoneExhibits.length; i++) {
+    const ze = zoneExhibits[i];
+    if (!ze.pedestal) continue;
+    const dx = ze.side * PEDESTAL_X - cx;
+    const dz = ze.centerZ - cz;
     const dist = Math.sqrt(dx * dx + dz * dz);
     if (dist < closestDist) {
       closestDist = dist;
-      closest = ex;
+      closestIdx = i;
     }
   }
 
-  if (closest) {
-    if (closest !== nearestExhibit) {
-      nearestExhibit = closest;
-      const config = MODE_CONFIGS[closest.mode] || MODE_CONFIGS[1];
-      const chips = [];
-      for (let i = 0; i < config.geneCount && i < closest.genes.length; i++) {
-        chips.push(`${config.geneLabels[i]}=${closest.genes[i]}`);
-      }
-      geneDisplay.textContent = chips.join('  ');
+  if (closestIdx >= 0) {
+    const ze = zoneExhibits[closestIdx];
+    const specimen = ze.specimens[ze.currentIndex];
+
+    // Update gene display when zone or specimen changes
+    if (closestIdx !== nearestZoneIdx) {
+      nearestZoneIdx = closestIdx;
     }
-    // Update collect prompt
-    if (isInCollection(closest.genes, closest.mode)) {
+    const config = MODE_CONFIGS[specimen.mode] || MODE_CONFIGS[1];
+    const chips = [];
+    for (let i = 0; i < config.geneCount && i < specimen.genes.length; i++) {
+      chips.push(`${config.geneLabels[i]}=${specimen.genes[i]}`);
+    }
+    geneDisplay.textContent = chips.join('  ');
+
+    // Counter
+    counterEl.textContent = `${ze.currentIndex + 1} / ${ze.specimens.length}`;
+
+    // Collect prompt
+    if (isInCollection(specimen.genes, specimen.mode)) {
       collectPromptEl.textContent = '\u2713 Collected';
       collectPromptEl.style.color = '#4c4';
     } else {
       collectPromptEl.textContent = 'Press F to collect';
       collectPromptEl.style.color = '#8b949e';
     }
-    // Handle F key
+
+    // Q/E cycling
+    if (keys.has('KeyQ')) {
+      keys.delete('KeyQ');
+      const newIdx = (ze.currentIndex - 1 + ze.specimens.length) % ze.specimens.length;
+      showSpecimen(closestIdx, newIdx);
+    }
+    if (keys.has('KeyE')) {
+      keys.delete('KeyE');
+      const newIdx = (ze.currentIndex + 1) % ze.specimens.length;
+      showSpecimen(closestIdx, newIdx);
+    }
+
+    // F to collect
     if (keys.has('KeyF')) {
       keys.delete('KeyF');
-      if (!isInCollection(closest.genes, closest.mode)) {
+      if (!isInCollection(specimen.genes, specimen.mode)) {
         saveToCollection({
-          genes: closest.genes,
-          mode: closest.mode,
+          genes: specimen.genes,
+          mode: specimen.mode,
           source: '3d-gallery',
         });
         collectPromptEl.textContent = '\u2713 Collected';
         collectPromptEl.style.color = '#4c4';
       }
     }
+
     geneOverlay.style.display = 'block';
   } else {
-    nearestExhibit = null;
+    nearestZoneIdx = -1;
     geneOverlay.style.display = 'none';
   }
 }
@@ -461,17 +456,17 @@ generateGallery();
 
 // ── Render loop ─────────────────────────────────────────────
 
-let frameCount = 0;
-
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
-  frameCount++;
 
   updateMovement(delta);
   updateDayNight(delta);
 
-  if (frameCount % 10 === 0) updateVisibility();
+  // Auto-rotate specimens
+  for (const ze of zoneExhibits) {
+    if (ze.treeGroup) ze.treeGroup.rotation.y += ROTATE_SPEED * delta;
+  }
 
   checkProximity();
   updateZoneDisplay();
