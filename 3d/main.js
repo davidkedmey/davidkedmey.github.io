@@ -1,15 +1,21 @@
 /**
- * 3D Biomorph Gallery — keyboard-controlled walk through five exhibit
- * zones, each showcasing a different Dawkins biomorph mode.
+ * 3D Biomorph Viewer — single specimen on a pedestal with orbit controls.
+ * Mode selector, prev/next cycling, auto-rotation, collect.
  */
 
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createEnvironment } from './environment.js';
 import { createTree, disposeTree, clearMaterialCache } from './tree-renderer.js';
 import { randomInteresting, MODE_CONFIGS } from '../shared/genotype.js';
 import { saveToCollection, isInCollection } from '../shared/collection.js';
 
-// ── Renderer ────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────
+
+const SPECIMENS_PER_MODE = 4;
+const ROTATE_SPEED = 0.3;
+
+// ── Renderer ───────────────────────────────────────────────
 
 const container = document.getElementById('scene-container');
 
@@ -22,423 +28,257 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.5;
 container.appendChild(renderer.domElement);
 
-// ── Scene ───────────────────────────────────────────────────
+// ── Scene ──────────────────────────────────────────────────
 
 const scene = new THREE.Scene();
-const { sun, ambient, hemi } = createEnvironment(scene);
+createEnvironment(scene);
 
-// ── Camera ──────────────────────────────────────────────────
+// ── Camera + OrbitControls ─────────────────────────────────
 
 const camera = new THREE.PerspectiveCamera(
-  70,
+  60,
   container.clientWidth / container.clientHeight,
   0.1,
-  500
+  200
 );
-camera.position.set(0, 1.7, -155);
-camera.rotation.order = 'YXZ';
+camera.position.set(0, 8, 22);
 
-let yaw = Math.PI;   // face +z
-let pitch = 0;
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 4, 0);
+controls.enableDamping = true;
+controls.minDistance = 3;
+controls.maxDistance = 25;
+controls.update();
 
-// ── DOM refs ────────────────────────────────────────────────
+// ── Pedestal ───────────────────────────────────────────────
 
-const overlay = document.getElementById('overlay');
-const hud = document.getElementById('hud');
-const geneOverlay = document.getElementById('gene-overlay');
-const geneDisplay = document.getElementById('gene-display');
-const zoneNameEl = document.getElementById('zone-name');
-const collectPromptEl = document.getElementById('collect-prompt');
-
-// ── Activation (no pointer lock) ────────────────────────────
-
-let active = false;
-
-overlay.addEventListener('click', () => {
-  active = true;
-  overlay.style.display = 'none';
-  hud.style.display = 'flex';
-});
-
-// ── Input ───────────────────────────────────────────────────
-
-const WALK_SPEED = 8;
-const RUN_SPEED = 16;
-const FLY_SPEED = 6;
-const TURN_SPEED = 2.0;
-const PITCH_SPEED = 1.5;
-const MAX_PITCH = Math.PI / 3;
-const EYE_HEIGHT = 1.7;
-
-const keys = new Set();
-
-const GAME_KEYS = new Set([
-  'KeyW', 'KeyS', 'KeyA', 'KeyD',
-  'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
-  'Space', 'KeyC', 'ShiftLeft', 'ShiftRight', 'KeyF',
-  'KeyQ', 'KeyE',
-]);
-
-document.addEventListener('keydown', (e) => {
-  if (e.code === 'Escape') {
-    if (active) {
-      active = false;
-      keys.clear();
-      overlay.style.display = 'flex';
-      hud.style.display = 'none';
-      geneOverlay.style.display = 'none';
-    }
-    return;
-  }
-  if (active) {
-    keys.add(e.code);
-    if (GAME_KEYS.has(e.code)) e.preventDefault();
-  }
-});
-
-document.addEventListener('keyup', (e) => keys.delete(e.code));
-
-// ── Movement ────────────────────────────────────────────────
-
-const _fwd = new THREE.Vector3();
-const _right = new THREE.Vector3();
-
-function updateMovement(delta) {
-  if (!active) return;
-
-  // Look
-  if (keys.has('ArrowLeft'))  yaw += TURN_SPEED * delta;
-  if (keys.has('ArrowRight')) yaw -= TURN_SPEED * delta;
-  if (keys.has('ArrowUp'))    pitch = Math.min(MAX_PITCH, pitch + PITCH_SPEED * delta);
-  if (keys.has('ArrowDown'))  pitch = Math.max(-MAX_PITCH, pitch - PITCH_SPEED * delta);
-
-  camera.rotation.y = yaw;
-  camera.rotation.x = pitch;
-
-  // Move
-  const speed = (keys.has('ShiftLeft') || keys.has('ShiftRight')) ? RUN_SPEED : WALK_SPEED;
-
-  _fwd.set(-Math.sin(yaw), 0, -Math.cos(yaw));
-  _right.set(Math.cos(yaw), 0, -Math.sin(yaw));
-
-  if (keys.has('KeyW')) camera.position.addScaledVector(_fwd, speed * delta);
-  if (keys.has('KeyS')) camera.position.addScaledVector(_fwd, -speed * delta);
-  if (keys.has('KeyA')) camera.position.addScaledVector(_right, -speed * delta);
-  if (keys.has('KeyD')) camera.position.addScaledVector(_right, speed * delta);
-
-  // Vertical
-  if (keys.has('Space')) camera.position.y += FLY_SPEED * delta;
-  if (keys.has('KeyC'))  camera.position.y -= FLY_SPEED * delta;
-  if (camera.position.y < EYE_HEIGHT) camera.position.y = EYE_HEIGHT;
-}
-
-// ── Zones ───────────────────────────────────────────────────
-
-const ZONES = [
-  { name: 'Basic',        mode: 1, zMin: -150, zMax: -90, color: 0x4488ff },
-  { name: 'Symmetry',     mode: 2, zMin: -90,  zMax: -30, color: 0x44ff88 },
-  { name: 'Segments',     mode: 3, zMin: -30,  zMax: 30,  color: 0xff8844 },
-  { name: 'Gradients',    mode: 4, zMin: 30,   zMax: 90,  color: 0xff44aa },
-  { name: 'Full Dawkins', mode: 5, zMin: 90,   zMax: 150, color: 0xaa44ff },
-];
-
-const PATH_HALF_WIDTH = 3;
-
-let currentZone = null;
-
-function getZoneAt(z) {
-  for (const zone of ZONES) {
-    if (z >= zone.zMin && z < zone.zMax) return zone;
-  }
-  return null;
-}
-
-function updateZoneDisplay() {
-  const zone = getZoneAt(camera.position.z);
-  if (zone !== currentZone) {
-    currentZone = zone;
-    if (zoneNameEl) {
-      zoneNameEl.textContent = zone ? zone.name : '—';
-      zoneNameEl.style.color = zone
-        ? '#' + zone.color.toString(16).padStart(6, '0')
-        : '#8b949e';
-    }
-  }
-}
-
-// ── Zone markers + labels ───────────────────────────────────
-
-function createZoneMarkers() {
-  for (const zone of ZONES) {
-    const z = zone.zMin;
-    const color = zone.color;
-
-    const geo = new THREE.CylinderGeometry(0.12, 0.12, 4, 8);
-    const mat = new THREE.MeshStandardMaterial({
-      color,
-      emissive: color,
-      emissiveIntensity: 0.4,
-    });
-
-    for (const side of [-1, 1]) {
-      const pillar = new THREE.Mesh(geo, mat);
-      pillar.position.set(side * PATH_HALF_WIDTH, 2, z);
-      pillar.castShadow = true;
-      scene.add(pillar);
-    }
-
-    const label = createTextSprite(zone.name, color);
-    label.position.set(0, 5, z + 3);
-    scene.add(label);
-  }
-}
-
-function createTextSprite(text, color) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, 512, 128);
-  ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, sans-serif';
-  ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, 256, 64);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
-  const sprite = new THREE.Sprite(material);
-  sprite.scale.set(10, 2.5, 1);
-  return sprite;
-}
-
-// ── Day/Night Cycle ─────────────────────────────────────────
-
-const CYCLE_DURATION = 90;
-
-let timeOfDay = 0.3;
-
-const COLOR_MIDNIGHT = new THREE.Color(0x020408);
-const COLOR_DAWN = new THREE.Color(0x4a3020);
-const COLOR_NOON = new THREE.Color(0x6a8aaa);
-const COLOR_SUN_WARM = new THREE.Color(0xff8844);
-const COLOR_SUN_NEUTRAL = new THREE.Color(0xffeedd);
-
-const skyColor = new THREE.Color();
-
-function updateDayNight(delta) {
-  timeOfDay += delta / CYCLE_DURATION;
-  if (timeOfDay >= 1) timeOfDay -= 1;
-
-  const sunAngle = timeOfDay * Math.PI * 2;
-  const sunHeight = Math.sin(sunAngle);
-
-  const px = camera.position.x;
-  const pz = camera.position.z;
-  sun.position.set(
-    px + Math.cos(sunAngle) * 40,
-    Math.sin(sunAngle) * 35,
-    pz + 10
-  );
-  sun.target.position.set(px, 0, pz);
-
-  const dayFactor = Math.max(0, Math.sin(timeOfDay * Math.PI));
-  sun.intensity = dayFactor * 3.5;
-  sun.visible = dayFactor > 0.01;
-  ambient.intensity = 0.1 + dayFactor * 0.9;
-  hemi.intensity = 0.15 + dayFactor * 1.2;
-
-  if (sunHeight < 0) {
-    skyColor.copy(COLOR_MIDNIGHT);
-  } else if (sunHeight < 0.3) {
-    skyColor.lerpColors(COLOR_MIDNIGHT, COLOR_DAWN, sunHeight / 0.3);
-  } else if (sunHeight < 0.6) {
-    skyColor.lerpColors(COLOR_DAWN, COLOR_NOON, (sunHeight - 0.3) / 0.3);
-  } else {
-    skyColor.copy(COLOR_NOON);
-  }
-  scene.background.copy(skyColor);
-  scene.fog.color.copy(skyColor);
-
-  const warmth = 1 - Math.min(1, Math.max(0, sunHeight) * 2);
-  sun.color.lerpColors(COLOR_SUN_NEUTRAL, COLOR_SUN_WARM, warmth);
-}
-
-// ── Showcase pedestal gallery ────────────────────────────────
-
-const SPECIMENS_PER_ZONE = 4;
-const PEDESTAL_X = 6;
-const BACKDROP_OFFSET = 3;
-const ROTATE_SPEED = 0.3;
-const GENE_APPROACH_DIST = 8;
-
-const backdropMat = new THREE.MeshStandardMaterial({
-  color: 0x12141a,
-  roughness: 0.95,
-  metalness: 0.0,
-});
 const pedestalGeo = new THREE.CylinderGeometry(1.5, 1.8, 0.4, 12);
 const pedestalMat = new THREE.MeshStandardMaterial({
   color: 0x2a2a30,
   roughness: 0.8,
   metalness: 0.1,
 });
-const backWallGeo = new THREE.BoxGeometry(0.3, 14, 10);
+const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
+pedestal.position.set(0, 0.2, 0);
+pedestal.receiveShadow = true;
+scene.add(pedestal);
 
+// ── State ──────────────────────────────────────────────────
+
+let currentMode = 1;
+let specimens = [];       // { genes, mode }[]
+let currentIndex = 0;
+let treeGroup = null;
+let autoRotate = true;
+
+// ── DOM refs ───────────────────────────────────────────────
+
+const geneDisplay = document.getElementById('gene-display');
+const collectPromptEl = document.getElementById('collect-prompt');
 const counterEl = document.getElementById('specimen-counter');
+const counterLabel = document.getElementById('counter-label');
+const modeSelect = document.getElementById('mode-select');
+const btnPrev = document.getElementById('btn-prev');
+const btnNext = document.getElementById('btn-next');
+const btnPause = document.getElementById('btn-pause');
+const btnRegen = document.getElementById('btn-regenerate');
+const btnCollect = document.getElementById('btn-collect');
 
-const zoneExhibits = ZONES.map((zone, i) => ({
-  zone,
-  specimens: [],
-  currentIndex: 0,
-  side: (i % 2 === 0) ? -1 : 1,
-  centerZ: (zone.zMin + zone.zMax) / 2,
-  treeGroup: null,
-  pedestal: null,
-  backWall: null,
-}));
+// ── Specimen management ────────────────────────────────────
 
-function showSpecimen(zoneIdx, specimenIdx) {
-  const ze = zoneExhibits[zoneIdx];
+function generateSpecimens(mode) {
+  specimens = [];
+  for (let i = 0; i < SPECIMENS_PER_MODE; i++) {
+    specimens.push({ genes: randomInteresting(mode), mode });
+  }
+  currentIndex = 0;
+}
+
+function showSpecimen(idx) {
   // Dispose old tree
-  if (ze.treeGroup) {
-    disposeTree(ze.treeGroup);
-    scene.remove(ze.treeGroup);
-    ze.treeGroup = null;
+  if (treeGroup) {
+    disposeTree(treeGroup);
+    scene.remove(treeGroup);
+    treeGroup = null;
   }
-  ze.currentIndex = specimenIdx;
-  const specimen = ze.specimens[specimenIdx];
+
+  currentIndex = idx;
+  const specimen = specimens[currentIndex];
   const tree = createTree(specimen.genes);
-  tree.position.set(ze.side * PEDESTAL_X, 0.4, ze.centerZ);
+  tree.position.set(0, 0.4, 0);
   scene.add(tree);
-  ze.treeGroup = tree;
+  treeGroup = tree;
+
+  updateGeneDisplay();
+  updateCounter();
+  updateCollectPrompt();
 }
 
-function generateGallery() {
-  // Dispose everything
-  for (const ze of zoneExhibits) {
-    if (ze.treeGroup) { disposeTree(ze.treeGroup); scene.remove(ze.treeGroup); ze.treeGroup = null; }
-    if (ze.pedestal) { scene.remove(ze.pedestal); ze.pedestal = null; }
-    if (ze.backWall) { scene.remove(ze.backWall); ze.backWall = null; }
-    ze.specimens = [];
-    ze.currentIndex = 0;
-  }
+function setMode(mode) {
+  currentMode = mode;
   clearMaterialCache();
-
-  for (let i = 0; i < zoneExhibits.length; i++) {
-    const ze = zoneExhibits[i];
-    // Generate specimen data
-    for (let j = 0; j < SPECIMENS_PER_ZONE; j++) {
-      ze.specimens.push({ genes: randomInteresting(ze.zone.mode), mode: ze.zone.mode });
-    }
-    // Pedestal
-    const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
-    pedestal.position.set(ze.side * PEDESTAL_X, 0.2, ze.centerZ);
-    pedestal.receiveShadow = true;
-    scene.add(pedestal);
-    ze.pedestal = pedestal;
-    // Back wall
-    const wall = new THREE.Mesh(backWallGeo, backdropMat);
-    wall.position.set(ze.side * (PEDESTAL_X + BACKDROP_OFFSET), 7, ze.centerZ);
-    wall.receiveShadow = true;
-    scene.add(wall);
-    ze.backWall = wall;
-    // Show first specimen
-    showSpecimen(i, 0);
-  }
+  generateSpecimens(mode);
+  showSpecimen(0);
 }
 
-// ── Gene display on approach ────────────────────────────────
+// ── Display updates ────────────────────────────────────────
 
-let nearestZoneIdx = -1;
-
-function checkProximity() {
-  if (!active) return;
-
-  const cx = camera.position.x;
-  const cz = camera.position.z;
-  let closestIdx = -1;
-  let closestDist = GENE_APPROACH_DIST;
-
-  for (let i = 0; i < zoneExhibits.length; i++) {
-    const ze = zoneExhibits[i];
-    if (!ze.pedestal) continue;
-    const dx = ze.side * PEDESTAL_X - cx;
-    const dz = ze.centerZ - cz;
-    const dist = Math.sqrt(dx * dx + dz * dz);
-    if (dist < closestDist) {
-      closestDist = dist;
-      closestIdx = i;
-    }
+function updateGeneDisplay() {
+  const specimen = specimens[currentIndex];
+  const config = MODE_CONFIGS[specimen.mode] || MODE_CONFIGS[1];
+  const chips = [];
+  for (let i = 0; i < config.geneCount && i < specimen.genes.length; i++) {
+    chips.push(`${config.geneLabels[i]}=${specimen.genes[i]}`);
   }
+  geneDisplay.textContent = chips.join('  ');
+}
 
-  if (closestIdx >= 0) {
-    const ze = zoneExhibits[closestIdx];
-    const specimen = ze.specimens[ze.currentIndex];
+function updateCounter() {
+  const text = `${currentIndex + 1} / ${specimens.length}`;
+  counterLabel.textContent = text;
+  counterEl.textContent = text;
+}
 
-    // Update gene display when zone or specimen changes
-    if (closestIdx !== nearestZoneIdx) {
-      nearestZoneIdx = closestIdx;
-    }
-    const config = MODE_CONFIGS[specimen.mode] || MODE_CONFIGS[1];
-    const chips = [];
-    for (let i = 0; i < config.geneCount && i < specimen.genes.length; i++) {
-      chips.push(`${config.geneLabels[i]}=${specimen.genes[i]}`);
-    }
-    geneDisplay.textContent = chips.join('  ');
-
-    // Counter
-    counterEl.textContent = `${ze.currentIndex + 1} / ${ze.specimens.length}`;
-
-    // Collect prompt
-    if (isInCollection(specimen.genes, specimen.mode)) {
-      collectPromptEl.textContent = '\u2713 Collected';
-      collectPromptEl.style.color = '#4c4';
-    } else {
-      collectPromptEl.textContent = 'Press F to collect';
-      collectPromptEl.style.color = '#8b949e';
-    }
-
-    // Q/E cycling
-    if (keys.has('KeyQ')) {
-      keys.delete('KeyQ');
-      const newIdx = (ze.currentIndex - 1 + ze.specimens.length) % ze.specimens.length;
-      showSpecimen(closestIdx, newIdx);
-    }
-    if (keys.has('KeyE')) {
-      keys.delete('KeyE');
-      const newIdx = (ze.currentIndex + 1) % ze.specimens.length;
-      showSpecimen(closestIdx, newIdx);
-    }
-
-    // F to collect
-    if (keys.has('KeyF')) {
-      keys.delete('KeyF');
-      if (!isInCollection(specimen.genes, specimen.mode)) {
-        saveToCollection({
-          genes: specimen.genes,
-          mode: specimen.mode,
-          source: '3d-gallery',
-        });
-        collectPromptEl.textContent = '\u2713 Collected';
-        collectPromptEl.style.color = '#4c4';
-      }
-    }
-
-    geneOverlay.style.display = 'block';
+function updateCollectPrompt() {
+  const specimen = specimens[currentIndex];
+  if (isInCollection(specimen.genes, specimen.mode)) {
+    collectPromptEl.textContent = '\u2713 Collected';
+    collectPromptEl.style.color = '#4c4';
+    btnCollect.textContent = '\u2713 Collected';
+    btnCollect.style.borderColor = '#4c4';
   } else {
-    nearestZoneIdx = -1;
-    geneOverlay.style.display = 'none';
+    collectPromptEl.textContent = '';
+    collectPromptEl.style.color = '#8b949e';
+    btnCollect.textContent = 'Collect';
+    btnCollect.style.borderColor = '';
   }
 }
 
-// ── Controls ────────────────────────────────────────────────
+// ── HUD wiring ─────────────────────────────────────────────
 
-document.getElementById('btn-regenerate').addEventListener('click', () => {
-  generateGallery();
+modeSelect.addEventListener('change', () => {
+  setMode(parseInt(modeSelect.value, 10));
 });
 
-// ── Resize ──────────────────────────────────────────────────
+btnPrev.addEventListener('click', () => {
+  const idx = (currentIndex - 1 + specimens.length) % specimens.length;
+  showSpecimen(idx);
+});
+
+btnNext.addEventListener('click', () => {
+  const idx = (currentIndex + 1) % specimens.length;
+  showSpecimen(idx);
+});
+
+btnPause.addEventListener('click', () => {
+  autoRotate = !autoRotate;
+  btnPause.textContent = autoRotate ? '\u23F8' : '\u25B6';
+});
+
+btnRegen.addEventListener('click', () => {
+  clearMaterialCache();
+  generateSpecimens(currentMode);
+  showSpecimen(0);
+});
+
+btnCollect.addEventListener('click', () => {
+  const specimen = specimens[currentIndex];
+  if (!isInCollection(specimen.genes, specimen.mode)) {
+    saveToCollection({
+      genes: specimen.genes,
+      mode: specimen.mode,
+      source: '3d-gallery',
+    });
+    updateCollectPrompt();
+  }
+});
+
+// ── WASD movement ──────────────────────────────────────────
+
+const WALK_SPEED = 8;
+const RUN_SPEED = 16;
+const FLY_SPEED = 6;
+
+const keys = new Set();
+const _fwd = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _move = new THREE.Vector3();
+
+const MOVE_KEYS = new Set([
+  'KeyW', 'KeyS', 'KeyA', 'KeyD',
+  'Space', 'KeyC', 'ShiftLeft', 'ShiftRight',
+]);
+
+function updateMovement(delta) {
+  if (keys.size === 0) return;
+
+  const speed = (keys.has('ShiftLeft') || keys.has('ShiftRight')) ? RUN_SPEED : WALK_SPEED;
+
+  // Forward/back based on camera facing (flattened to XZ)
+  camera.getWorldDirection(_fwd);
+  _fwd.y = 0;
+  _fwd.normalize();
+  _right.crossVectors(_fwd, camera.up).normalize();
+
+  _move.set(0, 0, 0);
+  if (keys.has('KeyW')) _move.addScaledVector(_fwd, speed * delta);
+  if (keys.has('KeyS')) _move.addScaledVector(_fwd, -speed * delta);
+  if (keys.has('KeyA')) _move.addScaledVector(_right, -speed * delta);
+  if (keys.has('KeyD')) _move.addScaledVector(_right, speed * delta);
+  if (keys.has('Space')) _move.y += FLY_SPEED * delta;
+  if (keys.has('KeyC'))  _move.y -= FLY_SPEED * delta;
+
+  // Move camera and orbit target together
+  camera.position.add(_move);
+  controls.target.add(_move);
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────
+
+document.addEventListener('keydown', (e) => {
+  // Don't capture when select is focused
+  if (e.target === modeSelect) return;
+
+  // Track movement keys
+  if (MOVE_KEYS.has(e.code)) {
+    keys.add(e.code);
+    e.preventDefault();
+    return;
+  }
+
+  switch (e.code) {
+    case 'ArrowLeft':
+      e.preventDefault();
+      btnPrev.click();
+      break;
+    case 'ArrowRight':
+      e.preventDefault();
+      btnNext.click();
+      break;
+    case 'Digit1': case 'Digit2': case 'Digit3': case 'Digit4': case 'Digit5':
+      e.preventDefault();
+      const mode = parseInt(e.code.charAt(5), 10);
+      modeSelect.value = mode;
+      setMode(mode);
+      break;
+    case 'KeyF':
+      e.preventDefault();
+      btnCollect.click();
+      break;
+    case 'KeyR':
+      e.preventDefault();
+      btnRegen.click();
+      break;
+    case 'KeyP':
+      e.preventDefault();
+      btnPause.click();
+      break;
+  }
+});
+
+document.addEventListener('keyup', (e) => keys.delete(e.code));
+
+// ── Resize ─────────────────────────────────────────────────
 
 window.addEventListener('resize', () => {
   const w = container.clientWidth;
@@ -448,28 +288,25 @@ window.addEventListener('resize', () => {
   renderer.setSize(w, h);
 });
 
-// ── Init ────────────────────────────────────────────────────
+// ── Init ───────────────────────────────────────────────────
 
 const clock = new THREE.Clock();
-createZoneMarkers();
-generateGallery();
+generateSpecimens(currentMode);
+showSpecimen(0);
 
-// ── Render loop ─────────────────────────────────────────────
+// ── Render loop ────────────────────────────────────────────
 
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
 
   updateMovement(delta);
-  updateDayNight(delta);
+  controls.update();
 
-  // Auto-rotate specimens
-  for (const ze of zoneExhibits) {
-    if (ze.treeGroup) ze.treeGroup.rotation.y += ROTATE_SPEED * delta;
+  if (autoRotate && treeGroup) {
+    treeGroup.rotation.y += ROTATE_SPEED * delta;
   }
 
-  checkProximity();
-  updateZoneDisplay();
   renderer.render(scene, camera);
 }
 

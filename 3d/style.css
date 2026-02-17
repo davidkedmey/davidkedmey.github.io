@@ -23,74 +23,16 @@ body {
   height: 100%;
 }
 
-/* ── Click-to-start overlay ──────────────────────────────── */
-
-#overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(10, 14, 20, 0.8);
-  z-index: 20;
-  cursor: pointer;
-}
-
-.overlay-content {
-  text-align: center;
-}
-
-.overlay-content h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #e6edf3;
-  margin-bottom: 12px;
-}
-
-.overlay-prompt {
-  font-size: 1.1rem;
-  color: #58a6ff;
-  margin-bottom: 20px;
-}
-
-.overlay-hint {
-  font-size: 0.8rem;
-  color: #8b949e;
-}
-
-.overlay-path {
-  margin-top: 12px;
-  color: #58a6ff;
-  font-size: 0.75rem;
-}
-
-/* ── Crosshair ───────────────────────────────────────────── */
-
-#crosshair {
-  display: none;
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  width: 4px;
-  height: 4px;
-  margin-top: -2px;
-  margin-left: -2px;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 15;
-}
-
-/* ── HUD (bottom controls during play) ───────────────────── */
+/* ── HUD (bottom controls) ───────────────────────────────── */
 
 #hud {
-  display: none;
+  display: flex;
   position: fixed;
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   padding: 10px 16px;
   background: rgba(13, 17, 23, 0.8);
   backdrop-filter: blur(8px);
@@ -100,10 +42,10 @@ body {
   z-index: 15;
 }
 
-#hud button {
+#hud button, #hud select {
   font-family: inherit;
   font-size: 0.8rem;
-  padding: 6px 16px;
+  padding: 6px 14px;
   border: 1px solid #30363d;
   border-radius: 6px;
   background: #21262d;
@@ -113,26 +55,21 @@ body {
   white-space: nowrap;
 }
 
-.zone-indicator {
-  font-size: 0.8rem;
-  font-weight: 600;
-  padding: 5px 12px;
-  border: 1px solid #30363d;
-  border-radius: 6px;
-  background: #21262d;
-  color: #58a6ff;
-  transition: color 0.3s;
-  white-space: nowrap;
-}
-
-#hud button:hover {
+#hud button:hover, #hud select:hover {
   background: #30363d;
   border-color: #58a6ff;
 }
 
-.hud-hint {
-  font-size: 0.7rem;
+#hud select {
+  appearance: auto;
+}
+
+#counter-label {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.8rem;
   color: #8b949e;
+  min-width: 3.5em;
+  text-align: center;
 }
 
 /* ── Back link (always visible) ──────────────────────────── */
@@ -166,7 +103,7 @@ body {
 /* ── Gene display overlay ────────────────────────────────── */
 
 #gene-overlay {
-  display: none;
+  display: block;
   position: fixed;
   top: 16px;
   right: 16px;

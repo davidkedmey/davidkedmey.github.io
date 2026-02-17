@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dawkins' Biomorphs — 3D Gallery</title>
+  <title>Dawkins' Biomorphs — 3D Viewer</title>
   <link rel="stylesheet" href="style.css">
   <script type="importmap">
   {
@@ -17,15 +17,6 @@
 <body>
   <div id="scene-container"></div>
 
-  <div id="overlay">
-    <div class="overlay-content">
-      <h1>Biomorph Gallery</h1>
-      <p class="overlay-prompt">Click to explore</p>
-      <p class="overlay-hint">WASD move &middot; Arrows look &middot; Q/E cycle &middot; F collect &middot; Esc pause</p>
-      <p class="overlay-hint overlay-path">Walk the path: Basic &rarr; Symmetry &rarr; Segments &rarr; Gradients &rarr; Full Dawkins</p>
-    </div>
-  </div>
-
   <div id="gene-overlay">
     <h3>Genotype</h3>
     <div id="gene-display"></div>
@@ -34,9 +25,19 @@
   </div>
 
   <div id="hud">
-    <span id="zone-name" class="zone-indicator">Basic</span>
+    <select id="mode-select">
+      <option value="1">Mode 1 — Basic</option>
+      <option value="2">Mode 2 — Symmetry</option>
+      <option value="3">Mode 3 — Segments</option>
+      <option value="4">Mode 4 — Gradients</option>
+      <option value="5">Mode 5 — Full Dawkins</option>
+    </select>
+    <button id="btn-prev">&#9664; Prev</button>
+    <span id="counter-label">1 / 4</span>
+    <button id="btn-next">Next &#9654;</button>
+    <button id="btn-pause">&#9208;</button>
     <button id="btn-regenerate">Regenerate</button>
-    <span class="hud-hint">WASD move &middot; Arrows look &middot; Q/E cycle &middot; F collect &middot; Esc pause</span>
+    <button id="btn-collect">Collect</button>
   </div>
 
   <div id="header">
