@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createEnvironment } from './environment.js';
-import { createTree, disposeTree, clearMaterialCache } from './tree-renderer.js';
+import { createTree, disposeTree, clearMaterialCache, windUniforms } from './tree-renderer.js';
 import { randomInteresting, MODE_CONFIGS } from '../shared/genotype.js';
 import { saveToCollection, isInCollection } from '../shared/collection.js';
 
@@ -307,6 +307,7 @@ function animate() {
     treeGroup.rotation.y += ROTATE_SPEED * delta;
   }
 
+  windUniforms.uTime.value = clock.getElapsedTime();
   renderer.render(scene, camera);
 }
 

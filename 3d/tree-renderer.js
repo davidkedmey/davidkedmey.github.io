@@ -28,6 +28,34 @@ const treeMaterial = new THREE.MeshStandardMaterial({
   metalness: 0.05,
 });
 
+// Wind sway uniforms — updated each frame from main.js
+const windUniforms = {
+  uTime: { value: 0 },
+  uWindStrength: { value: 0.4 },
+};
+
+treeMaterial.onBeforeCompile = (shader) => {
+  shader.uniforms.uTime = windUniforms.uTime;
+  shader.uniforms.uWindStrength = windUniforms.uWindStrength;
+
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <common>',
+    `#include <common>
+     uniform float uTime;
+     uniform float uWindStrength;`
+  );
+
+  shader.vertexShader = shader.vertexShader.replace(
+    '#include <begin_vertex>',
+    `#include <begin_vertex>
+     float height = transformed.y;
+     float swayAmount = height * uWindStrength * 0.1;
+     float phase = transformed.x * 0.5 + transformed.z * 0.3;
+     transformed.x += sin(uTime * 1.2 + phase) * swayAmount;
+     transformed.z += sin(uTime * 0.9 + phase + 2.0) * swayAmount * 0.6;`
+  );
+};
+
 // Reusable objects to avoid per-call allocation
 const _up = new THREE.Vector3(0, 1, 0);
 const _matrix = new THREE.Matrix4();
@@ -176,3 +204,5 @@ export function disposeTree(treeGroup) {
  * No-op — kept for API compatibility. Material is shared, not cached.
  */
 export function clearMaterialCache() {}
+
+export { windUniforms };
