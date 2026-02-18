@@ -72,7 +72,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
     ctx.scale(zoom, zoom);
   }
 
-  drawTiles(ctx, world, cx, cy, gs.sandboxMode ? null : wilds);
+  drawTiles(ctx, world, cx, cy, gs.sandboxMode ? null : wilds, zoom);
   if (!gs.sandboxMode) {
     drawPropertyBorders(ctx, cx, cy);
     drawBuildings(ctx, collection, cx, cy, gs.dawkinsState);
@@ -107,6 +107,9 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
     ctx.textAlign = 'left';
   }
 
+  // Visible world-space viewport bounds (accounts for zoom)
+  const viewW = CANVAS_W / zoom, viewH_z = VIEW_H / zoom;
+
   // NPC planted organisms (skip in sandbox)
   if (npcStates && !gs.sandboxMode) {
     for (const ns of npcStates) {
@@ -114,7 +117,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
         if (org.tileCol == null) continue;
         const sx = org.tileCol * TILE_SIZE - cx + 2;
         const sy = org.tileRow * TILE_SIZE - cy + 2;
-        if (sx > -TILE_SIZE && sx < CANVAS_W && sy > -TILE_SIZE && sy < VIEW_H) {
+        if (sx > -TILE_SIZE && sx < viewW && sy > -TILE_SIZE && sy < viewH_z) {
           ctx.drawImage(getSprite(org, TILE_SIZE - 4), sx, sy);
         }
       }
@@ -127,7 +130,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
       if (org.tileCol == null) continue;
       const sx = org.tileCol * TILE_SIZE - cx + 2;
       const sy = org.tileRow * TILE_SIZE - cy + 2;
-      if (sx > -TILE_SIZE && sx < CANVAS_W && sy > -TILE_SIZE && sy < VIEW_H) {
+      if (sx > -TILE_SIZE && sx < viewW && sy > -TILE_SIZE && sy < viewH_z) {
         ctx.drawImage(getSprite(org, TILE_SIZE - 4), sx, sy);
         if (org.stage === 'mature') {
           const hasOffspring = org.offspring && org.offspring.length > 0;
@@ -148,7 +151,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
       for (const child of org.offspring) {
         const sx = child.col * TILE_SIZE - cx;
         const sy = child.row * TILE_SIZE - cy;
-        if (sx < -TILE_SIZE || sx > CANVAS_W || sy < -TILE_SIZE || sy > VIEW_H) continue;
+        if (sx < -TILE_SIZE || sx > viewW || sy < -TILE_SIZE || sy > viewH_z) continue;
         // Cyan ring
         ctx.strokeStyle = `rgba(0,220,240,${pulse + 0.15})`;
         ctx.lineWidth = 2;
@@ -228,6 +231,11 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
     drawSandboxHUD(ctx, gs, player);
   } else {
     drawHUD(ctx, gs, player, collection);
+  }
+
+  // Hover preview on planted biomorphs (sandbox, screen space)
+  if (gs.sandboxMode && !gs.overlay) {
+    drawHoverPreview(ctx, gs, planted, cam.x, cam.y);
   }
 
   // Command bar (above HUD)
@@ -485,12 +493,19 @@ function drawDayNight(ctx, gs) {
 
 // ── Tiles ──
 
-function drawTiles(ctx, world, cx, cy, wilds) {
+function drawTiles(ctx, world, cx, cy, wilds, zoom) {
+  const z = zoom || 1;
+  const viewW = CANVAS_W / z, viewH_z = VIEW_H / z;
   const worldCols = world[0].length, worldRows = world.length;
   const startCol = Math.max(0, Math.floor(cx / TILE_SIZE));
-  const endCol = Math.min(worldCols, Math.ceil((cx + CANVAS_W) / TILE_SIZE) + 1);
+  const endCol = Math.min(worldCols, Math.ceil((cx + viewW) / TILE_SIZE) + 1);
   const startRow = Math.max(0, Math.floor(cy / TILE_SIZE));
-  const endRow = Math.min(worldRows, Math.ceil((cy + VIEW_H) / TILE_SIZE) + 1);
+  const endRow = Math.min(worldRows, Math.ceil((cy + viewH_z) / TILE_SIZE) + 1);
+
+  // Level-of-detail: skip decorative details when tiles are small on screen
+  const screenTile = TILE_SIZE * z; // pixel size of a tile on screen
+  const detailed = screenTile >= 24;  // full detail at ≥24px
+  const minimal = screenTile < 12;    // bare minimum at <12px
 
   for (let row = startRow; row < endRow; row++) {
     for (let col = startCol; col < endCol; col++) {
@@ -500,86 +515,104 @@ function drawTiles(ctx, world, cx, cy, wilds) {
         case TILE.GRASS:
           ctx.fillStyle = grassColor(col, row);
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          ctx.fillStyle = 'rgba(255,255,255,0.04)';
-          ctx.fillRect(x + ((col*3+row*7)%12)+6, y + ((col*11+row*5)%16)+4, 2, 4);
-          ctx.fillRect(x + ((col*9+row*3)%20)+16, y + ((col*5+row*11)%20)+14, 2, 3);
+          if (detailed) {
+            ctx.fillStyle = 'rgba(255,255,255,0.04)';
+            ctx.fillRect(x + ((col*3+row*7)%12)+6, y + ((col*11+row*5)%16)+4, 2, 4);
+            ctx.fillRect(x + ((col*9+row*3)%20)+16, y + ((col*5+row*11)%20)+14, 2, 3);
+          }
           break;
         case TILE.DIRT:
           ctx.fillStyle = '#7a6340';
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1;
-          for (let ly = 6; ly < TILE_SIZE; ly += 8) {
-            ctx.beginPath(); ctx.moveTo(x+4, y+ly); ctx.lineTo(x+TILE_SIZE-4, y+ly); ctx.stroke();
+          if (detailed) {
+            ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1;
+            for (let ly = 6; ly < TILE_SIZE; ly += 8) {
+              ctx.beginPath(); ctx.moveTo(x+4, y+ly); ctx.lineTo(x+TILE_SIZE-4, y+ly); ctx.stroke();
+            }
           }
           break;
         case TILE.PATH:
           ctx.fillStyle = '#c4a87a';
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1;
-          ctx.strokeRect(x+0.5, y+0.5, TILE_SIZE-1, TILE_SIZE-1);
-          ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-          ctx.beginPath();
-          ctx.moveTo(x+TILE_SIZE/2, y); ctx.lineTo(x+TILE_SIZE/2, y+TILE_SIZE);
-          ctx.moveTo(x, y+TILE_SIZE/2); ctx.lineTo(x+TILE_SIZE, y+TILE_SIZE/2);
-          ctx.stroke();
+          if (detailed) {
+            ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1;
+            ctx.strokeRect(x+0.5, y+0.5, TILE_SIZE-1, TILE_SIZE-1);
+            ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+            ctx.beginPath();
+            ctx.moveTo(x+TILE_SIZE/2, y); ctx.lineTo(x+TILE_SIZE/2, y+TILE_SIZE);
+            ctx.moveTo(x, y+TILE_SIZE/2); ctx.lineTo(x+TILE_SIZE, y+TILE_SIZE/2);
+            ctx.stroke();
+          }
           break;
         case TILE.WATER:
           ctx.fillStyle = '#2a5a8a';
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          ctx.fillStyle = 'rgba(100,180,255,0.15)';
-          const wx = (col*17+row*11)%20, wy = (col*7+row*19)%16;
-          ctx.fillRect(x+wx+4, y+wy+6, 14, 2);
-          ctx.fillRect(x+((wx+22)%30)+2, y+((wy+18)%28)+4, 10, 2);
+          if (detailed) {
+            ctx.fillStyle = 'rgba(100,180,255,0.15)';
+            const wx = (col*17+row*11)%20, wy = (col*7+row*19)%16;
+            ctx.fillRect(x+wx+4, y+wy+6, 14, 2);
+            ctx.fillRect(x+((wx+22)%30)+2, y+((wy+18)%28)+4, 10, 2);
+          }
           break;
         case TILE.BUILDING:
           ctx.fillStyle = '#555';
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
           break;
         case TILE.FENCE: {
-          // Grass background
           ctx.fillStyle = grassColor(col, row);
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          // Wooden post pattern
-          ctx.fillStyle = '#8B6914';
-          ctx.fillRect(x + 6, y + 8, 6, TILE_SIZE - 12);
-          ctx.fillRect(x + TILE_SIZE - 12, y + 8, 6, TILE_SIZE - 12);
-          // Horizontal rails
-          ctx.fillStyle = '#a07818';
-          ctx.fillRect(x + 4, y + 14, TILE_SIZE - 8, 4);
-          ctx.fillRect(x + 4, y + TILE_SIZE - 18, TILE_SIZE - 8, 4);
+          if (minimal) {
+            // Just a brown dot at very low zoom
+            ctx.fillStyle = '#8B6914';
+            ctx.fillRect(x + 8, y + 8, TILE_SIZE - 16, TILE_SIZE - 16);
+          } else {
+            ctx.fillStyle = '#8B6914';
+            ctx.fillRect(x + 6, y + 8, 6, TILE_SIZE - 12);
+            ctx.fillRect(x + TILE_SIZE - 12, y + 8, 6, TILE_SIZE - 12);
+            ctx.fillStyle = '#a07818';
+            ctx.fillRect(x + 4, y + 14, TILE_SIZE - 8, 4);
+            ctx.fillRect(x + 4, y + TILE_SIZE - 18, TILE_SIZE - 8, 4);
+          }
           break;
         }
         case TILE.TREE: {
-          // Grass background
           ctx.fillStyle = grassColor(col, row);
           ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-          // Render wild biomorph if available, otherwise fallback to generic tree
-          const wildOrg = wilds && wilds.get(`${col},${row}`);
-          if (wildOrg) {
-            ctx.drawImage(getSprite(wildOrg, TILE_SIZE - 4), x + 2, y + 2);
-          } else {
-            // Fallback: generic green circle tree
-            ctx.fillStyle = '#6a5030';
-            ctx.fillRect(x + 20, y + 28, 8, 18);
+          if (minimal) {
+            // Simple green square at very low zoom
             ctx.fillStyle = '#3a6a2a';
-            ctx.beginPath();
-            ctx.arc(x + 24, y + 20, 16, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#4a7a3a';
-            ctx.beginPath();
-            ctx.arc(x + 20, y + 16, 10, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillRect(x + 8, y + 6, TILE_SIZE - 16, TILE_SIZE - 12);
+          } else {
+            const wildOrg = wilds && wilds.get(`${col},${row}`);
+            if (wildOrg) {
+              ctx.drawImage(getSprite(wildOrg, TILE_SIZE - 4), x + 2, y + 2);
+            } else {
+              ctx.fillStyle = '#6a5030';
+              ctx.fillRect(x + 20, y + 28, 8, 18);
+              ctx.fillStyle = '#3a6a2a';
+              ctx.beginPath();
+              ctx.arc(x + 24, y + 20, 16, 0, Math.PI * 2);
+              ctx.fill();
+              if (detailed) {
+                ctx.fillStyle = '#4a7a3a';
+                ctx.beginPath();
+                ctx.arc(x + 20, y + 16, 10, 0, Math.PI * 2);
+                ctx.fill();
+              }
+            }
           }
           break;
         }
       }
-      // Property tint overlay
-      const owner = getOwner(col, row);
-      if (owner) {
-        const prop = PROPERTIES.find(p => p.id === owner);
-        if (prop) {
-          ctx.fillStyle = prop.tint;
-          ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+      // Property tint overlay (skip at minimal zoom — too small to see)
+      if (!minimal) {
+        const owner = getOwner(col, row);
+        if (owner) {
+          const prop = PROPERTIES.find(p => p.id === owner);
+          if (prop) {
+            ctx.fillStyle = prop.tint;
+            ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+          }
         }
       }
     }
@@ -1003,6 +1036,128 @@ function drawSandboxSidebar(ctx, gs) {
   ctx.font = '9px monospace';
   ctx.textAlign = 'right';
   ctx.fillText('I', SB_X + SB_W - 10, bY + 17);
+
+  // Preview panel (when a biomorph is selected)
+  if (gs.sandboxBiomorph) {
+    const pY = bY + SB_ROW_H + 8;
+    const pW = SB_W;
+    const pH = 170;
+
+    // Background
+    ctx.fillStyle = 'rgba(18,18,42,0.85)';
+    ctx.beginPath();
+    ctx.roundRect(SB_X, pY, pW, pH, 6);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(100,100,140,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(SB_X, pY, pW, pH, 6);
+    ctx.stroke();
+
+    // Sprite preview (100px centered)
+    const spec = gs.sandboxBiomorph;
+    const spriteSize = 100;
+    const tmpOrg = {
+      genes: spec.genes,
+      mode: spec.mode,
+      colorGenes: spec.colorGenes || { hue: 0, spread: 3 },
+      symmetry: spec.symmetry || 'left-right',
+    };
+    ctx.drawImage(getSprite(tmpOrg, spriteSize), SB_X + (pW - spriteSize) / 2, pY + 4);
+
+    // Name
+    ctx.fillStyle = '#ddd';
+    ctx.font = 'bold 10px monospace';
+    ctx.textAlign = 'center';
+    const displayName = (spec.name || 'Unnamed').slice(0, 14);
+    ctx.fillText(displayName, SB_X + pW / 2, pY + spriteSize + 12);
+
+    // Mode/depth
+    ctx.fillStyle = '#888';
+    ctx.font = '9px monospace';
+    ctx.fillText(`Mode ${spec.mode}  Depth ${spec.genes[8]}`, SB_X + pW / 2, pY + spriteSize + 24);
+
+    // Palette counter
+    const palette = gs.sandboxPalette || [];
+    if (palette.length > 0) {
+      const idx = (gs.sandboxPaletteIdx || 0) + 1;
+      ctx.fillStyle = '#666';
+      ctx.fillText(`${idx} / ${palette.length}`, SB_X + pW / 2, pY + spriteSize + 36);
+    }
+
+    // Scroll hint
+    ctx.fillStyle = '#555';
+    ctx.font = '8px monospace';
+    ctx.fillText('\u2195 Scroll to browse', SB_X + pW / 2, pY + pH - 6);
+  }
+}
+
+function drawHoverPreview(ctx, gs, planted, cx, cy) {
+  if (!gs._mouseX && gs._mouseX !== 0) return;
+  const zoom = gs.sandboxZoom || 1;
+  const mx = gs._mouseX, my = gs._mouseY;
+  // Skip if mouse is over sidebar or HUD
+  if (mx < 140 && my >= 40) return;
+  if (my >= VIEW_H) return;
+
+  const col = Math.floor((mx / zoom + cx) / TILE_SIZE);
+  const row = Math.floor((my / zoom + cy) / TILE_SIZE);
+
+  // Find organism at this tile (parent or offspring)
+  let org = null;
+  for (const p of planted) {
+    if (p.tileCol === col && p.tileRow === row) { org = p; break; }
+    if (p.offspring) {
+      for (const c of p.offspring) {
+        if (c.col === col && c.row === row) { org = c.organism || p; break; }
+      }
+      if (org) break;
+    }
+  }
+  if (!org) return;
+
+  // Tooltip dimensions
+  const TW = 150, spriteSize = 110;
+  const name = org.nickname || org.name || 'Biomorph';
+  const modeLine = `Mode ${org.mode}  Depth ${org.genes[8]}`;
+  const TH = spriteSize + 44;
+
+  // Position near mouse, clamped on-screen
+  let tx = mx + 16, ty = my - TH / 2;
+  if (tx + TW > CANVAS_W - 4) tx = mx - TW - 16;
+  if (ty < 4) ty = 4;
+  if (ty + TH > VIEW_H - 4) ty = VIEW_H - TH - 4;
+
+  // Background
+  ctx.fillStyle = 'rgba(12,12,36,0.92)';
+  ctx.beginPath();
+  ctx.roundRect(tx, ty, TW, TH, 8);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(96,255,144,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(tx, ty, TW, TH, 8);
+  ctx.stroke();
+
+  // Sprite
+  const tmpOrg = {
+    genes: org.genes,
+    mode: org.mode,
+    colorGenes: org.colorGenes || { hue: 0, spread: 3 },
+    symmetry: org.symmetry || 'left-right',
+  };
+  ctx.drawImage(getSprite(tmpOrg, spriteSize), tx + (TW - spriteSize) / 2, ty + 4);
+
+  // Name
+  ctx.fillStyle = '#ddd';
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(name.slice(0, 18), tx + TW / 2, ty + spriteSize + 16);
+
+  // Mode/depth
+  ctx.fillStyle = '#888';
+  ctx.font = '9px monospace';
+  ctx.fillText(modeLine, tx + TW / 2, ty + spriteSize + 30);
 }
 
 function drawSandboxHUD(ctx, gs, player) {

@@ -5,6 +5,8 @@ import { createPlayer, updatePlayer, facingTile } from './player.js';
 import { createInput } from './input.js';
 import { render, updateCamera, CANVAS_W, CANVAS_H } from './renderer.js';
 import { createSeed, createOrganism, randomColorGenes, tickGrowth, harvest, spawnOffspring } from './organisms.js';
+import { randomInteresting } from '../shared/genotype.js';
+import { generateName } from './naming.js';
 import { sellPrice, buyPrice, generateShopStock } from './economy.js';
 import { createBreedingLab, labSelectParent, labSelectOffspring, labConfirm, labReset, breed } from './breeding.js';
 import { createCollection, donate, recordSale, recordBreed, serializeCollection, deserializeCollection } from './collection.js';
@@ -202,6 +204,8 @@ const gameState = {
   sandboxMode: false,
   sandboxTool: 0,       // palette index (0-6 = terrain, -1 = biomorph brush)
   sandboxBiomorph: null, // spec for biomorph brush
+  sandboxPalette: [],    // array of biomorph specs for scroll-to-browse
+  sandboxPaletteIdx: 0,  // current index in palette
   sandboxUndoStack: [],  // for undo
   sandboxZoom: 1.0,      // zoom level — snap to ZOOM_PRESETS values
 };
@@ -304,8 +308,6 @@ function startSandboxGame() {
   gameState.sandboxMode = true;
   gameState.creativeMode = true;
   gameState.phase = 'playing';
-  gameState.sandboxTool = 0;
-  gameState.sandboxBiomorph = null;
   gameState.sandboxUndoStack = [];
   // Replace world grid in-place (256x256 gives vast territory at all zoom levels)
   world.length = 0;
@@ -318,6 +320,33 @@ function startSandboxGame() {
   player.wallet = 0;
   planted.length = 0;
   npcStates.length = 0;
+
+  // Generate diverse biomorph palette
+  const palette = [];
+  const modeCounts = [[1,8],[2,6],[3,6],[4,5],[5,5]];
+  const symmetryTypes = ['left-right','up-down','four-way'];
+  for (const [mode, count] of modeCounts) {
+    for (let i = 0; i < count; i++) {
+      const genes = randomInteresting(mode);
+      const colorGenes = randomColorGenes();
+      const sym = mode >= 2
+        ? symmetryTypes[Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : 2)]
+        : 'left-right';
+      const name = generateName(genes, mode, colorGenes);
+      palette.push({ genes, mode, colorGenes, symmetry: sym, name });
+    }
+  }
+  // Merge user-bred specimens
+  const imported = loadAllImportable();
+  for (const spec of imported) {
+    if (!palette.some(p => p.name === spec.name))
+      palette.push(spec);
+  }
+  gameState.sandboxPalette = palette;
+  gameState.sandboxPaletteIdx = 0;
+  gameState.sandboxBiomorph = palette[0] || null;
+  gameState.sandboxTool = palette.length > 0 ? -1 : 0;
+
   if (!musicStarted) { musicStarted = true; startMusic('farm'); }
 }
 
@@ -353,8 +382,8 @@ const SANDBOX_PALETTE = [
 function handleSandboxPainting() {
   const VIEW_H_PAINT = CANVAS_H - TILE_SIZE;
   if (input.leftMouseY >= VIEW_H_PAINT) return; // clicking HUD area
-  // Skip clicks on sidebar area
-  if (input.leftMouseX < 130 && input.leftMouseY >= 40 && input.leftMouseY < 420) return;
+  // Skip clicks on sidebar area (including preview panel)
+  if (input.leftMouseX < 130 && input.leftMouseY >= 40 && input.leftMouseY < 560) return;
   const zoom = gameState.sandboxZoom;
   const col = Math.floor((input.leftMouseX / zoom + cam.x) / TILE_SIZE);
   const row = Math.floor((input.leftMouseY / zoom + cam.y) / TILE_SIZE);
@@ -1105,6 +1134,13 @@ function confirmGallerySelection() {
   if (gameState.sandboxMode) {
     gameState.sandboxBiomorph = spec;
     gameState.sandboxTool = -1;
+    // Sync palette: add if not present, update index
+    let idx = gameState.sandboxPalette.indexOf(spec);
+    if (idx < 0) {
+      gameState.sandboxPalette.push(spec);
+      idx = gameState.sandboxPalette.length - 1;
+    }
+    gameState.sandboxPaletteIdx = idx;
     gameState.overlay = null;
     showMessage(`Biomorph brush: ${spec.name || 'specimen'} — click to plant`, 3);
     return;
@@ -2399,10 +2435,20 @@ function gameLoop(timestamp) {
       input.setTextMode(true);
     }
 
-  // Sandbox zoom (mouse wheel + / - snap to presets)
+  // Sandbox: scroll-to-browse palette when mouse over sidebar, else zoom
   if (gameState.sandboxMode && !gameState.overlay) {
+    const mx = input.mouseX || 0, my = input.mouseY || 0;
+    const SB_BIOMORPH_Y = 40 + 8 + 7 * 36 + 8; // biomorph brush button Y
+    const overSidebar = mx < 130 && my >= SB_BIOMORPH_Y && my < 560;
     const wd = input.consumeWheel();
-    if (wd !== 0) {
+    if (wd !== 0 && overSidebar && gameState.sandboxPalette.length > 0) {
+      // Scroll palette
+      const dir = wd > 0 ? 1 : -1;
+      const len = gameState.sandboxPalette.length;
+      gameState.sandboxPaletteIdx = ((gameState.sandboxPaletteIdx + dir) % len + len) % len;
+      gameState.sandboxBiomorph = gameState.sandboxPalette[gameState.sandboxPaletteIdx];
+      gameState.sandboxTool = -1;
+    } else if (wd !== 0) {
       _zoomWheelAccum += wd;
       if (Math.abs(_zoomWheelAccum) >= ZOOM_WHEEL_THRESHOLD) {
         gameState.sandboxZoom = snapZoom(_zoomWheelAccum < 0 ? 1 : -1);
@@ -2450,6 +2496,11 @@ function gameLoop(timestamp) {
           } else {
             cmdGallery();
           }
+        }
+        // Click on preview panel → open gallery for manual selection
+        const previewY = SB_Y + 8 + 8 * SB_ROW_H + 16;
+        if (hitRect(click.x, click.y, SB_X, previewY, SB_W, 180)) {
+          cmdGallery();
         }
       }
     } else {
