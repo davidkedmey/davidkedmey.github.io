@@ -58,6 +58,9 @@ export function createInput(canvas) {
     keys[e.key] = false;
   });
 
+  // ── Wheel state ──
+  let wheelDelta = 0;
+
   // ── Mouse state (right-click drag for camera panning) ──
   const mouse = {
     rightDown: false,
@@ -81,6 +84,10 @@ export function createInput(canvas) {
   };
 
   if (canvas) {
+    canvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      wheelDelta += e.deltaY;
+    }, { passive: false });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     canvas.addEventListener('mousedown', e => {
@@ -173,6 +180,12 @@ export function createInput(canvas) {
     consumeClick() {
       if (mouse.click) { const c = mouse.click; mouse.click = null; return c; }
       return null;
+    },
+    // Wheel (zoom)
+    consumeWheel() {
+      const d = wheelDelta;
+      wheelDelta = 0;
+      return d;
     },
     // Text mode for command bar
     setTextMode(on) { textMode = on; },

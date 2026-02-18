@@ -202,6 +202,7 @@ const gameState = {
   sandboxTool: 0,       // palette index (0-6 = terrain, -1 = biomorph brush)
   sandboxBiomorph: null, // spec for biomorph brush
   sandboxUndoStack: [],  // for undo
+  sandboxZoom: 1.0,      // zoom level (0.25–2.0)
 };
 
 // Default inventory
@@ -332,8 +333,11 @@ const SANDBOX_PALETTE = [
 function handleSandboxPainting() {
   const VIEW_H_PAINT = CANVAS_H - TILE_SIZE;
   if (input.leftMouseY >= VIEW_H_PAINT) return; // clicking HUD area
-  const col = Math.floor((input.leftMouseX + cam.x) / TILE_SIZE);
-  const row = Math.floor((input.leftMouseY + cam.y) / TILE_SIZE);
+  // Skip clicks on sidebar area
+  if (input.leftMouseX < 130 && input.leftMouseY >= 40 && input.leftMouseY < 420) return;
+  const zoom = gameState.sandboxZoom;
+  const col = Math.floor((input.leftMouseX / zoom + cam.x) / TILE_SIZE);
+  const row = Math.floor((input.leftMouseY / zoom + cam.y) / TILE_SIZE);
   // Skip border tiles
   if (col <= 0 || col >= world[0].length - 1 || row <= 0 || row >= world.length - 1) return;
 
@@ -979,6 +983,14 @@ function handleWorldExamine() {
   const ft = facingTile(player);
   // Check player's planted organisms
   let org = planted.find(o => o.tileCol === ft.col && o.tileRow === ft.row);
+  // Check offspring phantoms (sandbox spawned offspring)
+  if (!org) {
+    for (const p of planted) {
+      if (!p.offspring) continue;
+      const child = p.offspring.find(c => c.col === ft.col && c.row === ft.row);
+      if (child) { org = child.organism; break; }
+    }
+  }
   // Check NPC planted organisms
   if (!org && npcStates) {
     for (const ns of npcStates) {
@@ -2043,6 +2055,23 @@ function gameLoop(timestamp) {
       input.setTextMode(true);
     }
 
+  // Sandbox zoom (mouse wheel + / -)
+  if (gameState.sandboxMode && !gameState.overlay) {
+    const wd = input.consumeWheel();
+    if (wd !== 0) {
+      const step = wd > 0 ? -0.1 : 0.1;
+      gameState.sandboxZoom = Math.max(0.25, Math.min(2.0, gameState.sandboxZoom + step));
+    }
+    if (input.justPressed('=') || input.justPressed('+')) {
+      gameState.sandboxZoom = Math.max(0.25, Math.min(2.0, gameState.sandboxZoom + 0.1));
+    }
+    if (input.justPressed('-')) {
+      gameState.sandboxZoom = Math.max(0.25, Math.min(2.0, gameState.sandboxZoom - 0.1));
+    }
+  } else {
+    input.consumeWheel(); // drain unused wheel events
+  }
+
   // Sandbox undo (Ctrl/Cmd+Z)
   if (gameState.sandboxMode && input.justPressed('Meta+z')) {
     const undo = gameState.sandboxUndoStack.pop();
@@ -2057,14 +2086,22 @@ function gameLoop(timestamp) {
       for (let i = 1; i <= 7; i++) {
         if (input.justPressed(String(i))) gameState.sandboxTool = i - 1;
       }
-      // Mouse click on sandbox palette (layout matches drawSandboxHUD)
+      // Mouse click on sidebar tools (layout matches drawSandboxSidebar)
       const click = input.consumeClick();
       if (click) {
-        const paletteX0 = (960 - 7 * 42) / 2;
+        const SB_X = 8, SB_Y = 40, SB_ROW_H = 36, SB_W = 114;
         for (let i = 0; i < 7; i++) {
-          if (hitRect(click.x, click.y, paletteX0 + i * 42, 720 + 4, 36, 28)) {
+          if (hitRect(click.x, click.y, SB_X, SB_Y + 8 + i * SB_ROW_H, SB_W, SB_ROW_H - 2)) {
             gameState.sandboxTool = i;
             break;
+          }
+        }
+        // Biomorph brush button
+        if (hitRect(click.x, click.y, SB_X, SB_Y + 8 + 7 * SB_ROW_H + 8, SB_W, SB_ROW_H - 2)) {
+          if (gameState.sandboxBiomorph) {
+            gameState.sandboxTool = -1;
+          } else {
+            cmdGallery();
           }
         }
       }
@@ -2199,16 +2236,17 @@ function gameLoop(timestamp) {
   // (Follow mode persists through overlays — only explicit Escape/Q/stop cancels it)
 
   // Camera — follow NPC or player
+  const _zoom = gameState.sandboxMode ? gameState.sandboxZoom : undefined;
   if (gameState.followNpcIdx >= 0) {
     const followTarget = npcStates[gameState.followNpcIdx];
     if (followTarget) {
-      updateCamera(cam, followTarget, dt, world[0].length * TILE_SIZE, world.length * TILE_SIZE);
+      updateCamera(cam, followTarget, dt, world[0].length * TILE_SIZE, world.length * TILE_SIZE, _zoom);
     } else {
       stopFollowNPC();
-      updateCamera(cam, player, dt, world[0].length * TILE_SIZE, world.length * TILE_SIZE);
+      updateCamera(cam, player, dt, world[0].length * TILE_SIZE, world.length * TILE_SIZE, _zoom);
     }
   } else {
-    updateCamera(cam, player, dt, world[0].length * TILE_SIZE, world.length * TILE_SIZE);
+    updateCamera(cam, player, dt, world[0].length * TILE_SIZE, world.length * TILE_SIZE, _zoom);
   }
 
   // Mouse camera panning (right-click drag)
@@ -2239,8 +2277,9 @@ function gameLoop(timestamp) {
   const WORLD_PX_W = world[0].length * TILE_SIZE;
   const WORLD_PX_H = world.length * TILE_SIZE;
   const VIEW_H = CANVAS_H - TILE_SIZE;
-  cam.x = Math.max(0, Math.min(WORLD_PX_W - CANVAS_W, cam.x + gameState.cameraPanOffset.x));
-  cam.y = Math.max(0, Math.min(WORLD_PX_H - VIEW_H, cam.y + gameState.cameraPanOffset.y));
+  const _zf = gameState.sandboxMode ? (gameState.sandboxZoom || 1) : 1;
+  cam.x = Math.max(0, Math.min(Math.max(0, WORLD_PX_W - CANVAS_W / _zf), cam.x + gameState.cameraPanOffset.x));
+  cam.y = Math.max(0, Math.min(Math.max(0, WORLD_PX_H - VIEW_H / _zf), cam.y + gameState.cameraPanOffset.y));
 
   if (!gameState.sandboxMode) {
   // Tutorial update
@@ -2413,10 +2452,10 @@ function gameLoop(timestamp) {
     wildTreeCount: wilds.size,
   };
 
-  // Pass mouse position for sandbox cursor highlight
+  // Pass mouse position for sandbox cursor highlight + sidebar hover
   if (gameState.sandboxMode) {
-    gameState._mouseX = input.leftMouseX;
-    gameState._mouseY = input.leftMouseY;
+    gameState._mouseX = input.mouseX;
+    gameState._mouseY = input.mouseY;
   }
 
   render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits, registry);

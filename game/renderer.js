@@ -34,15 +34,18 @@ function grassColor(col, row) {
 
 // ── Camera ──
 
-export function updateCamera(cam, player, dt, worldW, worldH) {
+export function updateCamera(cam, player, dt, worldW, worldH, zoom) {
+  const z = zoom || 1;
   const ww = worldW || WORLD_W;
   const wh = worldH || WORLD_H;
-  const tx = player.x - CANVAS_W / 2;
-  const ty = player.y - VIEW_H / 2;
+  const viewW = CANVAS_W / z;
+  const viewH = VIEW_H / z;
+  const tx = player.x - viewW / 2;
+  const ty = player.y - viewH / 2;
   cam.x += (tx - cam.x) * Math.min(1, 6 * dt); // smooth follow
   cam.y += (ty - cam.y) * Math.min(1, 6 * dt);
-  cam.x = clamp(cam.x, 0, ww - CANVAS_W);
-  cam.y = clamp(cam.y, 0, wh - VIEW_H);
+  cam.x = clamp(cam.x, 0, Math.max(0, ww - viewW));
+  cam.y = clamp(cam.y, 0, Math.max(0, wh - viewH));
 }
 
 // ── Main render ──
@@ -55,6 +58,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   if (gs.phase === 'intro') { drawIntro(ctx, gs); return; }
   if (gs.overlay === 'inventory') { drawInventoryOverlay(ctx, gs, player); return; }
 
+  const zoom = gs.sandboxZoom || 1;
   const cx = cam.x, cy = cam.y;
 
   // Clip viewport (don't draw into HUD)
@@ -62,6 +66,11 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   ctx.beginPath();
   ctx.rect(0, 0, CANVAS_W, VIEW_H);
   ctx.clip();
+
+  // Apply zoom (sandbox only)
+  if (zoom !== 1) {
+    ctx.scale(zoom, zoom);
+  }
 
   drawTiles(ctx, world, cx, cy, gs.sandboxMode ? null : wilds);
   if (!gs.sandboxMode) {
@@ -888,11 +897,10 @@ function drawHUD(ctx, gs, player, collection) {
 }
 
 function drawSandboxCursor(ctx, gs, cx, cy) {
-  // Determine mouse position from gs — we need to expose it somehow
-  // We'll use a simple approach: store mouse pos on gs each frame
   if (gs._mouseX == null) return;
-  const col = Math.floor((gs._mouseX + cx) / TILE_SIZE);
-  const row = Math.floor((gs._mouseY + cy) / TILE_SIZE);
+  const zoom = gs.sandboxZoom || 1;
+  const col = Math.floor((gs._mouseX / zoom + cx) / TILE_SIZE);
+  const row = Math.floor((gs._mouseY / zoom + cy) / TILE_SIZE);
   if (col < 0 || row < 0) return;
   const x = col * TILE_SIZE - cx;
   const y = row * TILE_SIZE - cy;
@@ -910,10 +918,96 @@ function drawSandboxCursor(ctx, gs, cx, cy) {
 const SANDBOX_PALETTE_COLORS = ['#4a7a3a', '#7a6340', '#c4a87a', '#2a5a8a', '#555', '#3a6a2a', '#8B6914'];
 const SANDBOX_PALETTE_LABELS = ['Grass', 'Soil', 'Path', 'Water', 'Stone', 'Tree', 'Fence'];
 
+function drawSandboxSidebar(ctx, gs) {
+  const SB_X = 8, SB_Y = 40, SB_W = 114, SB_ROW_H = 36;
+  const totalRows = 8; // 7 terrain + 1 biomorph brush + gap
+  const SB_H = 8 + totalRows * SB_ROW_H + 16;
+  const mx = gs._mouseX || 0, my = gs._mouseY || 0;
+
+  // Background
+  ctx.fillStyle = 'rgba(18,18,42,0.85)';
+  ctx.beginPath();
+  ctx.roundRect(SB_X, SB_Y, SB_W, SB_H, 6);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(100,100,140,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(SB_X, SB_Y, SB_W, SB_H, 6);
+  ctx.stroke();
+
+  // Terrain tools
+  for (let i = 0; i < 7; i++) {
+    const y = SB_Y + 8 + i * SB_ROW_H;
+    const sel = gs.sandboxTool === i;
+    const hov = !sel && mx >= SB_X && mx < SB_X + SB_W && my >= y && my < y + SB_ROW_H - 2;
+
+    // Row background
+    if (sel) {
+      ctx.fillStyle = 'rgba(255,220,50,0.15)';
+      ctx.fillRect(SB_X + 4, y, SB_W - 8, SB_ROW_H - 2);
+    } else if (hov) {
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillRect(SB_X + 4, y, SB_W - 8, SB_ROW_H - 2);
+    }
+
+    // Color swatch
+    ctx.fillStyle = SANDBOX_PALETTE_COLORS[i];
+    ctx.fillRect(SB_X + 10, y + 6, 22, 22);
+    ctx.strokeStyle = sel ? '#ffd700' : '#3a3a5a';
+    ctx.lineWidth = sel ? 2 : 1;
+    ctx.strokeRect(SB_X + 10, y + 6, 22, 22);
+
+    // Label
+    ctx.fillStyle = sel ? '#ffd700' : hov ? '#ccc' : '#999';
+    ctx.font = sel ? 'bold 11px monospace' : '11px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(SANDBOX_PALETTE_LABELS[i], SB_X + 38, y + 21);
+
+    // Shortcut
+    ctx.fillStyle = sel ? '#ffd700' : '#555';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(String(i + 1), SB_X + SB_W - 10, y + 21);
+  }
+
+  // Biomorph brush button
+  const bY = SB_Y + 8 + 7 * SB_ROW_H + 8;
+  const bSel = gs.sandboxTool === -1;
+  const bHov = !bSel && mx >= SB_X && mx < SB_X + SB_W && my >= bY && my < bY + SB_ROW_H - 2;
+
+  if (bSel) {
+    ctx.fillStyle = 'rgba(96,255,144,0.15)';
+    ctx.fillRect(SB_X + 4, bY, SB_W - 8, SB_ROW_H - 2);
+  } else if (bHov) {
+    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    ctx.fillRect(SB_X + 4, bY, SB_W - 8, SB_ROW_H - 2);
+  }
+
+  // Biomorph icon (small diamond)
+  ctx.fillStyle = bSel ? '#60ff90' : '#4a8a5a';
+  ctx.beginPath();
+  ctx.moveTo(SB_X + 21, bY + 6);
+  ctx.lineTo(SB_X + 32, bY + 17);
+  ctx.lineTo(SB_X + 21, bY + 28);
+  ctx.lineTo(SB_X + 10, bY + 17);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = bSel ? '#60ff90' : bHov ? '#ccc' : '#999';
+  ctx.font = bSel ? 'bold 10px monospace' : '10px monospace';
+  ctx.textAlign = 'left';
+  const bLabel = gs.sandboxBiomorph ? (gs.sandboxBiomorph.name || 'Biomorph').slice(0, 8) : 'Biomorph';
+  ctx.fillText(bLabel, SB_X + 38, bY + 17);
+
+  ctx.fillStyle = bSel ? '#60ff90' : '#555';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText('I', SB_X + SB_W - 10, bY + 17);
+}
+
 function drawSandboxHUD(ctx, gs, player) {
   ctx.fillStyle = '#12122a'; ctx.fillRect(0, HUD_Y, CANVAS_W, TILE_SIZE);
   ctx.fillStyle = '#2a2a4a'; ctx.fillRect(0, HUD_Y, CANVAS_W, 2);
-  const midY = HUD_Y + TILE_SIZE / 2;
 
   // SANDBOX badge
   ctx.fillStyle = '#60c0ff'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'left';
@@ -925,45 +1019,27 @@ function drawSandboxHUD(ctx, gs, player) {
   ctx.fillStyle = '#888'; ctx.font = '10px monospace';
   ctx.fillText(`(${col}, ${row})`, 8, HUD_Y + TILE_SIZE - 10);
 
-  // Palette squares
-  const paletteX0 = (CANVAS_W - 7 * 42) / 2;
-  const mx = gs._mouseX, my = gs._mouseY;
-  for (let i = 0; i < 7; i++) {
-    const x = paletteX0 + i * 42;
-    const sel = gs.sandboxTool === i;
-    const hov = !sel && mx >= x && mx < x + 36 && my >= HUD_Y + 4 && my < HUD_Y + 32;
-    // Background
-    ctx.fillStyle = sel ? 'rgba(255,220,50,0.2)' : hov ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)';
-    ctx.fillRect(x, HUD_Y + 4, 36, 28);
-    // Color swatch
-    ctx.fillStyle = SANDBOX_PALETTE_COLORS[i];
-    ctx.fillRect(x + 4, HUD_Y + 8, 28, 16);
-    // Border
-    ctx.strokeStyle = sel ? '#ffd700' : hov ? '#888' : '#3a3a5a';
-    ctx.lineWidth = sel ? 2 : 1;
-    ctx.strokeRect(x, HUD_Y + 4, 36, 28);
-    // Number label
-    ctx.fillStyle = sel ? '#ffd700' : '#666'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
-    ctx.fillText(String(i + 1), x + 18, HUD_Y + TILE_SIZE - 6);
-  }
-  // Label for selected tool
-  ctx.font = '11px monospace'; ctx.textAlign = 'center';
-  if (gs.sandboxTool >= 0) {
-    ctx.fillStyle = '#ccc';
-    ctx.fillText(SANDBOX_PALETTE_LABELS[gs.sandboxTool], CANVAS_W / 2, HUD_Y + TILE_SIZE - 6);
-  }
+  // Zoom indicator
+  const zoom = gs.sandboxZoom || 1;
+  ctx.fillStyle = zoom !== 1 ? '#60c0ff' : '#555';
+  ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText(`${Math.round(zoom * 100)}%`, CANVAS_W / 2, HUD_Y + 14);
 
-  // Biomorph brush indicator
-  if (gs.sandboxTool === -1 && gs.sandboxBiomorph) {
-    ctx.fillStyle = '#60ff90'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'right';
-    ctx.fillText('Biomorph Brush', CANVAS_W - 10, midY - 6);
-    ctx.fillStyle = '#aaa'; ctx.font = '10px monospace';
-    ctx.fillText(gs.sandboxBiomorph.name || 'unnamed', CANVAS_W - 10, midY + 8);
+  // Current tool label
+  ctx.fillStyle = '#ccc'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
+  if (gs.sandboxTool >= 0) {
+    ctx.fillText(SANDBOX_PALETTE_LABELS[gs.sandboxTool], CANVAS_W / 2, HUD_Y + TILE_SIZE - 10);
+  } else if (gs.sandboxTool === -1 && gs.sandboxBiomorph) {
+    ctx.fillStyle = '#60ff90';
+    ctx.fillText('Biomorph: ' + (gs.sandboxBiomorph.name || 'unnamed'), CANVAS_W / 2, HUD_Y + TILE_SIZE - 10);
   }
 
   // Hints
   ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
-  ctx.fillText('[I] Gallery  [E] Examine  [Cmd+Z] Undo', CANVAS_W - 10, HUD_Y + TILE_SIZE - 6);
+  ctx.fillText('[E] Examine  [Scroll] Zoom  [Cmd+Z] Undo', CANVAS_W - 10, HUD_Y + TILE_SIZE - 6);
+
+  // Draw sidebar (screen space, above HUD)
+  drawSandboxSidebar(ctx, gs);
 }
 
 // Draw a material item in a HUD slot
