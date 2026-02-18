@@ -5,14 +5,15 @@ import { serializeWilds, deserializeWilds } from './wild.js';
 import { TILE, COLS, ROWS } from './world.js';
 import { createWorld } from './world.js';
 import { serializeExhibits, deserializeExhibits } from './exhibits.js';
+import { serializeRegistry, deserializeRegistry } from './discovery.js';
 
 const SAVE_KEY = 'biomorph-farm-save';
 
-export function saveGame(gameState, player, world, planted, inventory, collection, npcStates, wilds, exhibits) {
+export function saveGame(gameState, player, world, planted, inventory, collection, npcStates, wilds, exhibits, registry) {
   const tutState = gameState.tutorialState;
   const dState = gameState.dawkinsState;
   const data = {
-    version: 10,
+    version: 11,
     creativeMode: gameState.creativeMode || false,
     day: gameState.day,
     dayTimer: gameState.dayTimer,
@@ -31,6 +32,7 @@ export function saveGame(gameState, player, world, planted, inventory, collectio
     exhibits: exhibits ? serializeExhibits(exhibits) : [],
     tutorialState: tutState ? { active: tutState.active, stepIdx: tutState.stepIdx, completed: tutState.completed } : null,
     dawkinsCompletedVisits: dState ? dState.completedVisits : 0,
+    registry: registry ? serializeRegistry(registry) : null,
     savedAt: Date.now(),
   };
   try {
@@ -161,6 +163,13 @@ export function loadGame() {
       data.creativeMode = false;
     }
 
+    // Migration: v10 -> v11: discovery registry
+    if (data.version < 11) {
+      // Registry will be initialized fresh by applySave; backfill existing
+      // collection.discovered hashes as player discoveries
+      data.registry = null; // signals main.js to backfill
+    }
+
     data.planted = (data.planted || []).map(deserializeItem);
     data.inventory = (data.inventory || []).map(deserializeItem);
     if (data.shopStock) data.shopStock = data.shopStock.map(deserializeItem);
@@ -184,6 +193,8 @@ export function loadGame() {
     data.wilds = data.wilds ? deserializeWilds(data.wilds) : null;
     // Deserialize exhibits
     data.exhibits = data.exhibits ? deserializeExhibits(data.exhibits) : null;
+    // Deserialize registry
+    data.registry = data.registry ? deserializeRegistry(data.registry) : null;
 
     return data;
   } catch (e) {
@@ -246,21 +257,42 @@ export function saveSandboxWorld(world, planted, player) {
     cols,
     rows,
     grid: rleEncode(world),
-    planted: planted.map(org => ({
-      kind: org.kind || 'organism',
-      id: org.id,
-      genes: org.genes,
-      mode: org.mode,
-      colorGenes: org.colorGenes,
-      farmGenes: org.farmGenes,
-      stage: org.stage,
-      growthProgress: org.growthProgress,
-      matureDays: org.matureDays,
-      tileCol: org.tileCol,
-      tileRow: org.tileRow,
-      nickname: org.nickname,
-      symmetry: org.symmetry,
-    })),
+    planted: planted.map(org => {
+      const data = {
+        kind: org.kind || 'organism',
+        id: org.id,
+        genes: org.genes,
+        mode: org.mode,
+        colorGenes: org.colorGenes,
+        farmGenes: org.farmGenes,
+        stage: org.stage,
+        growthProgress: org.growthProgress,
+        matureDays: org.matureDays,
+        tileCol: org.tileCol,
+        tileRow: org.tileRow,
+        nickname: org.nickname,
+        symmetry: org.symmetry,
+      };
+      if (org.offspring && org.offspring.length > 0) {
+        data.offspring = org.offspring.map(c => ({
+          col: c.col, row: c.row,
+          organism: {
+            kind: c.organism.kind || 'organism',
+            id: c.organism.id,
+            genes: c.organism.genes,
+            mode: c.organism.mode,
+            colorGenes: c.organism.colorGenes,
+            farmGenes: c.organism.farmGenes,
+            stage: c.organism.stage,
+            growthProgress: c.organism.growthProgress,
+            matureDays: c.organism.matureDays,
+            nickname: c.organism.nickname,
+            symmetry: c.organism.symmetry,
+          },
+        }));
+      }
+      return data;
+    }),
     playerX: player.x,
     playerY: player.y,
     savedAt: Date.now(),
@@ -281,7 +313,16 @@ export function loadSandboxWorld() {
     const data = JSON.parse(raw);
     if (!data.format || data.format !== 'sandbox') return null;
     data.world = rleDecode(data.grid, data.cols, data.rows);
-    data.planted = (data.planted || []).map(d => ({ ...d, kind: d.kind || 'organism' }));
+    data.planted = (data.planted || []).map(d => {
+      const org = { ...d, kind: d.kind || 'organism' };
+      if (d.offspring) {
+        org.offspring = d.offspring.map(c => ({
+          col: c.col, row: c.row,
+          organism: { ...c.organism, kind: c.organism.kind || 'organism' },
+        }));
+      }
+      return org;
+    });
     return data;
   } catch (e) {
     console.warn('Sandbox load failed:', e);

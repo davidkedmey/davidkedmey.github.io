@@ -10,6 +10,7 @@ import { RECIPES, canCraft } from './crafting.js';
 import { getCurrentLine } from './dawkins.js';
 import { PROPERTIES, getOwner } from './property.js';
 import { getTaskLabel } from './ai.js';
+import { RARITY_COLORS, RARITY_LABELS, getLeaderboardRanked, getRarityBreakdown, getMorphospaceData } from './discovery.js';
 import { galleryImportCost } from './gallery-bridge.js';
 
 export const CANVAS_W = 960;
@@ -46,7 +47,7 @@ export function updateCamera(cam, player, dt, worldW, worldH) {
 
 // ── Main render ──
 
-export function render(ctx, world, player, gs, planted, collection, lab, npcStates, cam, wilds, exhibits) {
+export function render(ctx, world, player, gs, planted, collection, lab, npcStates, cam, wilds, exhibits, registry) {
   _mx = gs._mouseX || 0; _my = gs._mouseY || 0;
   ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
@@ -120,11 +121,35 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
       if (sx > -TILE_SIZE && sx < CANVAS_W && sy > -TILE_SIZE && sy < VIEW_H) {
         ctx.drawImage(getSprite(org, TILE_SIZE - 4), sx, sy);
         if (org.stage === 'mature') {
-          ctx.fillStyle = 'rgba(255,220,50,0.8)';
+          const hasOffspring = org.offspring && org.offspring.length > 0;
+          ctx.fillStyle = hasOffspring ? 'rgba(80,220,80,0.8)' : 'rgba(255,220,50,0.8)';
           ctx.beginPath();
           ctx.arc(sx + TILE_SIZE - 8, sy - 2 + 4, 4, 0, Math.PI * 2);
           ctx.fill();
         }
+      }
+    }
+  }
+
+  // Offspring phantoms (sandbox only)
+  if (planted && gs.sandboxMode) {
+    const pulse = 0.35 + 0.2 * Math.sin(performance.now() / 400);
+    for (const org of planted) {
+      if (!org.offspring) continue;
+      for (const child of org.offspring) {
+        const sx = child.col * TILE_SIZE - cx;
+        const sy = child.row * TILE_SIZE - cy;
+        if (sx < -TILE_SIZE || sx > CANVAS_W || sy < -TILE_SIZE || sy > VIEW_H) continue;
+        // Cyan ring
+        ctx.strokeStyle = `rgba(0,220,240,${pulse + 0.15})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(sx + TILE_SIZE / 2, sy + TILE_SIZE / 2, TILE_SIZE / 2 - 2, 0, Math.PI * 2);
+        ctx.stroke();
+        // Semi-transparent sprite
+        ctx.globalAlpha = pulse;
+        ctx.drawImage(getSprite(child.organism, TILE_SIZE - 4), sx + 2, sy + 2);
+        ctx.globalAlpha = 1;
       }
     }
   }
@@ -213,6 +238,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   if (gs.overlay === 'exhibit') drawExhibitOverlay(ctx, gs);
   if (gs.overlay === 'gallery') drawGalleryOverlay(ctx, gs);
   if (gs.overlay === 'help') drawHelpOverlay(ctx);
+  if (gs.overlay === 'codex') drawCodexOverlay(ctx, gs, registry);
 
   // Spectator banner (skip in sandbox)
   if (gs.spectator && !gs.sandboxMode) drawSpectatorBanner(ctx, gs);
@@ -2298,6 +2324,7 @@ function drawHelpOverlay(ctx) {
     ['Q', 'Follow nearby NPC'],
     ['F', 'Auto-follow toggle'],
     ['Right-drag', 'Pan camera'],
+    ['C', 'Open Codex'],
   ];
 
   const col1 = px + 20;
@@ -2373,6 +2400,267 @@ function drawHelpOverlay(ctx) {
   // Footer
   ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#888';
   ctx.fillText('[H] or [Esc] to close  \u2022  Press / to open command bar', px + pw / 2, py + ph - 18);
+}
+
+// ── Codex Overlay ──
+
+const DISCOVERER_COLORS = {
+  player: '#e8c170',
+  fern: '#7c7',
+  moss: '#7af',
+  dawkins: '#ccc',
+};
+const DISCOVERER_NAMES = {
+  player: 'You',
+  fern: 'Fern',
+  moss: 'Moss',
+  dawkins: 'Dawkins',
+};
+
+function drawCodexOverlay(ctx, gs, registry) {
+  if (!registry) return;
+  overlayBg(ctx);
+  const pw = 760, ph = 620;
+  const px = (CANVAS_W - pw) / 2, py = (CANVAS_H - ph) / 2;
+  drawPanel(ctx, px, py, pw, ph, 'Codex');
+
+  // Tabs
+  const tabNames = ['Leaderboard', 'Discovery Log', 'Morphospace'];
+  const tabW = 200, tabH = 28, tabY = py + 38;
+  for (let i = 0; i < 3; i++) {
+    const tx = px + 20 + i * (tabW + 8);
+    const active = gs.codexTab === i;
+    ctx.fillStyle = active ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.03)';
+    ctx.fillRect(tx, tabY, tabW, tabH);
+    ctx.strokeStyle = active ? '#8ab4f8' : '#3a3a5a';
+    ctx.lineWidth = active ? 2 : 1;
+    ctx.strokeRect(tx, tabY, tabW, tabH);
+    ctx.fillStyle = active ? '#fff' : '#888';
+    ctx.font = active ? 'bold 12px monospace' : '12px monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(tabNames[i], tx + tabW / 2, tabY + tabH / 2);
+  }
+
+  const contentY = tabY + tabH + 16;
+  const contentH = ph - (contentY - py) - 30;
+
+  if (gs.codexTab === 0) drawCodexLeaderboard(ctx, px, contentY, pw, contentH, registry);
+  else if (gs.codexTab === 1) drawCodexLog(ctx, px, contentY, pw, contentH, registry, gs);
+  else drawCodexMorphospace(ctx, px, contentY, pw, contentH, registry);
+
+  // Footer
+  ctx.fillStyle = '#666'; ctx.font = '11px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('[L/R] tab  [U/D] scroll  [C] or [Esc] close', px + pw / 2, py + ph - 14);
+}
+
+function drawCodexLeaderboard(ctx, px, cy, pw, ch, registry) {
+  const ranked = getLeaderboardRanked(registry);
+  const centerX = px + pw / 2;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+
+  // Total discoveries
+  ctx.fillStyle = '#aaa'; ctx.font = '13px monospace';
+  ctx.fillText(`${registry.totalDiscoveries} total species discovered`, centerX, cy);
+
+  // Leaderboard bars
+  const barW = 400, barH = 36, barX = centerX - barW / 2;
+  let y = cy + 30;
+  const maxCount = Math.max(1, ...ranked.map(([, c]) => c));
+
+  for (let i = 0; i < ranked.length; i++) {
+    const [id, count] = ranked[i];
+    const name = DISCOVERER_NAMES[id] || id;
+    const color = DISCOVERER_COLORS[id] || '#888';
+    const fill = Math.max(4, (count / maxCount) * (barW - 80));
+
+    // Medal
+    const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+    ctx.font = '18px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(i < 3 ? medals[i] : ' ', barX - 30, y + 6);
+
+    // Bar bg
+    ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    ctx.fillRect(barX, y, barW, barH);
+
+    // Bar fill
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(barX, y, fill, barH);
+    ctx.globalAlpha = 1;
+
+    // Name + count
+    ctx.fillStyle = color; ctx.font = 'bold 13px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(name, barX + 8, y + 8);
+    ctx.fillStyle = '#fff'; ctx.font = '12px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(`${count}`, barX + barW - 8, y + 10);
+
+    y += barH + 6;
+  }
+
+  // Rarity breakdown for player
+  y += 16;
+  ctx.fillStyle = '#888'; ctx.font = 'bold 12px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('Your Rarity Breakdown', centerX, y);
+  y += 22;
+
+  const breakdown = getRarityBreakdown(registry, 'player');
+  const tiers = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+  const tierX = centerX - 200;
+  for (let i = 0; i < tiers.length; i++) {
+    const t = tiers[i];
+    const tx = tierX + i * 82;
+    ctx.fillStyle = RARITY_COLORS[t]; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(RARITY_LABELS[t], tx + 36, y);
+    ctx.fillStyle = '#fff'; ctx.font = '14px monospace';
+    ctx.fillText(String(breakdown[t]), tx + 36, y + 16);
+  }
+}
+
+function drawCodexLog(ctx, px, cy, pw, ch, registry, gs) {
+  const log = registry.log;
+  const scroll = gs.codexScroll || 0;
+  const rowH = 42;
+  const visibleRows = Math.floor(ch / rowH);
+  const maxScroll = Math.max(0, log.length - visibleRows);
+  if (gs.codexScroll > maxScroll) gs.codexScroll = maxScroll;
+
+  ctx.textBaseline = 'top';
+  if (log.length === 0) {
+    ctx.fillStyle = '#555'; ctx.font = '14px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('No discoveries yet. Go explore!', px + pw / 2, cy + 40);
+    return;
+  }
+
+  // Header
+  ctx.fillStyle = '#888'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('DAY', px + 24, cy - 2);
+  ctx.fillText('DISCOVERER', px + 80, cy - 2);
+  ctx.fillText('RARITY', px + 220, cy - 2);
+  ctx.fillText('MODE', px + 340, cy - 2);
+  ctx.fillText('HASH', px + 410, cy - 2);
+
+  // Rows — show newest first
+  const startIdx = Math.max(0, log.length - 1 - scroll);
+  for (let vi = 0; vi < visibleRows && (startIdx - vi) >= 0; vi++) {
+    const entry = log[startIdx - vi];
+    const y = cy + 14 + vi * rowH;
+
+    // Alternating row bg
+    if (vi % 2 === 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.02)';
+      ctx.fillRect(px + 16, y - 2, pw - 32, rowH - 2);
+    }
+
+    // Biomorph sprite
+    const regEntry = registry.entries[entry.hash];
+    const fakeOrg = {
+      kind: 'organism', id: `log-${vi}`,
+      genes: (regEntry && regEntry.genes) || [],
+      mode: entry.mode,
+      colorGenes: (regEntry && regEntry.colorGenes) || { hue: 4, spread: 0 },
+      stage: 'mature', growthProgress: 8, matureDays: 8,
+    };
+    if (fakeOrg.genes.length > 0) {
+      ctx.drawImage(getSprite(fakeOrg, 32), px + 640, y - 2);
+    }
+
+    // Day
+    ctx.fillStyle = '#aaa'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(`D${entry.day}`, px + 24, y + 6);
+
+    // Discoverer
+    const dName = DISCOVERER_NAMES[entry.discoverer] || entry.discoverer;
+    ctx.fillStyle = DISCOVERER_COLORS[entry.discoverer] || '#888';
+    ctx.font = 'bold 11px monospace';
+    ctx.fillText(dName, px + 80, y + 6);
+
+    // Rarity badge
+    ctx.fillStyle = RARITY_COLORS[entry.rarity] || '#aaa';
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText(RARITY_LABELS[entry.rarity] || entry.rarity, px + 220, y + 6);
+
+    // Mode
+    ctx.fillStyle = '#aaa'; ctx.font = '11px monospace';
+    ctx.fillText(`M${entry.mode}`, px + 340, y + 6);
+
+    // Hash (truncated)
+    ctx.fillStyle = '#555'; ctx.font = '9px monospace';
+    const hashStr = entry.hash || '';
+    ctx.fillText(hashStr.length > 30 ? hashStr.slice(0, 30) + '...' : hashStr, px + 410, y + 6);
+  }
+
+  // Scroll indicator
+  if (log.length > visibleRows) {
+    ctx.fillStyle = '#555'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(`${Math.min(scroll + 1, log.length)}-${Math.min(scroll + visibleRows, log.length)} of ${log.length}`, px + pw - 20, cy - 2);
+  }
+}
+
+function drawCodexMorphospace(ctx, px, cy, pw, ch, registry) {
+  const grid = getMorphospaceData(registry);
+  const centerX = px + pw / 2;
+
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#aaa'; ctx.font = '13px monospace';
+  ctx.fillText('Morphospace Heatmap', centerX, cy);
+  ctx.fillStyle = '#666'; ctx.font = '10px monospace';
+  ctx.fillText('Brightness = discovery density. Dark = unexplored.', centerX, cy + 18);
+
+  // Grid: 5 modes (x) × 8 depths (y)
+  const cellW = 70, cellH = 50;
+  const gridW = 5 * cellW, gridH = 8 * cellH;
+  const gridX = centerX - gridW / 2;
+  const gridY = cy + 44;
+
+  // Find max for normalization
+  let maxVal = 1;
+  for (let m = 0; m < 5; m++)
+    for (let d = 0; d < 8; d++)
+      if (grid[m][d] > maxVal) maxVal = grid[m][d];
+
+  // Column headers (modes)
+  ctx.fillStyle = '#888'; ctx.font = 'bold 10px monospace'; ctx.textBaseline = 'bottom';
+  for (let m = 0; m < 5; m++) {
+    ctx.fillText(`Mode ${m + 1}`, gridX + m * cellW + cellW / 2, gridY - 4);
+  }
+
+  // Row labels (depths)
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let d = 0; d < 8; d++) {
+    ctx.fillStyle = '#666'; ctx.font = '10px monospace';
+    ctx.fillText(`D${d + 1}`, gridX - 6, gridY + d * cellH + cellH / 2);
+  }
+
+  // Cells
+  for (let m = 0; m < 5; m++) {
+    for (let d = 0; d < 8; d++) {
+      const val = grid[m][d];
+      const intensity = val / maxVal;
+      const cx = gridX + m * cellW;
+      const cy2 = gridY + d * cellH;
+
+      // Heatmap color: dark blue → bright cyan/white
+      const r = Math.floor(20 + intensity * 80);
+      const g = Math.floor(20 + intensity * 180);
+      const b = Math.floor(40 + intensity * 200);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(cx + 1, cy2 + 1, cellW - 2, cellH - 2);
+
+      // Border
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cx + 1, cy2 + 1, cellW - 2, cellH - 2);
+
+      // Count label
+      if (val > 0) {
+        ctx.fillStyle = intensity > 0.5 ? '#fff' : 'rgba(255,255,255,0.6)';
+        ctx.font = intensity > 0.3 ? 'bold 12px monospace' : '10px monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(val), cx + cellW / 2, cy2 + cellH / 2);
+      }
+    }
+  }
 }
 
 // ── Pause Overlay ──

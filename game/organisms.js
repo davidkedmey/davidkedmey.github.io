@@ -1,7 +1,7 @@
 // Organism data, growth, lifecycle, sprite caching
 
 import { drawTree, randomInteresting, mutate, cloneGenes, MODE_CONFIGS } from '../shared/genotype.js';
-import { TILE_SIZE } from './world.js';
+import { TILE_SIZE, TILE, COLS, ROWS } from './world.js';
 import { generateName } from './naming.js';
 
 const SPRITE_SIZE = 44;
@@ -93,6 +93,7 @@ export function tickGrowth(organisms, currentDay) {
       if (org.growthProgress >= org.matureDays) {
         org.growthProgress = org.matureDays;
         org.stage = 'mature';
+        org.justMatured = true;
       }
     }
   }
@@ -179,6 +180,7 @@ function applySymmetry(lines, symType) {
 
 export function getSprite(org, size) {
   size = size || SPRITE_SIZE;
+  if (!org.colorGenes) org.colorGenes = { hue: 4, spread: 0 };
   const depth = visibleDepth(org);
   const sym = org.symmetry || 'left-right';
   const key = `${org.id}-${depth}-${size}-${sym}`;
@@ -253,4 +255,32 @@ export function getSprite(org, size) {
 
 export function clearSpriteCache() {
   spriteCache.clear();
+}
+
+// ── Offspring spawning (sandbox) ────────────────────────────
+
+const DIRS = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+
+export function spawnOffspring(org, planted, world) {
+  if (org.offspring && org.offspring.length > 0) return; // already has offspring
+  const offspring = [];
+  for (const [dx, dy] of DIRS) {
+    const col = org.tileCol + dx;
+    const row = org.tileRow + dy;
+    if (col < 0 || col >= world[0].length || row < 0 || row >= world.length) continue;
+    const tile = world[row][col];
+    if (tile !== TILE.GRASS && tile !== TILE.DIRT) continue;
+    if (planted.some(o => o.tileCol === col && o.tileRow === row)) continue;
+    // Check no other parent's offspring already occupies this tile
+    if (planted.some(o => o.offspring && o.offspring.some(c => c.col === col && c.row === row))) continue;
+    const childGenes = mutate(org.genes, org.mode, 1);
+    const childColor = mutateColor(org.colorGenes);
+    const childFarm = mutateFarmGenes(org.farmGenes);
+    const child = createOrganism(childGenes, org.mode, childColor, childFarm);
+    child.stage = 'mature';
+    child.growthProgress = child.matureDays;
+    child.symmetry = org.symmetry;
+    offspring.push({ col, row, organism: child });
+  }
+  org.offspring = offspring;
 }

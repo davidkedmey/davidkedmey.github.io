@@ -4,7 +4,7 @@ import { createWorld, createSandboxWorld, TILE, tileAt, isSolid, TILE_SIZE, COLS
 import { createPlayer, updatePlayer, facingTile } from './player.js';
 import { createInput } from './input.js';
 import { render, updateCamera, CANVAS_W, CANVAS_H } from './renderer.js';
-import { createSeed, tickGrowth, harvest } from './organisms.js';
+import { createSeed, tickGrowth, harvest, spawnOffspring } from './organisms.js';
 import { sellPrice, buyPrice, generateShopStock } from './economy.js';
 import { createBreedingLab, labSelectParent, labSelectOffspring, labConfirm, labReset } from './breeding.js';
 import { createCollection, donate, recordSale, recordBreed, serializeCollection, deserializeCollection } from './collection.js';
@@ -21,6 +21,7 @@ import { loadAudioSettings, getAudioSettings, initOnInteraction, toggleMusic, to
 import { loadLLMSettings, getLLMSettings, setLLMSetting, interpretCommand, buildGameContext } from './llm.js';
 import { initExhibits, exhibitBreederURL } from './exhibits.js';
 import { loadBreederGallery, loadAllImportable, breederToOrganism, galleryImportCost } from './gallery-bridge.js';
+import { createDiscoveryRegistry, checkAndRegister, seedGenesisSpecimens, serializeRegistry, deserializeRegistry, RARITY_LABELS, RARITY_COLORS } from './discovery.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -33,6 +34,7 @@ const input = createInput(canvas);
 const planted = [];
 const lab = createBreedingLab();
 let collection = createCollection();
+let registry = createDiscoveryRegistry();
 let npcStates = initNPCs(world);
 let wilds = initWildBiomorphs(world);
 let exhibits = initExhibits();
@@ -152,7 +154,7 @@ const gameState = {
   timeSkip: false,   // true when holding T for fast-forward
   timeSkipSticky: false, // toggled via command bar "time" command
   message: null,
-  overlay: null,  // 'shop' | 'lab' | 'museum' | 'trade' | 'inventory' | 'crafting' | 'examine' | null
+  overlay: null,  // 'shop' | 'lab' | 'museum' | 'trade' | 'inventory' | 'crafting' | 'examine' | 'codex' | null
   shopStock: [],
   shopCursor: 0,
   shopSide: 0,    // 0 = for-sale panel, 1 = your-items panel
@@ -189,6 +191,9 @@ const gameState = {
   galleryCursor: 0,
   galleryScroll: 0,
   galleryItems: [],
+  // Codex overlay
+  codexTab: 0,       // 0=Leaderboard, 1=Discovery Log, 2=Morphospace Map
+  codexScroll: 0,
   // Title screen mode picker
   titleSubmenu: null, // null | 'mode-pick'
   titleModeCursor: 0, // 0=Survival, 1=Creative, 2=Sandbox
@@ -251,6 +256,21 @@ function applySave(save) {
   else wilds = initWildBiomorphs(world);
   if (save.exhibits) exhibits = save.exhibits;
   else exhibits = initExhibits();
+  if (save.registry) {
+    registry = save.registry;
+  } else {
+    // Migration: backfill existing discovered hashes as player discoveries
+    registry = createDiscoveryRegistry();
+    if (save.collection && save.collection.discovered) {
+      const discovered = save.collection.discovered instanceof Set
+        ? save.collection.discovered : new Set(save.collection.discovered);
+      // We can't reconstruct full organisms from hashes, but we can mark them
+      // as player discoveries in the leaderboard count
+      registry.leaderboard.player = discovered.size;
+      registry.totalDiscoveries = discovered.size;
+    }
+    seedGenesisSpecimens(registry);
+  }
   if (save.tutorialState) {
     tutorialState = {
       ...createTutorialState(),
@@ -274,6 +294,8 @@ function startNewGame() {
   gameState.introPage = 0;
   gameState.introFade = 0;
   tutorialState = createTutorialState();
+  registry = createDiscoveryRegistry();
+  seedGenesisSpecimens(registry);
 }
 
 function startSandboxGame() {
@@ -326,7 +348,16 @@ function handleSandboxPainting() {
     // Remove planted organisms if overwriting with solid tile
     if (isSolid(paintTile)) {
       const idx = planted.findIndex(o => o.tileCol === col && o.tileRow === row);
-      if (idx >= 0) planted.splice(idx, 1);
+      if (idx >= 0) {
+        planted[idx].offspring = null;
+        planted.splice(idx, 1);
+      }
+    }
+    // Clear any offspring occupying this tile
+    for (const p of planted) {
+      if (p.offspring) {
+        p.offspring = p.offspring.filter(c => !(c.col === col && c.row === row));
+      }
     }
   } else if (gameState.sandboxTool === -1 && gameState.sandboxBiomorph) {
     // Biomorph planting
@@ -339,6 +370,8 @@ function handleSandboxPainting() {
     org.stage = 'mature';
     org.growthProgress = org.matureDays;
     planted.push(org);
+    // Spawn offspring immediately (sandbox organisms are already mature)
+    spawnOffspring(org, planted, world);
   }
 }
 
@@ -355,7 +388,7 @@ function doSave() {
   }
   gameState.tutorialState = tutorialState;
   gameState.dawkinsState = dawkinsState;
-  saveGame(gameState, player, world, planted, player.inventory, collection, npcStates, wilds, exhibits);
+  saveGame(gameState, player, world, planted, player.inventory, collection, npcStates, wilds, exhibits, registry);
 }
 
 function showMessage(text, duration) {
@@ -461,6 +494,22 @@ function handleWorldAction() {
       }
       showMessage('Fence placed!');
       return;
+    }
+  }
+
+  // Sandbox: check for offspring on facing tile
+  if (gameState.sandboxMode) {
+    const ftOff = facingTile(player);
+    for (const parent of planted) {
+      if (!parent.offspring) continue;
+      const chosen = parent.offspring.find(c => c.col === ftOff.col && c.row === ftOff.row);
+      if (chosen) {
+        // Collect the offspring to inventory, clear all siblings
+        player.inventory.push(chosen.organism);
+        parent.offspring = null;
+        showMessage(`Collected ${chosen.organism.nickname || 'offspring'}!`);
+        return;
+      }
     }
   }
 
@@ -687,6 +736,11 @@ function handleShopInput() {
         } else {
           player.inventory.splice(gameState.shopCursor, 1);
           const isNew = recordSale(collection, item);
+          const discovery = checkAndRegister(registry, item, 'player', gameState.day);
+          if (discovery.isNew) {
+            const rarity = RARITY_LABELS[discovery.rarity];
+            collection.notifications.push(`NEW DISCOVERY! ${rarity} species found!`);
+          }
           if (isNew) { price = Math.floor(price * 1.5); showMessage(`Sold ${price}g (NEW species!)`); }
           else { showMessage(`Sold ${price}g`); }
           player.wallet += price;
@@ -741,7 +795,16 @@ function handleLabInput() {
       if (input.justPressed(String(i))) labSelectOffspring(lab, i - 1);
     }
     if (input.justPressed(' ') || input.justPressed('Enter')) {
+      // Check selected offspring for discovery before confirming
+      const selectedOrgs = lab.selectedOffspring.map(i => lab.offspring[i]).filter(Boolean);
       if (labConfirm(lab, player)) {
+        for (const org of selectedOrgs) {
+          const discovery = checkAndRegister(registry, org, 'player', gameState.day);
+          if (discovery.isNew) {
+            const rarity = RARITY_LABELS[discovery.rarity];
+            collection.notifications.push(`NEW DISCOVERY! Bred a ${rarity} species!`);
+          }
+        }
         showMessage('Offspring added!');
         labReset(lab);
         gameState.overlay = null;
@@ -765,6 +828,11 @@ function handleMuseumInput() {
     if (item) {
       player.inventory.splice(player.selectedSlot, 1);
       const isNew = donate(collection, item, gameState.day);
+      const discovery = checkAndRegister(registry, item, 'player', gameState.day);
+      if (discovery.isNew) {
+        const rarity = RARITY_LABELS[discovery.rarity];
+        collection.notifications.push(`NEW DISCOVERY! ${rarity} species found!`);
+      }
       showMessage(isNew ? 'New species donated!' : 'Specimen donated.');
       if (player.selectedSlot >= player.inventory.length && player.inventory.length > 0)
         player.selectedSlot = player.inventory.length - 1;
@@ -1062,6 +1130,23 @@ function handleGalleryInput() {
   }
 }
 
+// ── Codex ──
+function handleCodexInput() {
+  if (input.justPressed('Escape') || input.justPressed('c') || input.justPressed('C')) {
+    gameState.overlay = null; return;
+  }
+  if (input.justPressed('ArrowLeft')) {
+    gameState.codexTab = Math.max(0, gameState.codexTab - 1);
+    gameState.codexScroll = 0;
+  }
+  if (input.justPressed('ArrowRight')) {
+    gameState.codexTab = Math.min(2, gameState.codexTab + 1);
+    gameState.codexScroll = 0;
+  }
+  if (input.justPressed('ArrowDown')) gameState.codexScroll++;
+  if (input.justPressed('ArrowUp')) gameState.codexScroll = Math.max(0, gameState.codexScroll - 1);
+}
+
 // ── Inventory ──
 function handleInventoryInput() {
   if (input.justPressed('Escape')) { gameState.overlay = null; return; }
@@ -1258,6 +1343,12 @@ function doPlant(slotIdx) {
   if (!gameState.creativeMode && !isPlayerProperty(ft.col, ft.row)) { showMessage("That's someone else's property!"); return false; }
   const existing = planted.find(o => o.tileCol === ft.col && o.tileRow === ft.row);
   if (existing) { showMessage("Something's already planted here."); return false; }
+  // Clear any offspring occupying the target tile before planting
+  if (gameState.sandboxMode) {
+    for (const p of planted) {
+      if (p.offspring) p.offspring = p.offspring.filter(c => !(c.col === ft.col && c.row === ft.row));
+    }
+  }
   const idx = slotIdx != null ? slotIdx : player.selectedSlot;
   if (idx < 0 || idx >= player.inventory.length) { showMessage('No item selected.'); return false; }
   const selected = player.inventory[idx];
@@ -1268,6 +1359,12 @@ function doPlant(slotIdx) {
   planted.push(seed);
   if (player.selectedSlot >= player.inventory.length && player.inventory.length > 0)
     player.selectedSlot = player.inventory.length - 1;
+  // In sandbox, skip growth — immediately mature and spawn offspring
+  if (gameState.sandboxMode) {
+    seed.stage = 'mature';
+    seed.growthProgress = seed.matureDays;
+    spawnOffspring(seed, planted, world);
+  }
   showMessage('Planted!');
   return true;
 }
@@ -1285,6 +1382,12 @@ function doHarvest() {
     return false;
   }
   const result = harvest(existing);
+  // Register harvest discovery
+  const discovery = checkAndRegister(registry, existing, 'player', gameState.day);
+  if (discovery.isNew) {
+    const rarity = RARITY_LABELS[discovery.rarity];
+    collection.notifications.push(`NEW DISCOVERY! ${rarity} species harvested!`);
+  }
   for (const s of result.seeds) player.inventory.push(s);
   const materials = harvestMaterials(existing);
   const matParts = [];
@@ -1776,7 +1879,7 @@ function gameLoop(timestamp) {
         gameState.showWhatsNew = false;
         localStorage.setItem(whatsNewKey, '1');
       }
-      render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
+      render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits, registry);
       requestAnimationFrame(gameLoop);
       return;
     }
@@ -1860,7 +1963,7 @@ function gameLoop(timestamp) {
     // Disable Continue if no save
     if (!gameState.hasSave && gameState.titleCursor === 1) gameState.titleCursor = 0;
     }
-    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
+    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits, registry);
     requestAnimationFrame(gameLoop);
     return;
   }
@@ -1880,7 +1983,7 @@ function gameLoop(timestamp) {
       gameState.phase = 'playing'; // skip intro
       if (!musicStarted) { musicStarted = true; startMusic('farm'); }
     }
-    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
+    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits, registry);
     requestAnimationFrame(gameLoop);
     return;
   }
@@ -1900,7 +2003,7 @@ function gameLoop(timestamp) {
     gameState.tutorialState = tutorialState;
     gameState.dawkinsState = dawkinsState;
     gameState.audioSettings = getAudioSettings();
-    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
+    render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits, registry);
     requestAnimationFrame(gameLoop);
     return;
   }
@@ -1998,6 +2101,14 @@ function gameLoop(timestamp) {
   if (input.justPressed('h') || input.justPressed('H')) {
     gameState.overlay = gameState.overlay === 'help' ? null : 'help';
   }
+  if (!gameState.sandboxMode && (input.justPressed('c') || input.justPressed('C'))) {
+    if (gameState.overlay === 'codex') {
+      gameState.overlay = null;
+    } else if (!gameState.overlay) {
+      gameState.overlay = 'codex';
+      gameState.codexScroll = 0;
+    }
+  }
 
   // Q key: toggle follow NPC mode (skip in sandbox)
   if (!gameState.sandboxMode && (input.justPressed('q') || input.justPressed('Q'))) {
@@ -2057,6 +2168,7 @@ function gameLoop(timestamp) {
   else if (gameState.overlay === 'exhibit') handleExhibitInput();
   else if (gameState.overlay === 'examine') handleExamineInput();
   else if (gameState.overlay === 'gallery') handleGalleryInput();
+  else if (gameState.overlay === 'codex') handleCodexInput();
   else {
     // Arrow keys reset camera pan and cancel auto-walk
     if (input.ArrowLeft || input.ArrowRight || input.ArrowUp || input.ArrowDown) {
@@ -2172,7 +2284,7 @@ function gameLoop(timestamp) {
   }
 
   // Update AI tasks (drives NPC walking to buildings)
-  updateAITasks(npcStates, dt, gameState, world, wilds, collection);
+  updateAITasks(npcStates, dt, gameState, world, wilds, collection, registry);
 
   // Pick up pending spectator request from AI
   if (gameState._pendingSpectator) {
@@ -2243,7 +2355,7 @@ function gameLoop(timestamp) {
   if (gameState.day !== lastDay) {
     lastDay = gameState.day;
     tickGrowth(planted, gameState.day);
-    aiDayTick(npcStates, gameState, world, wilds, collection);
+    aiDayTick(npcStates, gameState, world, wilds, collection, registry);
     const shopModes = gameState.creativeMode ? [1,2,3,4,5] : collection.unlockedModes;
     gameState.shopStock = generateShopStock(shopModes);
     // Wild forest spreading
@@ -2307,7 +2419,7 @@ function gameLoop(timestamp) {
     gameState._mouseY = input.leftMouseY;
   }
 
-  render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits);
+  render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits, registry);
   requestAnimationFrame(gameLoop);
 }
 
