@@ -279,6 +279,65 @@ export function createTree(genes) {
 }
 
 /**
+ * Create per-body THREE.Groups for locomotion physics.
+ * Each body gets its own Group containing cylinder meshes for its branches.
+ * Unlike createTree(), geometries are NOT merged (each body moves independently).
+ * Branch positions are offset into body-local space so each Group can be positioned
+ * at the CANNON.Body's world position/quaternion directly.
+ *
+ * @param {number[]} genes - Genotype array
+ * @param {{ bodyBranches: Map, bodies: CANNON.Body[] }} skeleton - from extractSkeleton()
+ * @returns {Map<number, THREE.Group>} bodyId → THREE.Group with branch meshes in body-local space
+ */
+export function createTreeBodies(genes, skeleton) {
+  const bodyGroups = new Map();
+
+  // Shared material for locomotion bodies (simpler, no wind shader needed)
+  const locoMaterial = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.6,
+    metalness: 0.05,
+  });
+
+  // Build a lookup from bodyIndex → initial body position
+  const bodyPositions = new Map();
+  for (const body of skeleton.bodies) {
+    bodyPositions.set(body.bodyIndex, {
+      x: body.position.x,
+      y: body.position.y,
+      z: body.position.z,
+    });
+  }
+
+  for (const [bodyIndex, branches] of skeleton.bodyBranches) {
+    const group = new THREE.Group();
+    group.userData.bodyIndex = bodyIndex;
+
+    // Get this body's initial world position to offset branches into local space
+    const bp = bodyPositions.get(bodyIndex) || { x: 0, y: 0, z: 0 };
+
+    for (const branch of branches) {
+      const { start, end, depth, maxDepth, branchIndex } = branch;
+      // Offset into body-local coordinates
+      const geo = createBranchGeo(
+        new THREE.Vector3(start.x - bp.x, start.y - bp.y, start.z - bp.z),
+        new THREE.Vector3(end.x - bp.x, end.y - bp.y, end.z - bp.z),
+        depth, maxDepth, 1.0, branchIndex
+      );
+      if (geo) {
+        const mesh = new THREE.Mesh(geo, locoMaterial);
+        mesh.castShadow = true;
+        group.add(mesh);
+      }
+    }
+
+    bodyGroups.set(bodyIndex, group);
+  }
+
+  return bodyGroups;
+}
+
+/**
  * Dispose a tree's geometry (safe with shared material).
  */
 export function disposeTree(treeGroup) {

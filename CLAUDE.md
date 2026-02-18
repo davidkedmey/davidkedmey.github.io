@@ -11,7 +11,7 @@ Interactive implementation of Richard Dawkins' biomorphs from "The Evolution of 
 
 ## Roles
 
-**On startup, before doing anything else:** Ask the user which role they want you to take (Leader, Breeder, Paper, Game, or Scribe). Also remind them: "Do you already have another instance running this role?" Then follow the scope below. Only edit files you own. Coordinate through the user for cross-cutting changes.
+When a role is assigned (via launcher or user message), follow the scope below. Only edit files you own. Coordinate through the user for cross-cutting changes.
 
 | Role | Scope | Files owned |
 |------|-------|-------------|
