@@ -3533,6 +3533,11 @@ document.querySelectorAll('.fig-toggle-wrap').forEach(wrap => {
   var DIM = '#8b949e';
   var ACCENT = '#58a6ff';
 
+  // Shared constants for visual continuity across steps
+  var GRID_SIZE = 32;
+  var NOISE_SEED = 7777;
+  var MUT_IDX = 287;
+
   // Seeded random generator
   function makeRand(s) {
     var seed = s;
@@ -3584,190 +3589,160 @@ document.querySelectorAll('.fig-toggle-wrap').forEach(wrap => {
     return { x: sx, y: sy, w: sw, h: sh };
   }
 
-  // Step 0: Mac + "procedure Develop { ? }"
+  // Shared center Mac used across steps 0-4
+  function drawCenterMac() {
+    return drawMacFrame(140, 20, 400, 320, 'Macintosh');
+  }
+
+  // Generate deterministic noise pixels from seed
+  function makeNoisePixels(seed, size) {
+    var rand = makeRand(seed);
+    var pixels = [];
+    for (var i = 0; i < size * size; i++) {
+      pixels.push(rand() < 0.5 ? 1 : 0);
+    }
+    return pixels;
+  }
+
+  // Draw pixel grid inside screen rect; if pixels is null, draws white + grid lines only
+  function drawPixelGrid(screen, pixels, opts) {
+    opts = opts || {};
+    var pad = 2;
+    var cellW = (screen.w - pad * 2) / GRID_SIZE;
+    var cellH = (screen.h - pad * 2) / GRID_SIZE;
+    if (pixels) {
+      for (var r = 0; r < GRID_SIZE; r++) {
+        for (var c = 0; c < GRID_SIZE; c++) {
+          ctx.fillStyle = pixels[r * GRID_SIZE + c] ? '#e0e0e0' : '#1a2a1a';
+          ctx.fillRect(screen.x + pad + c * cellW, screen.y + pad + r * cellH, cellW, cellH);
+        }
+      }
+    } else {
+      ctx.fillStyle = '#f0f0f0';
+      ctx.fillRect(screen.x + pad, screen.y + pad, screen.w - pad * 2, screen.h - pad * 2);
+      ctx.strokeStyle = '#30363d';
+      ctx.lineWidth = 0.5;
+      for (var r = 0; r <= GRID_SIZE; r++) {
+        ctx.beginPath();
+        ctx.moveTo(screen.x + pad, screen.y + pad + r * cellH);
+        ctx.lineTo(screen.x + pad + GRID_SIZE * cellW, screen.y + pad + r * cellH);
+        ctx.stroke();
+      }
+      for (var c = 0; c <= GRID_SIZE; c++) {
+        ctx.beginPath();
+        ctx.moveTo(screen.x + pad + c * cellW, screen.y + pad);
+        ctx.lineTo(screen.x + pad + c * cellW, screen.y + pad + GRID_SIZE * cellH);
+        ctx.stroke();
+      }
+    }
+    if (opts.highlightMut !== undefined) {
+      var mr = Math.floor(opts.highlightMut / GRID_SIZE);
+      var mc = opts.highlightMut % GRID_SIZE;
+      var mx = screen.x + pad + mc * cellW;
+      var my = screen.y + pad + mr * cellH;
+      ctx.strokeStyle = '#ff6b6b';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(mx + cellW / 2, my + cellH / 2, cellW * 1.8, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  // Draw dimension arrows around the screen's inner grid area
+  function drawDimArrows(screen) {
+    var pad = 2;
+    var left = screen.x + pad, top = screen.y + pad;
+    var gw = screen.w - pad * 2, gh = screen.h - pad * 2;
+    ctx.strokeStyle = ACCENT;
+    ctx.lineWidth = 1.5;
+    // "340" across top
+    ctx.beginPath(); ctx.moveTo(left, top - 12); ctx.lineTo(left + gw, top - 12); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(left, top - 17); ctx.lineTo(left, top - 7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(left + gw, top - 17); ctx.lineTo(left + gw, top - 7); ctx.stroke();
+    ctx.fillStyle = ACCENT;
+    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('340', left + gw / 2, top - 20);
+    // "250" down right side
+    ctx.beginPath(); ctx.moveTo(left + gw + 12, top); ctx.lineTo(left + gw + 12, top + gh); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(left + gw + 7, top); ctx.lineTo(left + gw + 17, top); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(left + gw + 7, top + gh); ctx.lineTo(left + gw + 17, top + gh); ctx.stroke();
+    ctx.save();
+    ctx.translate(left + gw + 18, top + gh / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.fillText('250', 0, 0);
+    ctx.restore();
+  }
+
+  // Step 0: Mac + "Develop { ... }" with "maximum generality?"
   function drawStep0() {
-    var screen = drawMacFrame(140, 20, 400, 320, 'Macintosh');
+    var screen = drawCenterMac();
     ctx.fillStyle = '#4ae04a';
     ctx.font = '16px "SF Mono", "Fira Code", monospace';
     ctx.textAlign = 'center';
     ctx.fillText('procedure Develop {', screen.x + screen.w / 2, screen.y + screen.h / 2 - 20);
     ctx.fillStyle = ACCENT;
-    ctx.font = 'bold 28px "SF Mono", "Fira Code", monospace';
-    ctx.fillText('?', screen.x + screen.w / 2, screen.y + screen.h / 2 + 20);
+    ctx.font = 'bold 22px "SF Mono", "Fira Code", monospace';
+    ctx.fillText('...', screen.x + screen.w / 2, screen.y + screen.h / 2 + 16);
     ctx.fillStyle = '#4ae04a';
     ctx.font = '16px "SF Mono", "Fira Code", monospace';
     ctx.fillText('}', screen.x + screen.w / 2, screen.y + screen.h / 2 + 50);
     ctx.fillStyle = DIM;
     ctx.font = 'italic 13px Georgia, serif';
     ctx.textAlign = 'center';
-    ctx.fillText('What code goes between the curly brackets?', cw / 2, 370);
+    ctx.fillText('"maximum generality" \u2014 what does that mean?', cw / 2, 370);
   }
 
-  // Step 1: Mac + blank white canvas
+  // Step 1: Same Mac + blank white screen
   function drawStep1() {
-    var screen = drawMacFrame(140, 20, 400, 320, 'Macintosh');
+    var screen = drawCenterMac();
     ctx.fillStyle = '#f0f0f0';
-    ctx.fillRect(screen.x + 10, screen.y + 10, screen.w - 20, screen.h - 20);
+    ctx.fillRect(screen.x + 2, screen.y + 2, screen.w - 4, screen.h - 4);
     ctx.fillStyle = DIM;
     ctx.font = 'italic 13px Georgia, serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Every creature is just a picture on this screen', cw / 2, 370);
+    ctx.fillText('This is the phenotype space \u2014 every creature is a picture on this screen', cw / 2, 370);
   }
 
-  // Step 2: Zoomed pixel grid with dimension labels
+  // Step 2: Same Mac + white screen with grid lines + dimension arrows
   function drawStep2() {
-    var gx = 140, gy = 35, gw = 400, gh = 275;
-    var cols = 17, rows = 13;
-    var cellW = gw / cols, cellH = gh / rows;
-    // Light grid cells
-    var rand = makeRand(42);
-    for (var r = 0; r < rows; r++) {
-      for (var c = 0; c < cols; c++) {
-        if (rand() < 0.08) {
-          ctx.fillStyle = ACCENT;
-          ctx.globalAlpha = 0.25;
-          ctx.fillRect(gx + c * cellW, gy + r * cellH, cellW, cellH);
-          ctx.globalAlpha = 1;
-        }
-      }
-    }
-    // Grid lines
-    ctx.strokeStyle = '#30363d';
-    ctx.lineWidth = 0.5;
-    for (var r = 0; r <= rows; r++) {
-      ctx.beginPath();
-      ctx.moveTo(gx, gy + r * cellH);
-      ctx.lineTo(gx + gw, gy + r * cellH);
-      ctx.stroke();
-    }
-    for (var c = 0; c <= cols; c++) {
-      ctx.beginPath();
-      ctx.moveTo(gx + c * cellW, gy);
-      ctx.lineTo(gx + c * cellW, gy + gh);
-      ctx.stroke();
-    }
-    // "340" arrow across top
-    ctx.strokeStyle = ACCENT;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(gx, gy - 12);
-    ctx.lineTo(gx + gw, gy - 12);
-    ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(gx, gy - 17); ctx.lineTo(gx, gy - 7); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(gx + gw, gy - 17); ctx.lineTo(gx + gw, gy - 7); ctx.stroke();
-    ctx.fillStyle = ACCENT;
-    ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('340', gx + gw / 2, gy - 20);
-    // "250" arrow down right side
-    ctx.beginPath();
-    ctx.moveTo(gx + gw + 12, gy);
-    ctx.lineTo(gx + gw + 12, gy + gh);
-    ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(gx + gw + 7, gy); ctx.lineTo(gx + gw + 17, gy); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(gx + gw + 7, gy + gh); ctx.lineTo(gx + gw + 17, gy + gh); ctx.stroke();
-    ctx.save();
-    ctx.translate(gx + gw + 18, gy + gh / 2);
-    ctx.rotate(Math.PI / 2);
-    ctx.fillText('250', 0, 0);
-    ctx.restore();
-    // "= 85,000 pixels" below
+    var screen = drawCenterMac();
+    drawPixelGrid(screen, null);
+    drawDimArrows(screen);
     ctx.fillStyle = WHITE;
     ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('= 85,000 pixels', cw / 2, gy + gh + 40);
-    ctx.fillStyle = DIM;
-    ctx.font = 'italic 13px Georgia, serif';
-    ctx.fillText('Each pixel could be controlled by one gene', cw / 2, gy + gh + 65);
+    ctx.fillText('340 \u00d7 250 = 85,000 pixels', cw / 2, 370);
   }
 
-  // Step 3: Random noise + binary genotype string
+  // Step 3: Same Mac + grid filled with random noise + genotype text
   function drawStep3() {
-    var screen = drawMacFrame(140, 20, 400, 300, 'Macintosh');
-    var rand = makeRand(7777);
-    var gridSize = 40;
-    var cellW = (screen.w - 4) / gridSize;
-    var cellH = (screen.h - 4) / gridSize;
-    for (var r = 0; r < gridSize; r++) {
-      for (var c = 0; c < gridSize; c++) {
-        ctx.fillStyle = rand() < 0.5 ? '#e0e0e0' : '#1a2a1a';
-        ctx.fillRect(screen.x + 2 + c * cellW, screen.y + 2 + r * cellH, cellW, cellH);
-      }
-    }
+    var screen = drawCenterMac();
+    var pixels = makeNoisePixels(NOISE_SEED, GRID_SIZE);
+    drawPixelGrid(screen, pixels);
     ctx.fillStyle = DIM;
     ctx.font = '12px "SF Mono", "Fira Code", monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('genotype: 01001101 10110010 11100001 00101011 ...', cw / 2, 350);
+    ctx.fillText('genotype: 01001101 10110010 11100001 00101011 ...', cw / 2, 355);
     ctx.fillStyle = ACCENT;
     ctx.font = 'italic 13px Georgia, serif';
-    ctx.fillText('One gene per pixel \u2014 the genotype IS the picture', cw / 2, 375);
+    ctx.fillText('One gene per pixel \u2014 the genotype IS the picture', cw / 2, 378);
   }
 
-  // Step 4: Parent / Offspring with one mutation highlighted
+  // Step 4: Same Mac + same noise, one pixel flipped and circled in red
   function drawStep4() {
-    var s1 = drawMacFrame(30, 30, 280, 250, 'Parent');
-    var s2 = drawMacFrame(370, 30, 280, 250, 'Offspring');
-    var rand1 = makeRand(999);
-    var gridSize = 24;
-    var pixels = [];
-    for (var i = 0; i < gridSize * gridSize; i++) {
-      pixels.push(rand1() < 0.5 ? 1 : 0);
-    }
-    // Draw parent
-    var cellW1 = (s1.w - 4) / gridSize;
-    var cellH1 = (s1.h - 4) / gridSize;
-    for (var r = 0; r < gridSize; r++) {
-      for (var c = 0; c < gridSize; c++) {
-        ctx.fillStyle = pixels[r * gridSize + c] ? '#e0e0e0' : '#1a2a1a';
-        ctx.fillRect(s1.x + 2 + c * cellW1, s1.y + 2 + r * cellH1, cellW1, cellH1);
-      }
-    }
-    // Mutate one pixel for offspring
-    var mutIdx = 287;
-    var mutR = Math.floor(mutIdx / gridSize);
-    var mutC = mutIdx % gridSize;
-    var offspring = pixels.slice();
-    offspring[mutIdx] = 1 - offspring[mutIdx];
-    var cellW2 = (s2.w - 4) / gridSize;
-    var cellH2 = (s2.h - 4) / gridSize;
-    for (var r = 0; r < gridSize; r++) {
-      for (var c = 0; c < gridSize; c++) {
-        ctx.fillStyle = offspring[r * gridSize + c] ? '#e0e0e0' : '#1a2a1a';
-        ctx.fillRect(s2.x + 2 + c * cellW2, s2.y + 2 + r * cellH2, cellW2, cellH2);
-      }
-    }
-    // Highlight the mutated pixel
-    ctx.strokeStyle = '#ff6b6b';
-    ctx.lineWidth = 2;
-    var mx = s2.x + 2 + mutC * cellW2;
-    var my = s2.y + 2 + mutR * cellH2;
-    ctx.beginPath();
-    ctx.arc(mx + cellW2 / 2, my + cellH2 / 2, cellW2 + 4, 0, Math.PI * 2);
-    ctx.stroke();
-    // Arrow between the two screens
-    ctx.strokeStyle = DIM;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(320, 155);
-    ctx.lineTo(360, 155);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(355, 150);
-    ctx.lineTo(365, 155);
-    ctx.lineTo(355, 160);
-    ctx.closePath();
-    ctx.fillStyle = DIM;
-    ctx.fill();
-    // Caption
+    var screen = drawCenterMac();
+    var pixels = makeNoisePixels(NOISE_SEED, GRID_SIZE);
+    pixels[MUT_IDX] = 1 - pixels[MUT_IDX];
+    drawPixelGrid(screen, pixels, { highlightMut: MUT_IDX });
     ctx.fillStyle = DIM;
     ctx.font = 'italic 13px Georgia, serif';
     ctx.textAlign = 'center';
-    ctx.fillText('One mutation = one pixel flipped. Can you spot the improvement?', cw / 2, 315);
+    ctx.fillText('One mutation = one pixel flipped. Can you spot it?', cw / 2, 370);
   }
 
-  // Step 5: Random noise vs. recognizable silhouette
+  // Step 5: Two Macs — left: same noise (seed 7777), right: T-Rex silhouette
   function drawStep5() {
-    // T-Rex pixel art (16x16)
     var dino = [
       '0000001111100000',
       '0000011111110000',
@@ -3788,22 +3763,22 @@ document.querySelectorAll('.fig-toggle-wrap').forEach(wrap => {
     ];
     var s1 = drawMacFrame(30, 20, 260, 240, 'Starting pattern');
     var s2 = drawMacFrame(390, 20, 260, 240, 'Target');
-    // Random noise on left
-    var rand = makeRand(5555);
-    var gridSize = 16;
-    var cellW1 = (s1.w - 4) / gridSize;
-    var cellH1 = (s1.h - 4) / gridSize;
-    for (var r = 0; r < gridSize; r++) {
-      for (var c = 0; c < gridSize; c++) {
+    // Left: noise from same seed as steps 3-4 (scaled to 16x16 to match dino)
+    var rand = makeRand(NOISE_SEED);
+    var dinoGrid = 16;
+    var cellW1 = (s1.w - 4) / dinoGrid;
+    var cellH1 = (s1.h - 4) / dinoGrid;
+    for (var r = 0; r < dinoGrid; r++) {
+      for (var c = 0; c < dinoGrid; c++) {
         ctx.fillStyle = rand() < 0.5 ? '#e0e0e0' : '#1a2a1a';
         ctx.fillRect(s1.x + 2 + c * cellW1, s1.y + 2 + r * cellH1, cellW1, cellH1);
       }
     }
-    // Dinosaur on right
-    var cellW2 = (s2.w - 4) / gridSize;
-    var cellH2 = (s2.h - 4) / gridSize;
-    for (var r = 0; r < gridSize; r++) {
-      for (var c = 0; c < gridSize; c++) {
+    // Right: T-Rex silhouette
+    var cellW2 = (s2.w - 4) / dinoGrid;
+    var cellH2 = (s2.h - 4) / dinoGrid;
+    for (var r = 0; r < dinoGrid; r++) {
+      for (var c = 0; c < dinoGrid; c++) {
         ctx.fillStyle = dino[r][c] === '1' ? '#e0e0e0' : '#1a2a1a';
         ctx.fillRect(s2.x + 2 + c * cellW2, s2.y + 2 + r * cellH2, cellW2, cellH2);
       }
@@ -3827,7 +3802,6 @@ document.querySelectorAll('.fig-toggle-wrap').forEach(wrap => {
     ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('~10', 333, 125);
-    // Superscript
     ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.textAlign = 'left';
     ctx.fillText('25,000', 345, 117);
@@ -3918,6 +3892,11 @@ var initMarginAnnotation = (function() {
     var DIM = '#8b949e';
     var ACCENT = '#58a6ff';
 
+    // Shared constants matching the large canvas progression
+    var MGRID = 16;
+    var NOISE_SEED = 7777;
+    var MUT_IDX = 80; // index into 16x16 grid
+
     function makeRand(s) {
       var seed = s;
       return function() {
@@ -3966,156 +3945,142 @@ var initMarginAnnotation = (function() {
       return { x: sx, y: sy, w: sw, h: sh };
     }
 
-    // Step 0: Mac with procedure Develop { ? }
+    // Shared center Mac for steps 0-4
+    function drawCenterMac() {
+      return drawMacFrame(30, 8, 160, 130, 'Macintosh');
+    }
+
+    // Generate deterministic noise pixels from seed
+    function makeNoisePixels(seed, size) {
+      var rand = makeRand(seed);
+      var pixels = [];
+      for (var i = 0; i < size * size; i++) {
+        pixels.push(rand() < 0.5 ? 1 : 0);
+      }
+      return pixels;
+    }
+
+    // Draw pixel grid inside screen rect; null pixels = white + grid lines
+    function drawPixelGrid(screen, pixels, opts) {
+      opts = opts || {};
+      var pad = 1;
+      var cellW = (screen.w - pad * 2) / MGRID;
+      var cellH = (screen.h - pad * 2) / MGRID;
+      if (pixels) {
+        for (var r = 0; r < MGRID; r++) {
+          for (var c = 0; c < MGRID; c++) {
+            ctx.fillStyle = pixels[r * MGRID + c] ? '#e0e0e0' : '#1a2a1a';
+            ctx.fillRect(screen.x + pad + c * cellW, screen.y + pad + r * cellH, cellW, cellH);
+          }
+        }
+      } else {
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(screen.x + pad, screen.y + pad, screen.w - pad * 2, screen.h - pad * 2);
+        ctx.strokeStyle = '#30363d';
+        ctx.lineWidth = 0.3;
+        for (var r = 0; r <= MGRID; r++) {
+          ctx.beginPath();
+          ctx.moveTo(screen.x + pad, screen.y + pad + r * cellH);
+          ctx.lineTo(screen.x + pad + MGRID * cellW, screen.y + pad + r * cellH);
+          ctx.stroke();
+        }
+        for (var c = 0; c <= MGRID; c++) {
+          ctx.beginPath();
+          ctx.moveTo(screen.x + pad + c * cellW, screen.y + pad);
+          ctx.lineTo(screen.x + pad + c * cellW, screen.y + pad + MGRID * cellH);
+          ctx.stroke();
+        }
+      }
+      if (opts.highlightMut !== undefined) {
+        var mr = Math.floor(opts.highlightMut / MGRID);
+        var mc = opts.highlightMut % MGRID;
+        var mx = screen.x + pad + mc * cellW;
+        var my = screen.y + pad + mr * cellH;
+        ctx.strokeStyle = '#ff6b6b';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(mx + cellW / 2, my + cellH / 2, cellW * 1.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    // Draw dimension arrows around screen's grid area
+    function drawDimArrows(screen) {
+      var pad = 1;
+      var left = screen.x + pad, top = screen.y + pad;
+      var gw = screen.w - pad * 2, gh = screen.h - pad * 2;
+      ctx.strokeStyle = ACCENT;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(left, top - 6); ctx.lineTo(left + gw, top - 6); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(left, top - 9); ctx.lineTo(left, top - 3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(left + gw, top - 9); ctx.lineTo(left + gw, top - 3); ctx.stroke();
+      ctx.fillStyle = ACCENT;
+      ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('340', left + gw / 2, top - 11);
+      ctx.beginPath(); ctx.moveTo(left + gw + 6, top); ctx.lineTo(left + gw + 6, top + gh); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(left + gw + 3, top); ctx.lineTo(left + gw + 9, top); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(left + gw + 3, top + gh); ctx.lineTo(left + gw + 9, top + gh); ctx.stroke();
+      ctx.save();
+      ctx.translate(left + gw + 11, top + gh / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.fillText('250', 0, 0);
+      ctx.restore();
+    }
+
+    // Step 0: Mac + "Develop { ... }" with "maximum generality?"
     function drawMarginStep0() {
-      var screen = drawMacFrame(30, 8, 160, 130, 'Macintosh');
+      var screen = drawCenterMac();
       ctx.fillStyle = '#4ae04a';
       ctx.font = '10px "SF Mono", "Fira Code", monospace';
       ctx.textAlign = 'center';
       ctx.fillText('procedure Develop {', screen.x + screen.w / 2, screen.y + screen.h / 2 - 10);
       ctx.fillStyle = ACCENT;
-      ctx.font = 'bold 18px "SF Mono", "Fira Code", monospace';
-      ctx.fillText('?', screen.x + screen.w / 2, screen.y + screen.h / 2 + 14);
+      ctx.font = 'bold 14px "SF Mono", "Fira Code", monospace';
+      ctx.fillText('...', screen.x + screen.w / 2, screen.y + screen.h / 2 + 10);
       ctx.fillStyle = '#4ae04a';
       ctx.font = '10px "SF Mono", "Fira Code", monospace';
-      ctx.fillText('}', screen.x + screen.w / 2, screen.y + screen.h / 2 + 30);
+      ctx.fillText('}', screen.x + screen.w / 2, screen.y + screen.h / 2 + 26);
     }
 
-    // Step 1: Mac with blank white screen
+    // Step 1: Same Mac + blank white screen
     function drawMarginStep1() {
-      var screen = drawMacFrame(30, 8, 160, 130, 'Macintosh');
+      var screen = drawCenterMac();
       ctx.fillStyle = '#f0f0f0';
-      ctx.fillRect(screen.x + 4, screen.y + 4, screen.w - 8, screen.h - 8);
+      ctx.fillRect(screen.x + 1, screen.y + 1, screen.w - 2, screen.h - 2);
     }
 
-    // Step 2: Pixel grid with dimension arrows
+    // Step 2: Same Mac + white screen with grid lines + dimension arrows
     function drawMarginStep2() {
-      var gx = 18, gy = 18, gw = 155, gh = 100;
-      var cols = 12, rows = 8;
-      var cellW = gw / cols, cellH = gh / rows;
-      var rand = makeRand(42);
-      for (var r = 0; r < rows; r++) {
-        for (var c = 0; c < cols; c++) {
-          if (rand() < 0.08) {
-            ctx.fillStyle = ACCENT;
-            ctx.globalAlpha = 0.25;
-            ctx.fillRect(gx + c * cellW, gy + r * cellH, cellW, cellH);
-            ctx.globalAlpha = 1;
-          }
-        }
-      }
-      ctx.strokeStyle = '#30363d';
-      ctx.lineWidth = 0.5;
-      for (var r = 0; r <= rows; r++) {
-        ctx.beginPath();
-        ctx.moveTo(gx, gy + r * cellH);
-        ctx.lineTo(gx + gw, gy + r * cellH);
-        ctx.stroke();
-      }
-      for (var c = 0; c <= cols; c++) {
-        ctx.beginPath();
-        ctx.moveTo(gx + c * cellW, gy);
-        ctx.lineTo(gx + c * cellW, gy + gh);
-        ctx.stroke();
-      }
-      // "340" arrow across top
-      ctx.strokeStyle = ACCENT;
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(gx, gy - 6); ctx.lineTo(gx + gw, gy - 6); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(gx, gy - 9); ctx.lineTo(gx, gy - 3); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(gx + gw, gy - 9); ctx.lineTo(gx + gw, gy - 3); ctx.stroke();
-      ctx.fillStyle = ACCENT;
-      ctx.font = 'bold 9px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('340', gx + gw / 2, gy - 11);
-      // "250" arrow down right
-      ctx.beginPath(); ctx.moveTo(gx + gw + 6, gy); ctx.lineTo(gx + gw + 6, gy + gh); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(gx + gw + 3, gy); ctx.lineTo(gx + gw + 9, gy); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(gx + gw + 3, gy + gh); ctx.lineTo(gx + gw + 9, gy + gh); ctx.stroke();
-      ctx.save();
-      ctx.translate(gx + gw + 11, gy + gh / 2);
-      ctx.rotate(Math.PI / 2);
-      ctx.fillText('250', 0, 0);
-      ctx.restore();
-      // "= 85,000 pixels" below
+      var screen = drawCenterMac();
+      drawPixelGrid(screen, null);
+      drawDimArrows(screen);
       ctx.fillStyle = WHITE;
-      ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('= 85,000 pixels', CW / 2, gy + gh + 22);
+      ctx.fillText('= 85,000 pixels', CW / 2, 148);
     }
 
-    // Step 3: Mac filled with random noise
+    // Step 3: Same Mac + grid filled with noise
     function drawMarginStep3() {
-      var screen = drawMacFrame(30, 8, 160, 130, 'Macintosh');
-      var rand = makeRand(7777);
-      var gridSize = 22;
-      var cellW = (screen.w - 2) / gridSize;
-      var cellH = (screen.h - 2) / gridSize;
-      for (var r = 0; r < gridSize; r++) {
-        for (var c = 0; c < gridSize; c++) {
-          ctx.fillStyle = rand() < 0.5 ? '#e0e0e0' : '#1a2a1a';
-          ctx.fillRect(screen.x + 1 + c * cellW, screen.y + 1 + r * cellH, cellW, cellH);
-        }
-      }
+      var screen = drawCenterMac();
+      var pixels = makeNoisePixels(NOISE_SEED, MGRID);
+      drawPixelGrid(screen, pixels);
     }
 
-    // Step 4: Parent -> Offspring stacked (120x70 each)
+    // Step 4: Same Mac + same noise, one pixel flipped and circled
     function drawMarginStep4() {
-      var fh = 58, fw = 190;
-      var s1 = drawMacFrame(15, 4, fw / 2 - 5, fh, 'Parent');
-      var s2 = drawMacFrame(CW / 2 + 5, 4, fw / 2 - 5, fh, 'Offspring');
-      var rand1 = makeRand(999);
-      var gridSize = 12;
-      var pixels = [];
-      for (var i = 0; i < gridSize * gridSize; i++) {
-        pixels.push(rand1() < 0.5 ? 1 : 0);
-      }
-      var cellW1 = (s1.w - 2) / gridSize;
-      var cellH1 = (s1.h - 2) / gridSize;
-      for (var r = 0; r < gridSize; r++) {
-        for (var c = 0; c < gridSize; c++) {
-          ctx.fillStyle = pixels[r * gridSize + c] ? '#e0e0e0' : '#1a2a1a';
-          ctx.fillRect(s1.x + 1 + c * cellW1, s1.y + 1 + r * cellH1, cellW1, cellH1);
-        }
-      }
-      var mutIdx = 80;
-      var mutR = Math.floor(mutIdx / gridSize);
-      var mutC = mutIdx % gridSize;
-      var offspring = pixels.slice();
-      offspring[mutIdx] = 1 - offspring[mutIdx];
-      var cellW2 = (s2.w - 2) / gridSize;
-      var cellH2 = (s2.h - 2) / gridSize;
-      for (var r = 0; r < gridSize; r++) {
-        for (var c = 0; c < gridSize; c++) {
-          ctx.fillStyle = offspring[r * gridSize + c] ? '#e0e0e0' : '#1a2a1a';
-          ctx.fillRect(s2.x + 1 + c * cellW2, s2.y + 1 + r * cellH2, cellW2, cellH2);
-        }
-      }
-      // Red circle on mutation
-      ctx.strokeStyle = '#ff6b6b';
-      ctx.lineWidth = 1.5;
-      var mx = s2.x + 1 + mutC * cellW2 + cellW2 / 2;
-      var my = s2.y + 1 + mutR * cellH2 + cellH2 / 2;
-      ctx.beginPath();
-      ctx.arc(mx, my, cellW2 + 2, 0, Math.PI * 2);
-      ctx.stroke();
-      // Arrow between
-      ctx.strokeStyle = DIM;
-      ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(CW / 2 - 4, 30); ctx.lineTo(CW / 2 + 4, 30); ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(CW / 2 + 2, 28); ctx.lineTo(CW / 2 + 6, 30); ctx.lineTo(CW / 2 + 2, 32);
-      ctx.closePath();
-      ctx.fillStyle = DIM;
-      ctx.fill();
-      // "One pixel flipped" label below
+      var screen = drawCenterMac();
+      var pixels = makeNoisePixels(NOISE_SEED, MGRID);
+      pixels[MUT_IDX] = 1 - pixels[MUT_IDX];
+      drawPixelGrid(screen, pixels, { highlightMut: MUT_IDX });
       ctx.fillStyle = '#ff6b6b';
       ctx.font = 'italic 9px Georgia, serif';
       ctx.textAlign = 'center';
-      ctx.fillText('One pixel flipped', CW / 2, fh + 14);
+      ctx.fillText('One pixel flipped', CW / 2, 148);
     }
 
-    // Step 5: Noise -> T-Rex stacked
+    // Step 5: Two Macs — left: same noise (seed 7777), right: T-Rex
     function drawMarginStep5() {
       var dino = [
         '0000001111100000',
@@ -4138,20 +4103,22 @@ var initMarginAnnotation = (function() {
       var fh = 58, fw = 190;
       var s1 = drawMacFrame(15, 4, fw / 2 - 5, fh, 'Start');
       var s2 = drawMacFrame(CW / 2 + 5, 4, fw / 2 - 5, fh, 'Target');
-      var rand = makeRand(5555);
-      var gridSize = 16;
-      var cellW1 = (s1.w - 2) / gridSize;
-      var cellH1 = (s1.h - 2) / gridSize;
-      for (var r = 0; r < gridSize; r++) {
-        for (var c = 0; c < gridSize; c++) {
+      // Left: same noise seed as steps 3-4
+      var rand = makeRand(NOISE_SEED);
+      var dinoGrid = 16;
+      var cellW1 = (s1.w - 2) / dinoGrid;
+      var cellH1 = (s1.h - 2) / dinoGrid;
+      for (var r = 0; r < dinoGrid; r++) {
+        for (var c = 0; c < dinoGrid; c++) {
           ctx.fillStyle = rand() < 0.5 ? '#e0e0e0' : '#1a2a1a';
           ctx.fillRect(s1.x + 1 + c * cellW1, s1.y + 1 + r * cellH1, cellW1, cellH1);
         }
       }
-      var cellW2 = (s2.w - 2) / gridSize;
-      var cellH2 = (s2.h - 2) / gridSize;
-      for (var r = 0; r < gridSize; r++) {
-        for (var c = 0; c < gridSize; c++) {
+      // Right: T-Rex silhouette
+      var cellW2 = (s2.w - 2) / dinoGrid;
+      var cellH2 = (s2.h - 2) / dinoGrid;
+      for (var r = 0; r < dinoGrid; r++) {
+        for (var c = 0; c < dinoGrid; c++) {
           ctx.fillStyle = dino[r][c] === '1' ? '#e0e0e0' : '#1a2a1a';
           ctx.fillRect(s2.x + 1 + c * cellW2, s2.y + 1 + r * cellH2, cellW2, cellH2);
         }

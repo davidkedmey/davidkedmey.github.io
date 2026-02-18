@@ -6,7 +6,10 @@ import { createOrganism, randomColorGenes, tickGrowth, harvest } from './organis
 import { randomInteresting } from '../shared/genotype.js';
 import { sellPrice, buyPrice, generateShopStock } from './economy.js';
 import { breed } from './breeding.js';
-import { donate, recordSale, recordBreed } from './collection.js';
+import { donate, recordSale, recordBreed, genotypeHash } from './collection.js';
+import { checkAndRegister, RARITY_LABELS } from './discovery.js';
+
+function aAn(word) { return /^[aeiou]/i.test(word) ? 'an' : 'a'; }
 import { harvestMaterials, addMaterialToInventory } from './materials.js';
 import { RECIPES, canCraft, executeCraft } from './crafting.js';
 import { getWildOrganism } from './wild.js';
@@ -22,6 +25,9 @@ export const AI_PERSONALITIES = {
     forageChance: 0.2,
     craftPriority: ['hoe', 'spear'],
     pickOffspring: 'safe',
+    // Discovery traits
+    exploreChance: 0.15,    // chance to pick explore task
+    keepDiscoveries: true,  // won't sell first-discovery specimens
   },
   moss: {
     preferredDepth: [4, 8],
@@ -32,6 +38,9 @@ export const AI_PERSONALITIES = {
     forageChance: 0.3,
     craftPriority: ['spear', 'axe'],
     pickOffspring: 'risky',
+    // Discovery traits
+    exploreChance: 0.25,    // more adventurous
+    keepDiscoveries: false,  // will sell anything for gold
   },
 };
 
@@ -48,7 +57,7 @@ const DESTINATIONS = {
 
 // ── Main AI day tick — replaces npcDayTick ──
 
-export function aiDayTick(npcStates, gameState, world, wilds, collection) {
+export function aiDayTick(npcStates, gameState, world, wilds, collection, registry) {
   const currentDay = gameState.day;
 
   for (let i = 0; i < npcStates.length; i++) {
@@ -106,7 +115,7 @@ export function aiDayTick(npcStates, gameState, world, wilds, collection) {
     const personality = AI_PERSONALITIES[npc.id];
     if (!personality) continue;
 
-    const task = pickTask(state, npc, personality, gameState, collection, wilds, world);
+    const task = pickTask(state, npc, personality, gameState, collection, wilds, world, registry);
     if (task) {
       state.task = task;
     }
@@ -115,7 +124,7 @@ export function aiDayTick(npcStates, gameState, world, wilds, collection) {
 
 // ── Pick a task based on priority + personality ──
 
-function pickTask(state, npc, personality, gameState, collection, wilds, world) {
+function pickTask(state, npc, personality, gameState, collection, wilds, world, registry) {
   const organisms = state.inventory.filter(i => i.kind === 'organism');
   const wallet = state.wallet || 0;
 
@@ -125,8 +134,28 @@ function pickTask(state, npc, personality, gameState, collection, wilds, world) 
     return createTask('sell', DESTINATIONS.shop, { npcId: npc.id });
   }
 
+  // 1b. Explore — walk to undiscovered wild tree
+  if (registry && Math.random() < (personality.exploreChance || 0)) {
+    const tree = findUndiscoveredTree(state.x, state.y, world, wilds, registry);
+    if (tree) {
+      return createTask('explore', tree, { npcId: npc.id });
+    }
+  }
+
   // 2. Breed — random chance, needs 2+ organisms and lab unlocked
-  if (collection.labUnlocked && organisms.length >= 2 && Math.random() < personality.breedChance) {
+  // Breed more aggressively when behind on leaderboard
+  let breedChance = personality.breedChance;
+  if (registry) {
+    const myCount = registry.leaderboard[npc.id] || 0;
+    const maxOther = Math.max(
+      registry.leaderboard.player || 0,
+      ...Object.entries(registry.leaderboard)
+        .filter(([k]) => k !== npc.id && k !== 'dawkins')
+        .map(([, v]) => v)
+    );
+    if (maxOther > myCount + 3) breedChance *= 2; // breed more when behind
+  }
+  if (collection.labUnlocked && organisms.length >= 2 && Math.random() < breedChance) {
     return createTask('breed', DESTINATIONS.lab, { npcId: npc.id });
   }
 
@@ -213,6 +242,30 @@ function findNearestTree(x, y, world, wilds) {
   return best;
 }
 
+function findUndiscoveredTree(x, y, world, wilds, registry) {
+  let best = null, bestDist = Infinity;
+  for (let row = 1; row < ROWS - 1; row++) {
+    for (let col = 1; col < COLS - 1; col++) {
+      if (world[row][col] === TILE.TREE) {
+        const wildOrg = getWildOrganism(wilds, col, row);
+        if (wildOrg) {
+          const hash = genotypeHash(wildOrg.genes, wildOrg.mode);
+          if (!registry.entries[hash]) {
+            const tx = col * TILE_SIZE + TILE_SIZE / 2;
+            const ty = row * TILE_SIZE + TILE_SIZE / 2;
+            const dist = Math.hypot(tx - x, ty - y);
+            if (dist < bestDist) {
+              bestDist = dist;
+              best = { col, row };
+            }
+          }
+        }
+      }
+    }
+  }
+  return best;
+}
+
 function findCraftableRecipe(inventory, priorityList) {
   for (const recipeId of priorityList) {
     const recipe = RECIPES.find(r => r.id === recipeId);
@@ -223,7 +276,7 @@ function findCraftableRecipe(inventory, priorityList) {
 
 // ── Per-frame AI task update — drives walking + acting ──
 
-export function updateAITasks(npcStates, dt, gameState, world, wilds, collection) {
+export function updateAITasks(npcStates, dt, gameState, world, wilds, collection, registry) {
   for (let i = 0; i < npcStates.length; i++) {
     const state = npcStates[i];
     const npc = NPCS[i];
@@ -269,7 +322,7 @@ export function updateAITasks(npcStates, dt, gameState, world, wilds, collection
 
       if (task.actTimer >= task.actDuration) {
         // Execute the action
-        executeAction(state, npc, task, gameState, world, wilds, collection);
+        executeAction(state, npc, task, gameState, world, wilds, collection, registry);
         // Return home
         task.phase = 'returning';
         task.destX = npc.homeX;
@@ -302,24 +355,24 @@ export function updateAITasks(npcStates, dt, gameState, world, wilds, collection
 
 // ── Execute task action at destination ──
 
-function executeAction(state, npc, task, gameState, world, wilds, collection) {
+function executeAction(state, npc, task, gameState, world, wilds, collection, registry) {
   const personality = AI_PERSONALITIES[npc.id];
 
   switch (task.type) {
     case 'sell':
-      executeSell(state, personality, collection, gameState);
+      executeSell(state, personality, collection, gameState, registry, npc);
       break;
     case 'buy':
       executeBuy(state, personality, gameState);
       break;
     case 'breed':
-      executeBreed(state, personality, collection);
+      executeBreed(state, personality, collection, registry, npc, gameState);
       break;
     case 'forage':
       executeForage(state, task, world, wilds, gameState);
       break;
     case 'donate':
-      executeDonate(state, collection, gameState);
+      executeDonate(state, collection, gameState, registry, npc);
       break;
     case 'craft':
       executeCraftAction(state, task);
@@ -327,15 +380,24 @@ function executeAction(state, npc, task, gameState, world, wilds, collection) {
     case 'curate':
       executeCurate(state, npc, task);
       break;
+    case 'explore':
+      executeExplore(state, npc, task, wilds, registry, collection, gameState);
+      break;
   }
 }
 
-function executeSell(state, personality, collection, gameState) {
+function executeSell(state, personality, collection, gameState, registry, npc) {
   // Sell organisms from inventory until below threshold
   const toSell = [];
   for (let i = state.inventory.length - 1; i >= 0; i--) {
     const item = state.inventory[i];
     if (item.kind === 'organism') {
+      // keepDiscoveries: skip first-discovery specimens
+      if (personality.keepDiscoveries && registry) {
+        const hash = genotypeHash(item.genes, item.mode);
+        const entry = registry.entries[hash];
+        if (entry && entry.discoverer === npc.id) continue;
+      }
       toSell.push(i);
       if (state.inventory.length - toSell.length <= 1) break; // keep at least 1
     }
@@ -345,6 +407,13 @@ function executeSell(state, personality, collection, gameState) {
     const price = Math.floor(sellPrice(item) * NPC_SELL_DISCOUNT);
     state.wallet = (state.wallet || 0) + price;
     recordSale(collection, item);
+    if (registry) {
+      const result = checkAndRegister(registry, item, npc.id, gameState.day);
+      if (result.isNew) {
+        const rarity = RARITY_LABELS[result.rarity];
+        collection.notifications.push(`${npc.name} discovered ${aAn(rarity)} ${rarity} species!`);
+      }
+    }
     state.inventory.splice(idx, 1);
   }
   state.lastSellDay = gameState.day;
@@ -370,7 +439,7 @@ function executeBuy(state, personality, gameState) {
   }
 }
 
-function executeBreed(state, personality, collection) {
+function executeBreed(state, personality, collection, registry, npc, gameState) {
   // Find two organisms of the same mode
   const organisms = state.inventory
     .map((item, idx) => ({ item, idx }))
@@ -403,6 +472,15 @@ function executeBreed(state, personality, collection) {
   } else {
     // Prefer lower depth (safer)
     pick = offspring.reduce((best, o) => o.genes[8] < best.genes[8] ? o : best);
+  }
+
+  // Register offspring discovery
+  if (registry && npc) {
+    const result = checkAndRegister(registry, pick, npc.id, gameState ? gameState.day : 0);
+    if (result.isNew) {
+      const rarity = RARITY_LABELS[result.rarity];
+      collection.notifications.push(`${npc.name} bred a new ${rarity} species!`);  // "a new" always works
+    }
   }
 
   // Remove parents (higher index first)
@@ -438,12 +516,19 @@ function executeForage(state, task, world, wilds, gameState) {
   }
 }
 
-function executeDonate(state, collection, gameState) {
+function executeDonate(state, collection, gameState, registry, npc) {
   // Donate first organism in inventory
   const idx = state.inventory.findIndex(i => i.kind === 'organism');
   if (idx >= 0) {
     const org = state.inventory.splice(idx, 1)[0];
     donate(collection, org, gameState.day);
+    if (registry && npc) {
+      const result = checkAndRegister(registry, org, npc.id, gameState.day);
+      if (result.isNew) {
+        const rarity = RARITY_LABELS[result.rarity];
+        collection.notifications.push(`${npc.name} discovered ${aAn(rarity)} ${rarity} species!`);
+      }
+    }
   }
 }
 
@@ -453,6 +538,19 @@ function executeCraftAction(state, task) {
   if (!canCraft(recipe, state.inventory)) return;
   const item = executeCraft(recipe, state.inventory);
   state.inventory.push(item);
+}
+
+function executeExplore(state, npc, task, wilds, registry, collection, gameState) {
+  const col = Math.round((task.destX - TILE_SIZE / 2) / TILE_SIZE);
+  const row = Math.round((task.destY - TILE_SIZE / 2) / TILE_SIZE);
+  const wildOrg = getWildOrganism(wilds, col, row);
+  if (wildOrg && registry) {
+    const result = checkAndRegister(registry, wildOrg, npc.id, gameState.day);
+    if (result.isNew) {
+      const rarity = RARITY_LABELS[result.rarity];
+      collection.notifications.push(`${npc.name} discovered ${aAn(rarity)} ${rarity} species!`);
+    }
+  }
 }
 
 function executeCurate(state, npc, task) {
@@ -520,6 +618,7 @@ export function getTaskLabel(task) {
     donate: 'Museum',
     craft: 'Craft',
     curate: 'Garden',
+    explore: 'Explore',
   };
   const dest = labels[task.type] || '?';
   if (task.phase === 'returning') return 'Home';
@@ -544,6 +643,7 @@ export const NARRATION = {
     donate: { walking: "The museum needs specimens.", acting: "Donating to the collection.", returning: "For science!" },
     craft: { walking: "Time to craft something.", acting: "Working on a new tool...", returning: "That should be useful." },
     curate: { walking: "Found a good spot for this one.", acting: "Placing it just so...", returning: "The garden is coming along." },
+    explore: { walking: "I see something unusual over there...", acting: "What a beautiful form!", returning: "Another one for the codex." },
   },
   moss: {
     idle: [
@@ -560,6 +660,7 @@ export const NARRATION = {
     donate: { walking: "Museum donation day.", acting: "Here, take this oddity.", returning: "They'll appreciate that one." },
     craft: { walking: "Need better tools.", acting: "Crafting...", returning: "That'll do." },
     curate: { walking: "This one deserves a spotlight.", acting: "Perfect. Right here.", returning: "Wait till someone sees that." },
+    explore: { walking: "Something undocumented out there...", acting: "Nobody's documented this one yet!", returning: "That's going in my records." },
   },
 };
 

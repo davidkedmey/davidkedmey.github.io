@@ -4,9 +4,9 @@ import { createWorld, createSandboxWorld, TILE, tileAt, isSolid, TILE_SIZE, COLS
 import { createPlayer, updatePlayer, facingTile } from './player.js';
 import { createInput } from './input.js';
 import { render, updateCamera, CANVAS_W, CANVAS_H } from './renderer.js';
-import { createSeed, tickGrowth, harvest, spawnOffspring } from './organisms.js';
+import { createSeed, createOrganism, randomColorGenes, tickGrowth, harvest, spawnOffspring } from './organisms.js';
 import { sellPrice, buyPrice, generateShopStock } from './economy.js';
-import { createBreedingLab, labSelectParent, labSelectOffspring, labConfirm, labReset } from './breeding.js';
+import { createBreedingLab, labSelectParent, labSelectOffspring, labConfirm, labReset, breed } from './breeding.js';
 import { createCollection, donate, recordSale, recordBreed, serializeCollection, deserializeCollection } from './collection.js';
 import { saveGame, loadGame, hasSave, saveSandboxWorld, loadSandboxWorld, hasSandboxSave } from './state.js';
 import { NPCS, initNPCs, updateNPCs, nearbyNPC, executeTrade, seedEmptyGardens } from './npcs.js';
@@ -18,7 +18,7 @@ import { buildOwnershipGrid, isPlayerProperty } from './property.js';
 import { aiDayTick, updateAITasks, getNarration, precomputeSpectatorAction } from './ai.js';
 import { loadDawkinsDialogue, createDawkinsState, canStartVisit, startVisit, advanceLine, selectChoice, getCurrentLine, completeVisit } from './dawkins.js';
 import { loadAudioSettings, getAudioSettings, initOnInteraction, toggleMusic, toggleVoice, toggleAutoFollow, startMusic, stopMusic, setMusicMood, speak, stopSpeech, resetLastSpoken } from './audio.js';
-import { loadLLMSettings, getLLMSettings, setLLMSetting, interpretCommand, buildGameContext } from './llm.js';
+import { loadLLMSettings, getLLMSettings, setLLMSetting, interpretCommand, buildGameContext, addWish, getWishlist, clearWishlist, getConversationState, clearConversation, captureScreenshot } from './llm.js';
 import { initExhibits, exhibitBreederURL } from './exhibits.js';
 import { loadBreederGallery, loadAllImportable, breederToOrganism, galleryImportCost } from './gallery-bridge.js';
 import { createDiscoveryRegistry, checkAndRegister, seedGenesisSpecimens, serializeRegistry, deserializeRegistry, RARITY_LABELS, RARITY_COLORS } from './discovery.js';
@@ -185,6 +185,7 @@ const gameState = {
   cameraPanTimer: 0,       // countdown to ease back after mouse release
   // AI command interpretation
   aiThinking: false,
+  aiFeedbackRequested: false,
   // Creative mode
   creativeMode: false,
   // Gallery overlay
@@ -1434,10 +1435,26 @@ function doPlow() {
 // ── Command Dispatch Table ──
 
 function cmdFollow(arg) {
-  if (!arg) { showMessage('Usage: follow <name>'); return; }
+  if (!arg) { showMessage('Usage: follow <name|nearest>'); return; }
   const name = arg.toLowerCase();
+
+  // Follow nearest farmer
+  if (name === 'nearest' || name === 'closest') {
+    let bestIdx = -1, bestDist = Infinity;
+    for (let i = 0; i < NPCS.length; i++) {
+      if (NPCS[i].role !== 'farmer') continue;
+      const ns = npcStates[i];
+      const d = Math.hypot(ns.x - player.x, ns.y - player.y);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    if (bestIdx < 0) { showMessage('No farmers nearby.'); return; }
+    startFollowNPC(bestIdx);
+    showMessage(`Following ${NPCS[bestIdx].name}!`, 2);
+    return;
+  }
+
   const idx = NPCS.findIndex(n => n.name.toLowerCase() === name);
-  if (idx < 0) { showMessage(`Unknown NPC: "${arg}"`); return; }
+  if (idx < 0) return false;
   if (NPCS[idx].role !== 'farmer') { showMessage(`Can't follow ${NPCS[idx].name} (not a farmer)`); return; }
   startFollowNPC(idx);
   showMessage(`Following ${NPCS[idx].name}!`, 2);
@@ -1528,7 +1545,7 @@ function cmdPeek(arg) {
   if (!arg) { showMessage('Usage: peek <npc name>'); return; }
   const name = arg.toLowerCase();
   const idx = NPCS.findIndex(n => n.name.toLowerCase() === name);
-  if (idx < 0) { showMessage(`Unknown NPC: "${arg}"`); return; }
+  if (idx < 0) return false;
   const ns = npcStates[idx];
   const npc = NPCS[idx];
   const task = ns.task ? ns.task.type : 'idle';
@@ -1579,10 +1596,155 @@ function cmdBest() {
   showMessage(`Selected slot ${bestIdx + 1} (~${bestVal}g)`, 2);
 }
 
+function cmdSell(arg) {
+  if (player.inventory.length === 0) { showMessage('Inventory is empty.'); return; }
+  const slotIdx = arg ? parseInt(arg) - 1 : player.selectedSlot;
+  if (slotIdx < 0 || slotIdx >= player.inventory.length) {
+    showMessage(`Invalid slot. You have ${player.inventory.length} items.`);
+    return;
+  }
+  const item = player.inventory[slotIdx];
+  let price = sellPrice(item);
+  player.inventory.splice(slotIdx, 1);
+  if (item.kind === 'organism') {
+    const isNew = recordSale(collection, item);
+    const discovery = checkAndRegister(registry, item, 'player', gameState.day);
+    if (discovery.isNew) {
+      collection.notifications.push(`NEW DISCOVERY! ${RARITY_LABELS[discovery.rarity]} species found!`);
+    }
+    if (isNew) price = Math.floor(price * 1.5);
+  }
+  player.wallet += price;
+  if (player.selectedSlot >= player.inventory.length) {
+    player.selectedSlot = Math.max(0, player.inventory.length - 1);
+  }
+  showMessage(`Sold for ${price}g! (${player.wallet}g total)`, 2);
+}
+
+function cmdBreed(arg) {
+  const parts = (arg || '').split(/\s+/).map(Number);
+  const s1 = (parts[0] || 0) - 1;
+  const s2 = (parts[1] || 0) - 1;
+  if (s1 < 0 || s2 < 0 || s1 === s2) {
+    showMessage('Usage: breed <slot1> <slot2> (two different slots)');
+    return;
+  }
+  const p1 = player.inventory[s1];
+  const p2 = player.inventory[s2];
+  if (!p1 || !p2) { showMessage('Invalid slots.'); return; }
+  if (p1.kind !== 'organism' || p2.kind !== 'organism') { showMessage('Both must be organisms.'); return; }
+  if (p1.mode !== p2.mode) { showMessage('Can\'t crossbreed different modes.'); return; }
+  const offspring = breed(p1, p2);
+  if (offspring.length === 0) { showMessage('Breeding failed.'); return; }
+  // Add first offspring to inventory, show the rest as options
+  const child = offspring[0];
+  player.inventory.push(child);
+  recordBreed(collection);
+  showMessage([
+    `Bred ${p1.nickname || 'parent'} × ${p2.nickname || 'parent'}`,
+    `New: ${child.nickname} (slot ${player.inventory.length})`,
+    `${offspring.length} offspring generated, kept best.`,
+  ], 4);
+}
+
+function cmdGarden(arg) {
+  if (!arg) { showMessage('Usage: garden <shape> [size] — shapes: circle, line, grid, cross, ring'); return; }
+  const parts = arg.toLowerCase().split(/\s+/);
+  const shape = parts[0];
+  const size = Math.max(1, Math.min(8, parseInt(parts[1]) || 3));
+
+  // Generate tile offsets for the shape
+  const offsets = [];
+  const playerCol = Math.floor(player.x / TILE_SIZE);
+  const playerRow = Math.floor(player.y / TILE_SIZE);
+
+  if (shape === 'circle' || shape === 'ring') {
+    for (let dy = -size; dy <= size; dy++) {
+      for (let dx = -size; dx <= size; dx++) {
+        const dist = Math.hypot(dx, dy);
+        if (shape === 'circle' && dist <= size) {
+          offsets.push([dx, dy]);
+        } else if (shape === 'ring' && dist >= size - 1 && dist <= size) {
+          offsets.push([dx, dy]);
+        }
+      }
+    }
+  } else if (shape === 'line' || shape === 'row') {
+    for (let dx = -size; dx <= size; dx++) {
+      offsets.push([dx, 0]);
+    }
+  } else if (shape === 'column' || shape === 'col') {
+    for (let dy = -size; dy <= size; dy++) {
+      offsets.push([0, dy]);
+    }
+  } else if (shape === 'grid' || shape === 'square') {
+    for (let dy = -size; dy <= size; dy++) {
+      for (let dx = -size; dx <= size; dx++) {
+        offsets.push([dx, dy]);
+      }
+    }
+  } else if (shape === 'cross' || shape === 'plus') {
+    for (let d = -size; d <= size; d++) {
+      offsets.push([d, 0]);
+      if (d !== 0) offsets.push([0, d]);
+    }
+  } else if (shape === 'spiral') {
+    let x = 0, y = 0, dx = 1, dy = 0, steps = 1, stepsTaken = 0, turns = 0;
+    const n = (2 * size + 1) * (2 * size + 1);
+    for (let i = 0; i < Math.min(n, 60); i++) {
+      offsets.push([x, y]);
+      x += dx; y += dy; stepsTaken++;
+      if (stepsTaken >= steps) {
+        stepsTaken = 0; turns++;
+        [dx, dy] = [-dy, dx]; // turn right
+        if (turns % 2 === 0) steps++;
+      }
+    }
+  } else {
+    return false; // unknown shape — fall through to AI
+  }
+
+  // Plant at each valid tile
+  let count = 0;
+  const mode = player.inventory.find(i => i.kind === 'organism')?.mode || 1;
+  for (const [dx, dy] of offsets) {
+    const col = playerCol + dx;
+    const row = playerRow + dy;
+    const tile = tileAt(world, col, row);
+    const validTile = gameState.creativeMode ? (tile === TILE.DIRT || tile === TILE.GRASS) : (tile === TILE.DIRT);
+    if (!validTile) continue;
+    if (planted.find(o => o.tileCol === col && o.tileRow === row)) continue;
+
+    // Use inventory seed if available, otherwise generate one (creative mode)
+    let seed;
+    const invIdx = player.inventory.findIndex(i => i.kind === 'organism');
+    if (invIdx >= 0) {
+      seed = player.inventory.splice(invIdx, 1)[0];
+    } else if (gameState.creativeMode) {
+      seed = createSeed(mode);
+    } else {
+      break; // no more seeds
+    }
+    seed.tileCol = col; seed.tileRow = row;
+    seed.plantedDay = gameState.day; seed.stage = 'growing'; seed.growthProgress = 0;
+    planted.push(seed);
+    if (gameState.sandboxMode) {
+      seed.stage = 'mature'; seed.growthProgress = seed.matureDays;
+      spawnOffspring(seed, planted, world);
+    }
+    count++;
+  }
+
+  if (player.selectedSlot >= player.inventory.length && player.inventory.length > 0) {
+    player.selectedSlot = player.inventory.length - 1;
+  }
+  showMessage(count > 0 ? `Planted ${count} in a ${shape} pattern!` : `No valid tiles for ${shape} pattern.`, 3);
+}
+
 function cmdGo(arg) {
   if (!arg) { showMessage('Usage: go <place or npc>'); return; }
   const target = resolveTarget(arg);
-  if (!target) { showMessage(`Unknown target: "${arg}"`); return; }
+  if (!target) return false;
   if (target.type === 'building') {
     const pos = buildingDoorPos(target.building);
     gameState.walkTarget = { x: pos.x, y: pos.y, label: target.building.name };
@@ -1597,7 +1759,7 @@ function cmdGo(arg) {
 function cmdWarp(arg) {
   if (!arg) { showMessage('Usage: warp <place or npc>'); return; }
   const target = resolveTarget(arg);
-  if (!target) { showMessage(`Unknown target: "${arg}"`); return; }
+  if (!target) return false;
   if (target.type === 'building') {
     const pos = buildingDoorPos(target.building);
     player.x = pos.x; player.y = pos.y;
@@ -1607,6 +1769,73 @@ function cmdWarp(arg) {
     player.x = ns.x; player.y = ns.y;
     showMessage(`Warped to ${NPCS[target.idx].name}!`, 1.5);
   }
+}
+
+function cmdMove(arg) {
+  if (!arg) { showMessage('Usage: move <direction|pattern> [amount]'); return; }
+  const parts = arg.toLowerCase().split(/\s+/);
+  const action = parts[0];
+  const amount = Math.max(1, Math.min(20, parseInt(parts[1]) || 3));
+  const dist = amount * TILE_SIZE;
+
+  // Directional movement
+  const dirs = {
+    left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1],
+    north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0],
+  };
+  if (dirs[action]) {
+    const [dx, dy] = dirs[action];
+    gameState.walkTarget = { x: player.x + dx * dist, y: player.y + dy * dist, label: 'move' };
+    showMessage(`Moving ${action}...`, 1.5);
+    return;
+  }
+
+  // Circle pattern
+  if (action === 'circle') {
+    const radius = dist;
+    const steps = 12;
+    const cx = player.x;
+    const cy = player.y;
+    function setWaypoint(i) {
+      if (i >= steps) {
+        gameState.walkTarget = { x: cx, y: cy, label: 'circle' };
+        return;
+      }
+      const angle = (i / steps) * Math.PI * 2;
+      gameState.walkTarget = {
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius,
+        label: 'circle',
+        onArrive: () => setWaypoint(i + 1),
+      };
+    }
+    showMessage(`Walking a circle...`, 1.5);
+    setWaypoint(0);
+    return;
+  }
+
+  // Zigzag pattern
+  if (action === 'zigzag' || action === 'wander') {
+    const cx = player.x;
+    const cy = player.y;
+    const waypoints = [];
+    for (let i = 0; i < amount; i++) {
+      waypoints.push({ x: cx + (i % 2 ? -1 : 1) * dist * 0.5, y: cy + (i + 1) * TILE_SIZE * 2 });
+    }
+    waypoints.push({ x: cx, y: cy });
+    function walkNext(i) {
+      if (i >= waypoints.length) return;
+      gameState.walkTarget = {
+        x: waypoints[i].x, y: waypoints[i].y, label: 'wander',
+        onArrive: () => walkNext(i + 1),
+      };
+    }
+    showMessage('Wandering...', 1.5);
+    walkNext(0);
+    return;
+  }
+
+  return false; // unrecognized — fall through to AI
 }
 
 function cmdPlant(arg) {
@@ -1622,7 +1851,7 @@ function cmdTrade(arg) {
   if (!arg) { showMessage('Usage: trade <npc name>'); return; }
   const name = arg.toLowerCase();
   const idx = NPCS.findIndex(n => n.name.toLowerCase() === name);
-  if (idx < 0) { showMessage(`Unknown NPC: "${arg}"`); return; }
+  if (idx < 0) return false;
   if (NPCS[idx].role !== 'farmer') { showMessage(`Can't trade with ${NPCS[idx].name}.`); return; }
   const ns = npcStates[idx];
   if (ns.inventory.length === 0) { showMessage(`${NPCS[idx].name} has nothing to trade.`); return; }
@@ -1643,7 +1872,7 @@ function cmdTalk(arg) {
   if (!arg) { showMessage('Usage: talk <npc name>'); return; }
   const name = arg.toLowerCase();
   const idx = NPCS.findIndex(n => n.name.toLowerCase() === name);
-  if (idx < 0) { showMessage(`Unknown NPC: "${arg}"`); return; }
+  if (idx < 0) return false;
   const npc = NPCS[idx];
   const ns = npcStates[idx];
   gameState.walkTarget = {
@@ -1754,7 +1983,25 @@ function cmdAI(arg, parts) {
     showMessage('API key cleared, AI disabled');
     return;
   }
-  showMessage('Usage: /ai [on|off|key|model|url|clear]');
+  if (sub === 'wishlist' || sub === 'wishes') {
+    const list = getWishlist();
+    if (list.length === 0) { showMessage('No wishes yet. Try typing something the game can\'t do!', 3); return; }
+    const lines = list.slice(-5).map(w => `"${w.input}" → ${w.suggestion}`);
+    lines.unshift(`Wishlist (${list.length} total, showing last ${Math.min(5, list.length)}):`);
+    showMessage(lines, 8);
+    return;
+  }
+  if (sub === 'clearwishlist') {
+    clearWishlist();
+    showMessage('Wishlist cleared.');
+    return;
+  }
+  if (sub === 'reset' || sub === 'newchat') {
+    clearConversation();
+    showMessage('Conversation reset.');
+    return;
+  }
+  showMessage('Usage: /ai [on|off|key|model|url|clear|wishlist|reset]');
 }
 
 function cmdGallery() {
@@ -1811,9 +2058,13 @@ const COMMANDS = {
   yell: cmdYell,
   gallery: cmdGallery,
   creative: cmdCreative,
+  circle: cmdMove, move: cmdMove,
+  sell: cmdSell,
+  breed: cmdBreed,
+  garden: cmdGarden,
 };
 
-const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice'];
+const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise'];
 
 function executeCommand(raw) {
   const rawParts = raw.split(/\s+/);
@@ -1831,8 +2082,9 @@ function executeCommand(raw) {
   const handler = COMMANDS[cmd];
   if (handler) {
     // Pass original-case arg for commands like /name, lowercase parts for others
-    handler(rawParts.slice(1).join(' '), rawParts.map(p => p.toLowerCase()));
-    return;
+    const result = handler(rawParts.slice(1).join(' '), rawParts.map(p => p.toLowerCase()));
+    if (result !== false) return; // handler succeeded (or returned undefined)
+    // Handler returned false — fall through to AI if available
   }
 
   // AI fallback: if enabled and key present
@@ -1841,22 +2093,76 @@ function executeCommand(raw) {
     gameState.aiThinking = true;
     showMessage('Thinking...', 15);
     const ctx = buildGameContext(gameState, player, npcStates, planted, collection);
-    interpretCommand(raw, ctx).then(result => {
+
+    // If AI requested feedback, capture screenshot and include it
+    const canvas = document.querySelector('canvas');
+    const screenshot = gameState.aiFeedbackRequested ? captureScreenshot(canvas) : null;
+    gameState.aiFeedbackRequested = false;
+
+    interpretCommand(raw, ctx, screenshot).then(result => {
       gameState.aiThinking = false;
       if (!result) {
         showMessage(`Couldn't map "${raw}" \u2014 try /help`, 3);
-      } else if (result.startsWith('SAY:')) {
-        showMessage(result.slice(4).trim(), 5);
-      } else if (result.startsWith('SUGGEST:')) {
-        const suggested = result.slice(8).trim();
+        return;
+      }
+
+      // Split off flags: |WISH: and |FEEDBACK
+      let command = result;
+      let wantsFeedback = false;
+
+      const feedbackIdx = command.indexOf('|FEEDBACK');
+      if (feedbackIdx >= 0) {
+        wantsFeedback = true;
+        command = command.slice(0, feedbackIdx) + command.slice(feedbackIdx + 9);
+        command = command.trim();
+      }
+
+      const wishIdx = command.indexOf('|WISH:');
+      if (wishIdx >= 0) {
+        const wish = command.slice(wishIdx + 6).trim();
+        command = command.slice(0, wishIdx).trim();
+        if (wish) addWish(raw, wish);
+      }
+
+      // Handle response types
+      if (command.startsWith('WISH:')) {
+        const wish = command.slice(5).trim();
+        addWish(raw, wish);
+        showMessage([wish, '(saved to /ai wishlist)'], 6);
+      } else if (command.startsWith('ASK:')) {
+        const question = command.slice(4).trim();
+        showMessage(question, 8);
+        // Re-open command bar for the answer
+        setTimeout(() => {
+          gameState.commandBar.active = true;
+          gameState.commandBar.text = '';
+          gameState.commandBar.suggestion = false;
+          input.setTextMode(true);
+        }, 300);
+      } else if (command.startsWith('SAY:')) {
+        showMessage(command.slice(4).trim(), 5);
+      } else if (command.startsWith('SUGGEST:')) {
+        const suggested = command.slice(8).trim();
         gameState.message = null;
         gameState.commandBar.active = true;
         gameState.commandBar.text = suggested;
         gameState.commandBar.suggestion = true;
         input.setTextMode(true);
       } else {
-        showMessage([`> ${result}`, '(AI interpreted)'], 2);
-        setTimeout(() => executeCommand(result), 400);
+        showMessage([`> ${command}`, '(AI interpreted)'], 2);
+        setTimeout(() => {
+          executeCommand(command);
+          // If AI wants feedback, schedule it after the command executes
+          if (wantsFeedback) {
+            setTimeout(() => {
+              gameState.aiFeedbackRequested = true;
+              showMessage('How did that look? (type feedback or just keep going)', 5);
+              gameState.commandBar.active = true;
+              gameState.commandBar.text = '';
+              input.setTextMode(true);
+            }, 1500);
+          }
+        }, 400);
       }
     }).catch(() => {
       gameState.aiThinking = false;
