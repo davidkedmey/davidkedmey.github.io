@@ -1036,7 +1036,7 @@ function drawSandboxHUD(ctx, gs, player) {
 
   // Hints
   ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
-  ctx.fillText('[E] Examine  [Scroll] Zoom  [Cmd+Z] Undo', CANVAS_W - 10, HUD_Y + TILE_SIZE - 6);
+  ctx.fillText('[E] Examine  [+/-] Zoom  [/zoom] Set  [Cmd+Z] Undo', CANVAS_W - 10, HUD_Y + TILE_SIZE - 6);
 
   // Draw sidebar (screen space, above HUD)
   drawSandboxSidebar(ctx, gs);

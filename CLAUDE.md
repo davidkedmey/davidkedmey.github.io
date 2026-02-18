@@ -81,6 +81,34 @@ Game (game/)  ◄── gallery-bridge.js reads both stores
               └── /gallery command shows all importable specimens
 ```
 
+## Parallel Development
+
+Multiple Claude instances may work on this project simultaneously. Follow these rules to avoid conflicts.
+
+**Before editing, check for other work in progress:**
+```
+git status        # see if other instances have uncommitted changes
+git diff --stat   # see which files are touched
+```
+If another instance has uncommitted changes to files you need, either wait or use a branch.
+
+**Branching rules:**
+- **One instance working?** Stay on `main`. No branch needed.
+- **Two instances, different roles?** Usually fine on `main` — role file ownership prevents overlap.
+- **Two instances, same role or shared files?** One stays on `main`, the other branches: `git checkout -b feature-name` (works even with dirty files mid-session).
+- **Realize mid-session there's overlap?** Branch now — `git checkout -b my-feature` carries your uncommitted changes to the new branch.
+
+**Commit discipline:**
+- Commit frequently in small, focused chunks. Large uncommitted diffs are hard to merge.
+- Write clear commit messages — the next instance reads `git log` to understand what changed.
+
+**Merging and conflicts:**
+- The instance performing the merge resolves conflicts.
+- Most conflicts are additive (two new imports, two new functions) — keep both sides.
+- If unsure, ask the user rather than guessing.
+
+**Shared files:** `game/main.js` is the most conflict-prone file (imported by everything, edited by most Game tasks). When two Game instances run in parallel, coordinate around it — one owns it, the other branches.
+
 ## Session Context
 
 **LLM Command Bar:** Read `~/.claude/projects/-Users-davidkedmey/memory/llm-integration.md` for context.

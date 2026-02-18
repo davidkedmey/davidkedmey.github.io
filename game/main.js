@@ -203,7 +203,7 @@ const gameState = {
   sandboxTool: 0,       // palette index (0-6 = terrain, -1 = biomorph brush)
   sandboxBiomorph: null, // spec for biomorph brush
   sandboxUndoStack: [],  // for undo
-  sandboxZoom: 1.0,      // zoom level (0.25–2.0)
+  sandboxZoom: 1.0,      // zoom level — snap to ZOOM_PRESETS values
 };
 
 // Default inventory
@@ -307,18 +307,37 @@ function startSandboxGame() {
   gameState.sandboxTool = 0;
   gameState.sandboxBiomorph = null;
   gameState.sandboxUndoStack = [];
-  // Replace world grid in-place
+  // Replace world grid in-place (256x256 gives vast territory at all zoom levels)
   world.length = 0;
-  const sg = createSandboxWorld(80, 64);
+  const sg = createSandboxWorld(256, 256);
   for (const row of sg) world.push(row);
   // Center player
-  player.x = 40 * TILE_SIZE;
-  player.y = 32 * TILE_SIZE;
+  player.x = 128 * TILE_SIZE;
+  player.y = 128 * TILE_SIZE;
   player.inventory = [];
   player.wallet = 0;
   planted.length = 0;
   npcStates.length = 0;
   if (!musicStarted) { musicStarted = true; startMusic('farm'); }
+}
+
+const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0];
+const ZOOM_WHEEL_THRESHOLD = 80; // accumulated deltaY before stepping
+let _zoomWheelAccum = 0;
+
+function snapZoom(direction) {
+  const cur = gameState.sandboxZoom;
+  if (direction > 0) {
+    // Zoom in: next preset above current
+    const next = ZOOM_PRESETS.find(z => z > cur + 0.01);
+    return next || ZOOM_PRESETS[ZOOM_PRESETS.length - 1];
+  } else {
+    // Zoom out: next preset below current
+    for (let i = ZOOM_PRESETS.length - 1; i >= 0; i--) {
+      if (ZOOM_PRESETS[i] < cur - 0.01) return ZOOM_PRESETS[i];
+    }
+    return ZOOM_PRESETS[0];
+  }
 }
 
 const SANDBOX_PALETTE = [
@@ -1647,6 +1666,24 @@ function cmdBreed(arg) {
   ], 4);
 }
 
+function cmdZoom(arg) {
+  if (!arg) {
+    const presets = ZOOM_PRESETS.map(z => {
+      const pct = Math.round(z * 100);
+      return z === gameState.sandboxZoom ? `[${pct}%]` : `${pct}%`;
+    }).join('  ');
+    showMessage(`Zoom: ${presets}`, 4);
+    return;
+  }
+  const pct = parseInt(arg);
+  if (isNaN(pct) || pct < 25 || pct > 200) {
+    showMessage('Usage: zoom <25-200> — e.g. /zoom 75', 3);
+    return;
+  }
+  gameState.sandboxZoom = pct / 100;
+  showMessage(`Zoom: ${pct}%`, 1.5);
+}
+
 function cmdGarden(arg) {
   if (!arg) { showMessage('Usage: garden <shape> [size] — shapes: circle, line, grid, cross, ring'); return; }
   const parts = arg.toLowerCase().split(/\s+/);
@@ -2062,9 +2099,10 @@ const COMMANDS = {
   sell: cmdSell,
   breed: cmdBreed,
   garden: cmdGarden,
+  zoom: cmdZoom,
 };
 
-const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise'];
+const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom'];
 
 function executeCommand(raw) {
   const rawParts = raw.split(/\s+/);
@@ -2361,18 +2399,21 @@ function gameLoop(timestamp) {
       input.setTextMode(true);
     }
 
-  // Sandbox zoom (mouse wheel + / -)
+  // Sandbox zoom (mouse wheel + / - snap to presets)
   if (gameState.sandboxMode && !gameState.overlay) {
     const wd = input.consumeWheel();
     if (wd !== 0) {
-      const step = wd > 0 ? -0.1 : 0.1;
-      gameState.sandboxZoom = Math.max(0.25, Math.min(2.0, gameState.sandboxZoom + step));
+      _zoomWheelAccum += wd;
+      if (Math.abs(_zoomWheelAccum) >= ZOOM_WHEEL_THRESHOLD) {
+        gameState.sandboxZoom = snapZoom(_zoomWheelAccum < 0 ? 1 : -1);
+        _zoomWheelAccum = 0;
+      }
     }
     if (input.justPressed('=') || input.justPressed('+')) {
-      gameState.sandboxZoom = Math.max(0.25, Math.min(2.0, gameState.sandboxZoom + 0.1));
+      gameState.sandboxZoom = snapZoom(1);
     }
     if (input.justPressed('-')) {
-      gameState.sandboxZoom = Math.max(0.25, Math.min(2.0, gameState.sandboxZoom - 0.1));
+      gameState.sandboxZoom = snapZoom(-1);
     }
   } else {
     input.consumeWheel(); // drain unused wheel events

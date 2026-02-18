@@ -58,7 +58,7 @@ export function createInput(canvas) {
     keys[e.key] = false;
   });
 
-  // ── Wheel state ──
+  // ── Wheel state (accumulated for debounce) ──
   let wheelDelta = 0;
 
   // ── Mouse state (right-click drag for camera panning) ──
