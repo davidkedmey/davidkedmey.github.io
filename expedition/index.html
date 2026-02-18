@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Expedition — CryptoBiomorphs</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0a0e14;
+      color: #d4dce6;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: #12161e;
+      border-bottom: 1px solid #2a3444;
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .header h1 {
+      font-size: 1.1rem;
+      color: #c8e6c8;
+      font-family: Georgia, serif;
+      letter-spacing: 0.03em;
+    }
+
+    .header .discovery-count {
+      font-size: 0.85rem;
+      color: #8a9aaa;
+    }
+
+    .header-right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .header-right select {
+      background: #1a1e26;
+      color: #d4dce6;
+      border: 1px solid #2a3444;
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 0.8rem;
+    }
+
+    .btn {
+      background: #1a1e26;
+      color: #d4dce6;
+      border: 1px solid #2a3444;
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #2a3444; }
+    .btn-primary {
+      background: #1a3a2a;
+      border-color: #3a5a4a;
+      color: #a8d8a8;
+    }
+    .btn-primary:hover { background: #2a4a3a; }
+    .btn-primary:disabled { opacity: 0.4; cursor: default; }
+
+    a.btn { text-decoration: none; }
+
+    /* ── Main Layout ── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Left: Morphospace Map ── */
+    .map-panel {
+      flex: 1.2;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #2a3444;
+      min-width: 0;
+    }
+
+    .map-header {
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      color: #6a7a8a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 1px solid #1a2030;
+    }
+
+    #morphospace-canvas {
+      flex: 1;
+      width: 100%;
+      cursor: crosshair;
+    }
+
+    /* ── Right Panel ── */
+    .right-panel {
+      width: 360px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Breeding Lab ── */
+    .breeding-lab {
+      padding: 12px;
+      border-bottom: 1px solid #2a3444;
+      flex-shrink: 0;
+    }
+
+    .breeding-lab .section-title {
+      font-size: 0.75rem;
+      color: #6a7a8a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .parents-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    .parent-slot {
+      width: 72px;
+      height: 72px;
+      background: #0d1117;
+      border: 2px dashed #2a3444;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      color: #4a5a6a;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .parent-slot.filled {
+      border-style: solid;
+      border-color: #3a5a4a;
+    }
+    .parent-slot canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .breed-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .offspring-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+      min-height: 64px;
+    }
+
+    .offspring-slot {
+      width: 60px;
+      height: 60px;
+      background: #0d1117;
+      border: 1px solid #2a3444;
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .offspring-slot:hover { border-color: #4a6a5a; }
+    .offspring-slot.selected { border-color: #a8d8a8; border-width: 2px; }
+    .offspring-slot canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .claim-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      align-items: center;
+    }
+
+    .claim-info {
+      font-size: 0.75rem;
+      color: #6a7a8a;
+    }
+
+    /* ── Collection Grid ── */
+    .collection-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .collection-header {
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1a2030;
+      flex-shrink: 0;
+    }
+
+    .collection-header .section-title {
+      font-size: 0.75rem;
+      color: #6a7a8a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .filter-pills {
+      display: flex;
+      gap: 4px;
+    }
+
+    .filter-pill {
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #1a1e26;
+      color: #8a9aaa;
+      border: 1px solid #2a3444;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .filter-pill.active {
+      background: #1a3a2a;
+      color: #a8d8a8;
+      border-color: #3a5a4a;
+    }
+
+    .collection-grid {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+      gap: 6px;
+      align-content: start;
+    }
+
+    .collection-grid::-webkit-scrollbar { width: 6px; }
+    .collection-grid::-webkit-scrollbar-track { background: transparent; }
+    .collection-grid::-webkit-scrollbar-thumb { background: #2a3444; border-radius: 3px; }
+
+    .specimen-card {
+      aspect-ratio: 1;
+      background: #0d1117;
+      border: 1px solid #2a3444;
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.15s, transform 0.1s;
+    }
+    .specimen-card:hover {
+      border-color: #4a6a5a;
+      transform: scale(1.05);
+    }
+    .specimen-card.selected-parent {
+      border-color: #c8e6c8;
+      border-width: 2px;
+      box-shadow: 0 0 8px rgba(168, 216, 168, 0.3);
+    }
+    .specimen-card canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .specimen-rarity {
+      position: absolute;
+      bottom: 2px;
+      right: 2px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+    }
+
+    /* ── Activity Feed ── */
+    .activity-feed {
+      border-top: 1px solid #2a3444;
+      padding: 6px 12px;
+      flex-shrink: 0;
+      max-height: 90px;
+      overflow-y: auto;
+      font-size: 0.75rem;
+      color: #8a9aaa;
+      line-height: 1.6;
+    }
+
+    .activity-feed::-webkit-scrollbar { width: 4px; }
+    .activity-feed::-webkit-scrollbar-thumb { background: #2a3444; border-radius: 2px; }
+
+    .toast-entry {
+      display: flex;
+      justify-content: space-between;
+      padding: 2px 0;
+    }
+
+    .toast-entry .rarity-common { color: #aaa; }
+    .toast-entry .rarity-uncommon { color: #4a4; }
+    .toast-entry .rarity-rare { color: #48f; }
+    .toast-entry .rarity-epic { color: #a4f; }
+    .toast-entry .rarity-legendary { color: #fa0; }
+
+    .toast-time {
+      color: #4a5a6a;
+      flex-shrink: 0;
+      margin-left: 8px;
+    }
+
+    /* ── Overlays ── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 14, 20, 0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .overlay.visible { display: flex; }
+
+    .overlay-card {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      border-radius: 12px;
+      padding: 24px;
+      min-width: 320px;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .overlay-card h2 {
+      font-family: Georgia, serif;
+      color: #c8e6c8;
+      margin-bottom: 16px;
+      font-size: 1.2rem;
+    }
+
+    .overlay-close {
+      position: absolute;
+      top: 12px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: #8a9aaa;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    /* Leaderboard */
+    .lb-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .lb-table th {
+      text-align: left;
+      padding: 6px 8px;
+      color: #6a7a8a;
+      border-bottom: 1px solid #2a3444;
+      font-weight: normal;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+    }
+    .lb-table td {
+      padding: 8px;
+      border-bottom: 1px solid #1a2030;
+    }
+    .lb-table .rank { color: #4a5a6a; width: 30px; }
+    .lb-table .player-row { color: #c8e6c8; }
+
+    /* Inspect overlay */
+    .inspect-card {
+      text-align: center;
+    }
+    .inspect-card canvas {
+      display: block;
+      margin: 0 auto 12px;
+      border-radius: 8px;
+      background: #0d1117;
+    }
+    .inspect-name {
+      font-family: Georgia, serif;
+      font-size: 1.1rem;
+      color: #d4dce6;
+      margin-bottom: 4px;
+    }
+    .inspect-details {
+      font-size: 0.8rem;
+      color: #6a7a8a;
+      line-height: 1.6;
+    }
+
+    /* ── Map tooltip ── */
+    .map-tooltip {
+      position: fixed;
+      background: #1a1e26;
+      border: 1px solid #2a3444;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.75rem;
+      color: #d4dce6;
+      pointer-events: none;
+      z-index: 50;
+      display: none;
+      white-space: nowrap;
+    }
+
+    /* ── Pulse animation on new discovery ── */
+    @keyframes pulse-ring {
+      0% { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(3); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-left">
+      <h1>EXPEDITION</h1>
+      <span class="discovery-count" id="discovery-count">0 discoveries</span>
+    </div>
+    <div class="header-right">
+      <select id="mode-select" title="Breeding mode">
+        <option value="1">Mode 1 — Basic</option>
+      </select>
+      <button class="btn" id="btn-leaderboard">Leaderboard</button>
+      <a class="btn" href="../">Hub</a>
+    </div>
+  </div>
+
+  <div class="main">
+    <!-- Left: Morphospace Map -->
+    <div class="map-panel">
+      <div class="map-header">
+        Morphospace — <span id="map-info">X: gene extremity, Y: depth</span>
+      </div>
+      <canvas id="morphospace-canvas"></canvas>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+      <!-- Breeding Lab -->
+      <div class="breeding-lab">
+        <div class="section-title">Breeding Lab</div>
+        <div class="parents-row">
+          <div class="parent-slot" id="parent-1" title="Click a specimen to select as parent">
+            <span>Parent 1</span>
+          </div>
+          <div class="parent-slot" id="parent-2" title="Click a specimen to select as parent">
+            <span>Parent 2</span>
+          </div>
+          <div class="breed-actions">
+            <button class="btn btn-primary" id="btn-breed" disabled>Breed</button>
+            <button class="btn" id="btn-clear-parents" title="Clear parents">Clear</button>
+          </div>
+        </div>
+        <div class="offspring-row" id="offspring-row"></div>
+        <div class="claim-row" id="claim-row" style="display:none">
+          <button class="btn btn-primary" id="btn-claim">Claim</button>
+          <span class="claim-info" id="claim-info"></span>
+        </div>
+      </div>
+
+      <!-- Collection -->
+      <div class="collection-panel">
+        <div class="collection-header">
+          <span class="section-title">My Collection (<span id="collection-count">0</span>)</span>
+          <div class="filter-pills">
+            <button class="filter-pill active" data-filter="all">All</button>
+            <button class="filter-pill" data-filter="common">C</button>
+            <button class="filter-pill" data-filter="uncommon">U</button>
+            <button class="filter-pill" data-filter="rare">R</button>
+            <button class="filter-pill" data-filter="epic">E</button>
+            <button class="filter-pill" data-filter="legendary">L</button>
+          </div>
+        </div>
+        <div class="collection-grid" id="collection-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity Feed (bottom bar) -->
+  <div class="activity-feed" id="activity-feed"></div>
+
+  <!-- Leaderboard Overlay -->
+  <div class="overlay" id="overlay-leaderboard">
+    <div class="overlay-card" style="position:relative">
+      <button class="overlay-close" id="close-leaderboard">&times;</button>
+      <h2>Leaderboard</h2>
+      <table class="lb-table" id="lb-table">
+        <thead><tr><th class="rank">#</th><th>Collector</th><th>Discoveries</th></tr></thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Inspect Overlay -->
+  <div class="overlay" id="overlay-inspect">
+    <div class="overlay-card inspect-card" style="position:relative">
+      <button class="overlay-close" id="close-inspect">&times;</button>
+      <canvas id="inspect-canvas" width="200" height="200"></canvas>
+      <div class="inspect-name" id="inspect-name"></div>
+      <div class="inspect-details" id="inspect-details"></div>
+      <div style="margin-top:12px">
+        <button class="btn btn-primary" id="inspect-select-parent">Select as Parent</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map tooltip -->
+  <div class="map-tooltip" id="map-tooltip"></div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

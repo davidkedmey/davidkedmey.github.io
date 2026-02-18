@@ -101,6 +101,7 @@ If another instance has uncommitted changes to files you need, either wait or us
 **Commit discipline:**
 - Commit frequently in small, focused chunks. Large uncommitted diffs are hard to merge.
 - Write clear commit messages — the next instance reads `git log` to understand what changed.
+- **Only stage files related to your current task.** Never batch unrelated changes into one commit. If `git status` shows modified files you didn't touch, leave them alone — another instance owns those.
 
 **Merging and conflicts:**
 - The instance performing the merge resolves conflicts.
