@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Building Locomotion — Biomorph Builder</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #0a0e14;
+      color: #d4dce6;
+      min-height: 100vh;
+      line-height: 1.7;
+    }
+
+    .site-nav {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #0d1117;
+      border-bottom: 1px solid #1a2030;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.8rem;
+    }
+    .site-nav a {
+      color: #8a9aaa;
+      text-decoration: none;
+      padding: 4px 10px;
+      border: 1px solid #2a3444;
+      border-radius: 4px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .site-nav a:hover {
+      color: #c8e6c8;
+      border-color: #4a6a5a;
+    }
+
+    .article {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: #c8e6c8;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+
+    .lead {
+      font-size: 1.05rem;
+      color: #8a9aaa;
+      font-style: italic;
+      margin-bottom: 32px;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      color: #c8e6c8;
+      margin: 40px 0 12px;
+      padding-top: 16px;
+      border-top: 1px solid #1a2434;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      color: #a0b8c8;
+      margin: 24px 0 8px;
+    }
+
+    p {
+      margin-bottom: 16px;
+      color: #b8c8d8;
+    }
+
+    a { color: #7a9aba; }
+    a:hover { color: #a8d8a8; }
+
+    strong { color: #d4dce6; }
+
+    code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      background: #12161e;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.88em;
+      color: #c8e6c8;
+    }
+
+    pre {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      border-radius: 8px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin: 12px 0 20px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: #b8c8d8;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: inherit;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.85rem;
+    }
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      background: #12161e;
+      color: #c8e6c8;
+      border-bottom: 2px solid #2a3444;
+      font-weight: 600;
+    }
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #1a2434;
+      color: #b8c8d8;
+    }
+    tr:hover td { background: #0d1117; }
+
+    ol, ul {
+      margin: 8px 0 16px 24px;
+      color: #b8c8d8;
+    }
+    li { margin-bottom: 6px; }
+
+    blockquote {
+      border-left: 3px solid #3a5a4a;
+      padding: 12px 20px;
+      margin: 16px 0;
+      background: #0d1117;
+      border-radius: 0 6px 6px 0;
+      font-style: italic;
+      color: #8a9aaa;
+    }
+
+    .callout {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 20px 0;
+    }
+    .callout-title {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.8rem;
+      color: #a8d8a8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 40px 24px;
+      color: #4a5a6a;
+      font-size: 0.8rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      border-top: 1px solid #1a2434;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .footer a { color: #6a8a9a; text-decoration: none; }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.6rem; }
+      .article { padding: 32px 16px 60px; }
+      pre { font-size: 0.75rem; padding: 12px; }
+      table { font-size: 0.78rem; }
+      th, td { padding: 6px 8px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="./">Hub</a>
+  <a href="articles.html">Articles</a>
+  <a href="3d/locomotion.html">Locomotion</a>
+  <a href="breed.html">Breed</a>
+  <a href="3d/">3D</a>
+</nav>
+
+<article class="article">
+
+  <h1>Building Locomotion</h1>
+  <p class="lead">A biomorph has no muscles, no skeleton, no nervous system. It's a shape — nothing more. So what happens when you give it physics and drop it on the ground?</p>
+
+  <p>Richard Dawkins showed that simple genetic rules produce an astonishing diversity of form. But form without function is just art. The question driving the <a href="3d/locomotion.html">Locomotion Arena</a> is: <strong>can the same genes that determine shape also determine movement?</strong></p>
+
+  <h2>Day 1: First Contact with the Ground</h2>
+
+  <p>The first attempt was straightforward: take the tree structure, convert each branch into a rigid body, connect them with hinge joints, and oscillate the joints sinusoidally. Drop it on a ground plane. See what happens.</p>
+
+  <p>What happened was explosions. The creatures detonated on contact with the ground — bodies flying in every direction, branches launching into the sky. The constraint solver couldn't keep up with the forces.</p>
+
+  <p>After research into cannon-es physics stability (ragdoll examples, constraint tuning guides, walking robot demos), we identified the critical settings:</p>
+
+  <ul>
+    <li><strong>Solver iterations must exceed body count</strong> (we use 30)</li>
+    <li><strong>Quaternion normalization must be exact</strong> (<code>quatNormalizeFast = false</code>)</li>
+    <li><strong>Motor forces must be gentle</strong> (5–15, not hundreds)</li>
+    <li><strong>Connected bodies must not self-collide</strong> (<code>collideConnected: false</code>)</li>
+    <li><strong>Creature parts only collide with ground</strong> (collision groups)</li>
+  </ul>
+
+  <p>With these in place, a hardcoded test creature — a flat box with four dangling legs — stood on the ground and walked. Slowly, awkwardly, but it walked.</p>
+
+  <h2>Day 1.5: From Test Creature to Genotype Creatures</h2>
+
+  <p>The test creature proved the physics pipeline. Next: connect it to real genotypes.</p>
+
+  <p>The challenge: biomorph trees vary enormously in size. A depth-8 creature with gene values of 9 can span 50+ units. A depth-2 creature might be 3 units. The physics needs everything within a ~3-unit envelope.</p>
+
+  <p>Solution: a pre-pass computes the tree's bounding extent, then derives a normalization scale. Every creature, regardless of genotype, fits within the same physical size. The genes determine <em>shape</em>, not <em>scale</em>.</p>
+
+  <p>The first genotype creatures were sprawling, crab-like forms — branches radiating from a central spine, resting on the ground. The crawl gait made their branches oscillate in sequence. They moved. Not well, but they moved.</p>
+
+  <h2>Day 2: Designing for Locomotion</h2>
+
+  <p>Random genotypes produce random shapes. Most are terrible at moving — they flop, they spin, they sit still. This is expected. In nature, most random mutations are harmful.</p>
+
+  <p>But what if we <em>design</em> genotypes that should be good at locomotion? Not evolved — designed, by understanding what the genes do and choosing values that produce functional morphologies.</p>
+
+  <h3>Understanding the Gene-Shape Relationship</h3>
+
+  <p>The 8 direction genes (g1–g8) define vectors that control branching:</p>
+
+  <table>
+    <tr><th>Genes</th><th>Control</th><th>Locomotion role</th></tr>
+    <tr><td>g1, g5</td><td>Inner diagonal branches (v3/v5)</td><td>Primary "legs"</td></tr>
+    <tr><td>g2, g6</td><td>Horizontal branches (v2/v6)</td><td>Secondary legs / feet</td></tr>
+    <tr><td>g3, g7</td><td>Outer diagonal branches (v1/v7)</td><td>Stabilizers / wide stance</td></tr>
+    <tr><td>g4</td><td>Upward trunk (v4)</td><td>Body height</td></tr>
+    <tr><td>g8</td><td>Downward stem (v8)</td><td>Tail / anchor</td></tr>
+  </table>
+
+  <p>The key insight: <strong>negative values for g5, g6, g7 make branches point downward</strong>. Downward branches become legs. Positive g1, g2, g3 spread them outward. So a "quadruped" is just: spread outward (positive g1–g3), point down (negative g5–g7), short trunk (small g4).</p>
+
+  <h3>The g4=0 Trap</h3>
+
+  <p>Before designing presets, we hit a critical discovery. The recursion in <code>extractSkeleton</code> starts at vector index 4 — the upward trunk. If g4=0, the trunk has zero length, and the entire tree is pruned at the root: <code>if (length &lt; 0.001) return;</code>. The creature spawns as a single bodyless point. No joints. No movement.</p>
+
+  <p>This means <strong>every creature that wants to move must have g4 &ge; 1</strong>. Even a value of 1 is enough — just a tiny trunk to anchor the branching structure. It's the spine, the nucleus, the starting point of form.</p>
+
+  <h3>Preset Design: Round 1</h3>
+
+  <p>The first attempt at hand-designed genotypes was humbling:</p>
+
+  <table>
+    <tr><th>Design</th><th>Predicted shape</th><th>Predicted gait</th><th>Predicted speed</th></tr>
+    <tr><td><strong>Table</strong> — spread out, legs down</td><td>Quadruped</td><td>Crawl</td><td>Medium</td></tr>
+    <tr><td><strong>Spider</strong> — wide, many legs</td><td>Low scuttler</td><td>Crawl</td><td>Medium</td></tr>
+    <tr><td><strong>Snake</strong> — segments, no branches</td><td>Chain</td><td>Wiggle</td><td>Fast</td></tr>
+    <tr><td><strong>Caterpillar</strong> — segments with legs</td><td>Worm</td><td>Crawl</td><td>Slow</td></tr>
+    <tr><td><strong>Jellyfish</strong> — dome, upward branches</td><td>Umbrella</td><td>Pulse</td><td>Slow</td></tr>
+    <tr><td><strong>Crab</strong> — max horizontal spread</td><td>Wide flat</td><td>Wiggle</td><td>Medium</td></tr>
+  </table>
+
+  <p>The reality:</p>
+
+  <table>
+    <tr><th>Design</th><th>Bodies</th><th>Speed</th><th>What actually happened</th></tr>
+    <tr><td>Table v1</td><td>4</td><td>0.12 m/s</td><td>Recognizable quadruped. Slow but stable.</td></tr>
+    <tr><td>Spider v1</td><td>4</td><td>0.19 m/s</td><td>Toppled. Too vertical.</td></tr>
+    <tr><td>Snake v1</td><td>4</td><td>0.25 m/s</td><td>Fastest! But invisible — too flat to see.</td></tr>
+    <tr><td>Caterpillar v1</td><td>16</td><td>0.10 m/s</td><td>Complex but tiny in the distance.</td></tr>
+    <tr><td>Jellyfish v1</td><td>4</td><td>0.02 m/s</td><td>Barely moved. Upward branches can't push ground.</td></tr>
+    <tr><td>Crab v1</td><td>1</td><td>0.00 m/s</td><td><strong>Dead.</strong> g4=0 killed the tree.</td></tr>
+  </table>
+
+  <div class="callout">
+    <div class="callout-title">Key lessons from Round 1</div>
+    <ol>
+      <li><strong>Physics depth matters hugely.</strong> With <code>maxPhysicsDepth=2</code>, most creatures only got 4 bodies — barely enough for interesting movement. Increasing to 3 doubled the body count and dramatically improved articulation.</li>
+      <li><strong>g4=0 is fatal.</strong> Discovered the trunk-pruning bug.</li>
+      <li><strong>Upward branches don't help on flat ground.</strong> The jellyfish's dome shape had nothing to push against.</li>
+      <li><strong>Flat is fast but invisible.</strong> The snake moved well but was impossible to see from the default camera angle.</li>
+    </ol>
+  </div>
+
+  <h3>Preset Design: Round 2</h3>
+
+  <p>Armed with these lessons, we revised every preset — increased <code>physDepth</code> to 3 for most presets (more articulated joints), ensured g4 &ge; 1 on every preset, and gave the jellyfish downward branches for ground contact.</p>
+
+  <table>
+    <tr><th>Design</th><th>Genes</th><th>Mode</th><th>Bodies</th><th>Gait</th><th>Speed</th></tr>
+    <tr><td><strong>Table</strong></td><td>[4,6,4,2,-5,-7,-5,0,4]</td><td>1</td><td>8</td><td>crawl</td><td>0.49 m/s</td></tr>
+    <tr><td><strong>Spider</strong></td><td>[6,4,6,1,-3,-5,-3,0,5]</td><td>1</td><td>8</td><td>crawl</td><td>0.29 m/s</td></tr>
+    <tr><td><strong>Snake</strong></td><td>[2,1,0,1,-1,-1,0,0,2,6,3]</td><td>3</td><td>16</td><td>wiggle</td><td>0.29 m/s</td></tr>
+    <tr><td><strong>Caterpillar</strong></td><td>[3,4,2,1,-4,-5,-3,0,3,4,3]</td><td>3</td><td>16</td><td>crawl</td><td>0.22 m/s</td></tr>
+    <tr><td><strong>Jellyfish</strong></td><td>[5,7,5,3,-2,-3,-2,-3,4]</td><td>1</td><td>8</td><td>pulse</td><td>0.22 m/s</td></tr>
+    <tr><td><strong>Crab</strong></td><td>[3,9,4,1,-2,-6,-3,0,4]</td><td>1</td><td>8</td><td>wiggle</td><td>0.22 m/s</td></tr>
+  </table>
+
+  <p>The Table is the champion at 0.49 m/s. The recipe for fast ground locomotion turns out to be simple: <strong>moderate spread, strongly downward legs, enough depth for articulated joints</strong>. The negative g5/g6/g7 values (-5, -7, -5) create branches that act like real legs — they point down, they touch the ground, and the crawl gait swings them in alternating pairs like a trot.</p>
+
+  <h3>What the Genes Actually Do (Revised)</h3>
+
+  <p>After two rounds of testing, here's a more honest assessment of how genes map to locomotion:</p>
+
+  <table>
+    <tr><th>Gene</th><th>Effect on locomotion</th><th>Sweet spot</th></tr>
+    <tr><td>g1 (inner spread)</td><td>Controls "hip width" of primary legs</td><td>3–6</td></tr>
+    <tr><td>g2 (horiz spread)</td><td>Controls reach of lateral limbs</td><td>4–9 (higher = wider)</td></tr>
+    <tr><td>g3 (outer spread)</td><td>Stabilizer width</td><td>2–6</td></tr>
+    <tr><td>g4 (trunk)</td><td><strong>Must be &ge; 1.</strong> Height of body center</td><td>1–3 (low = stable)</td></tr>
+    <tr><td>g5 (inner vertical)</td><td>Primary leg angle. <strong>Negative = legs</strong></td><td>-3 to -7</td></tr>
+    <tr><td>g6 (horiz vertical)</td><td>Lateral leg angle. <strong>Negative = legs</strong></td><td>-3 to -7</td></tr>
+    <tr><td>g7 (outer vertical)</td><td>Stabilizer angle</td><td>-2 to -5</td></tr>
+    <tr><td>g8 (tail)</td><td>Tail/anchor. Mostly irrelevant</td><td>0</td></tr>
+    <tr><td>depth</td><td>Branching complexity. More = more joints</td><td>3–5</td></tr>
+    <tr><td>physDepth</td><td>How many levels get physics bodies</td><td>2–3</td></tr>
+  </table>
+
+  <blockquote>The fundamental insight: locomotion is an emergent property of the interaction between downward-pointing branches and oscillating hinge joints. The genes don't encode "legs" — they encode vectors. But negative vertical genes create structures that happen to function as legs when driven by sinusoidal motors. Form follows function follows form.</blockquote>
+
+  <h2>Day 3: Ground Truth</h2>
+
+  <p>A persistent problem: branches visually penetrate the ground. The physics bodies are small boxes at branch midpoints, but the visual geometry — especially deeper visual-only sub-branches — extends far beyond the collision envelope. When a body tilts, branch tips sweep through the ground plane like ghostly roots.</p>
+
+  <h3>Why It Happens</h3>
+
+  <p>Each physics body has a single collision box at its center. But it carries visual branches that may extend 2–3x the box size. These branches are just meshes — Three.js geometry with no physics. When the body rotates, the meshes rotate with it, and any part that dips below y=0 passes through the ground unimpeded.</p>
+
+  <h3>The Fix: Two Layers</h3>
+
+  <p><strong>Layer 1 — Tip Colliders (Physics)</strong></p>
+
+  <p>After building the skeleton, we iterate through each body's visual branches and find the leaf endpoints — branch tips that aren't the start of any other branch. At each tip, we add a small <code>CANNON.Sphere</code> (radius 0.12) as an additional shape on the parent body, offset to the tip position. These spheres collide with the ground plane, creating invisible "feet" at every branch endpoint.</p>
+
+  <p>The tip colliders do double duty: they prevent the physics body from rotating into a position where tips would go underground, and they give the creature more points of ground contact for traction.</p>
+
+  <p><strong>Layer 2 — Ground Clipping Plane (Visual)</strong></p>
+
+  <p>For any geometry that still manages to dip below ground (branches between the body center and tips, or during fast motion), we add a Three.js clipping plane at y=0.01 to the locomotion material. This is a GPU-level clip — any fragment below the plane is simply not rendered. The result: branches appear to meet the ground cleanly, as if pressing into soil rather than phasing through it.</p>
+
+  <p>The clipping plane is only applied to the locomotion material (<code>locoMaterial</code> in <code>createTreeBodies</code>), so the regular 3D gallery viewer is unaffected.</p>
+
+  <h3>The Result</h3>
+
+  <p>Creatures now interact cleanly with the ground. Branch tips that touch the surface create flat contact edges instead of ghostly penetrations. The tip colliders also changed the movement dynamics — creatures with more ground contact points (like the Spider and Caterpillar) became more stable and slightly slower, while the Table maintained its speed advantage because its legs are structured to push off the ground efficiently.</p>
+
+</article>
+
+<div class="footer">
+  Part of <a href="./">Biomorph Builder</a>.
+  <a href="articles.html">Back to articles</a> &middot; <a href="3d/locomotion.html">Try the arena</a>
+</div>
+
+</body>
+</html>
