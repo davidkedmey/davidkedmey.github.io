@@ -356,8 +356,25 @@ function startLevel(levelName) {
     return;
   }
 
-  // Non-sandbox levels: use the pre-built world
+  // Non-sandbox levels: rebuild the pre-built world
   gameState.sandboxMode = false;
+  gameState.sandboxZoom = 1.0;
+  world.length = 0;
+  const freshWorld = createWorld();
+  for (const row of freshWorld) world.push(row);
+  buildOwnershipGrid();
+  planted.length = 0;
+  wilds = initWildBiomorphs(world);
+  exhibits = initExhibits();
+  player.x = 15 * TILE_SIZE;
+  player.y = 15 * TILE_SIZE;
+  player.inventory = [];
+  for (let i = 0; i < 3; i++) player.inventory.push(createSeed(1));
+  player.wallet = config.creativeMode ? 9999 : 0;
+  player.selectedSlot = 0;
+  gameState.day = 1;
+  gameState.dayTimer = 0;
+  gameState.shopStock = generateShopStock(collection.unlockedModes);
   registry = createDiscoveryRegistry();
   seedGenesisSpecimens(registry);
 
@@ -1777,6 +1794,19 @@ function cmdZoom(arg) {
   showMessage(`Zoom: ${pct / 100}x`, 1.5);
 }
 
+function cmdLevel(arg) {
+  const LEVEL_BY_ID = { '1': 'canvas', '2': 'world', '3': 'populated', '4': 'adventure' };
+  const name = arg ? (LEVEL_BY_ID[arg.trim()] || arg.trim().toLowerCase()) : null;
+  if (!name || !LEVEL_CONFIGS[name]) {
+    const current = gameState.level || '?';
+    showMessage([`Current: ${current}`, 'Usage: level <canvas|world|populated|adventure>'], 4);
+    return;
+  }
+  if (name === gameState.level) { showMessage(`Already on ${name}`, 1.5); return; }
+  startLevel(name);
+  showMessage(`Level: ${LEVEL_CONFIGS[name].label}`, 2);
+}
+
 function cmdGarden(arg) {
   if (!arg) { showMessage('Usage: garden <shape> [size] — shapes: circle, line, grid, cross, ring'); return; }
   const parts = arg.toLowerCase().split(/\s+/);
@@ -2193,9 +2223,10 @@ const COMMANDS = {
   breed: cmdBreed,
   garden: cmdGarden,
   zoom: cmdZoom,
+  level: cmdLevel,
 };
 
-const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom'];
+const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level'];
 
 function executeCommand(raw) {
   const rawParts = raw.split(/\s+/);
@@ -2488,7 +2519,7 @@ function gameLoop(timestamp) {
       input.setTextMode(true);
     }
 
-  // Sandbox: scroll-to-browse palette when mouse over sidebar, else zoom
+  // Sandbox: scroll-to-browse palette when mouse over sidebar
   if (gameState.sandboxMode && !gameState.overlay) {
     const mx = input.mouseX || 0, my = input.mouseY || 0;
     const SB_BIOMORPH_Y = 40 + 8 + 7 * 36 + 8; // biomorph brush button Y
@@ -2508,14 +2539,28 @@ function gameLoop(timestamp) {
         _zoomWheelAccum = 0;
       }
     }
+  } else if (!gameState.overlay) {
+    // Non-sandbox: wheel zoom only (no palette)
+    const wd = input.consumeWheel();
+    if (wd !== 0) {
+      _zoomWheelAccum += wd;
+      if (Math.abs(_zoomWheelAccum) >= ZOOM_WHEEL_THRESHOLD) {
+        setZoom(snapZoom(_zoomWheelAccum < 0 ? 1 : -1));
+        _zoomWheelAccum = 0;
+      }
+    }
+  } else {
+    input.consumeWheel(); // drain unused wheel events
+  }
+
+  // Zoom keyboard controls (all levels)
+  if (!gameState.overlay) {
     if (input.justPressed('=') || input.justPressed('+')) {
       setZoom(snapZoom(1));
     }
     if (input.justPressed('-')) {
       setZoom(snapZoom(-1));
     }
-  } else {
-    input.consumeWheel(); // drain unused wheel events
   }
 
   // Sandbox undo (Ctrl/Cmd+Z)
@@ -2687,7 +2732,7 @@ function gameLoop(timestamp) {
   // (Follow mode persists through overlays — only explicit Escape/Q/stop cancels it)
 
   // Camera — follow NPC or player
-  const _zoom = gameState.sandboxMode ? gameState.sandboxZoom : undefined;
+  const _zoom = gameState.sandboxZoom || 1;
   if (gameState.followNpcIdx >= 0) {
     const followTarget = npcStates[gameState.followNpcIdx];
     if (followTarget) {
@@ -2728,7 +2773,7 @@ function gameLoop(timestamp) {
   const WORLD_PX_W = world[0].length * TILE_SIZE;
   const WORLD_PX_H = world.length * TILE_SIZE;
   const VIEW_H = CANVAS_H - TILE_SIZE;
-  const _zf = gameState.sandboxMode ? (gameState.sandboxZoom || 1) : 1;
+  const _zf = gameState.sandboxZoom || 1;
   cam.x = Math.max(0, Math.min(Math.max(0, WORLD_PX_W - CANVAS_W / _zf), cam.x + gameState.cameraPanOffset.x));
   cam.y = Math.max(0, Math.min(Math.max(0, WORLD_PX_H - VIEW_H / _zf), cam.y + gameState.cameraPanOffset.y));
 
