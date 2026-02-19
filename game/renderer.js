@@ -77,7 +77,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   ctx.rect(0, 0, CANVAS_W, VIEW_H);
   ctx.clip();
 
-  // Apply zoom (sandbox only)
+  // Apply zoom
   if (zoom !== 1) {
     ctx.scale(zoom, zoom);
   }
@@ -935,9 +935,16 @@ function drawHUD(ctx, gs, player, collection) {
     ctx.fillText(`${collection.discovered.size} spp`, 8, midY + 14);
   }
 
+  // Zoom indicator (show when not default 1x)
+  const zoom = gs.sandboxZoom || 1;
+  if (zoom !== 1) {
+    ctx.fillStyle = '#60c0ff'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(`${zoom}x`, CANVAS_W / 2, HUD_Y + TILE_SIZE - 8);
+  }
+
   // Help / Pause hints
   ctx.fillStyle = '#555'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
-  ctx.fillText('[H] Help  [P] Pause', 8, HUD_Y + TILE_SIZE - 8);
+  ctx.fillText('[H] Help  [P] Pause  [+/-] Zoom', 8, HUD_Y + TILE_SIZE - 8);
 }
 
 function drawSandboxCursor(ctx, gs, cx, cy) {
