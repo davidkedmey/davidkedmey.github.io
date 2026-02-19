@@ -40,6 +40,13 @@
       localStorage.removeItem('biomorph-farm-save');
       history.replaceState(null, '', location.pathname);
     }
+    // ?level= param: store in sessionStorage for main.js to auto-launch
+    const params = new URLSearchParams(location.search);
+    const levelParam = params.get('level');
+    if (levelParam) {
+      sessionStorage.setItem('biomorph-auto-level', levelParam);
+      history.replaceState(null, '', location.pathname);
+    }
   </script>
   <script type="module" src="main.js"></script>
 </body>

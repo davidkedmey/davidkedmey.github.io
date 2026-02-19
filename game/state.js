@@ -13,7 +13,8 @@ export function saveGame(gameState, player, world, planted, inventory, collectio
   const tutState = gameState.tutorialState;
   const dState = gameState.dawkinsState;
   const data = {
-    version: 11,
+    version: 12,
+    level: gameState.level || 'adventure',
     creativeMode: gameState.creativeMode || false,
     day: gameState.day,
     dayTimer: gameState.dayTimer,
@@ -168,6 +169,11 @@ export function loadGame() {
       // Registry will be initialized fresh by applySave; backfill existing
       // collection.discovered hashes as player discoveries
       data.registry = null; // signals main.js to backfill
+    }
+
+    // Migration: v11 -> v12: level field
+    if (data.version < 12) {
+      data.level = 'adventure'; // existing saves are closest to adventure
     }
 
     data.planted = (data.planted || []).map(deserializeItem);

@@ -3,7 +3,7 @@
 import { createWorld, createSandboxWorld, TILE, tileAt, isSolid, TILE_SIZE, COLS, ROWS, nearbyBuilding, BUILDINGS, buildingDoorPos } from './world.js';
 import { createPlayer, updatePlayer, facingTile } from './player.js';
 import { createInput } from './input.js';
-import { render, updateCamera, CANVAS_W, CANVAS_H } from './renderer.js';
+import { render, updateCamera, snapCamera, CANVAS_W, CANVAS_H } from './renderer.js';
 import { createSeed, createOrganism, randomColorGenes, tickGrowth, harvest, spawnOffspring } from './organisms.js';
 import { randomInteresting } from '../shared/genotype.js';
 import { generateName } from './naming.js';
@@ -24,6 +24,14 @@ import { loadLLMSettings, getLLMSettings, setLLMSetting, interpretCommand, build
 import { initExhibits, exhibitBreederURL } from './exhibits.js';
 import { loadBreederGallery, loadAllImportable, breederToOrganism, galleryImportCost } from './gallery-bridge.js';
 import { createDiscoveryRegistry, checkAndRegister, seedGenesisSpecimens, serializeRegistry, deserializeRegistry, RARITY_LABELS, RARITY_COLORS } from './discovery.js';
+
+// ── Level Configs ──
+const LEVEL_CONFIGS = {
+  canvas:    { id: 1, label: 'Canvas',    creativeMode: true,  spawnNPCs: false, showIntro: false, tutorial: false, music: false, sandbox: true  },
+  world:     { id: 2, label: 'World',     creativeMode: true,  spawnNPCs: false, showIntro: false, tutorial: false, music: false, sandbox: false },
+  populated: { id: 3, label: 'Populated', creativeMode: true,  spawnNPCs: true,  showIntro: false, tutorial: false, music: false, sandbox: false },
+  adventure: { id: 4, label: 'Adventure', creativeMode: false, spawnNPCs: true,  showIntro: true,  tutorial: true,  music: true,  sandbox: false },
+};
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
@@ -197,9 +205,11 @@ const gameState = {
   // Codex overlay
   codexTab: 0,       // 0=Leaderboard, 1=Discovery Log, 2=Morphospace Map
   codexScroll: 0,
-  // Title screen mode picker
-  titleSubmenu: null, // null | 'mode-pick'
-  titleModeCursor: 0, // 0=Survival, 1=Creative, 2=Sandbox
+  // Level (set by startLevel)
+  level: null,
+  // Title screen level picker
+  titleSubmenu: null, // null | 'level-pick'
+  titleModeCursor: 0, // 0=Canvas, 1=World, 2=Populated, 3=Adventure
   // Sandbox mode
   sandboxMode: false,
   sandboxTool: 0,       // palette index (0-6 = terrain, -1 = biomorph brush)
@@ -291,64 +301,104 @@ function applySave(save) {
     dawkinsState.completedVisits = save.dawkinsCompletedVisits;
   }
   gameState.creativeMode = save.creativeMode || false;
+  gameState.level = save.level || 'adventure';
   showMessage('Game loaded!');
 }
 
-function startNewGame() {
+function startLevel(levelName) {
+  const config = LEVEL_CONFIGS[levelName];
+  if (!config) { console.warn('Unknown level:', levelName); return; }
+  gameState.level = levelName;
+  gameState.creativeMode = config.creativeMode;
   localStorage.removeItem('biomorph-farm-save');
-  gameState.phase = 'intro';
-  gameState.introPage = 0;
-  gameState.introFade = 0;
-  tutorialState = createTutorialState();
+
+  if (config.sandbox) {
+    // Canvas level — reuse sandbox setup
+    gameState.sandboxMode = true;
+    gameState.phase = 'playing';
+    gameState.sandboxUndoStack = [];
+    world.length = 0;
+    const sg = createSandboxWorld(256, 256);
+    for (const row of sg) world.push(row);
+    player.x = 128 * TILE_SIZE;
+    player.y = 128 * TILE_SIZE;
+    player.inventory = [];
+    player.wallet = 0;
+    planted.length = 0;
+    npcStates.length = 0;
+
+    // Generate diverse biomorph palette
+    const palette = [];
+    const modeCounts = [[1,8],[2,6],[3,6],[4,5],[5,5]];
+    const symmetryTypes = ['left-right','up-down','four-way'];
+    for (const [mode, count] of modeCounts) {
+      for (let i = 0; i < count; i++) {
+        const genes = randomInteresting(mode);
+        const colorGenes = randomColorGenes();
+        const sym = mode >= 2
+          ? symmetryTypes[Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : 2)]
+          : 'left-right';
+        const name = generateName(genes, mode, colorGenes);
+        palette.push({ genes, mode, colorGenes, symmetry: sym, name });
+      }
+    }
+    const imported = loadAllImportable();
+    for (const spec of imported) {
+      if (!palette.some(p => p.name === spec.name))
+        palette.push(spec);
+    }
+    gameState.sandboxPalette = palette;
+    gameState.sandboxPaletteIdx = 0;
+    gameState.sandboxBiomorph = palette[0] || null;
+    gameState.sandboxTool = palette.length > 0 ? -1 : 0;
+
+    if (config.music && !musicStarted) { musicStarted = true; startMusic('farm'); }
+    return;
+  }
+
+  // Non-sandbox levels: use the pre-built world
+  gameState.sandboxMode = false;
   registry = createDiscoveryRegistry();
   seedGenesisSpecimens(registry);
-}
 
-function startSandboxGame() {
-  gameState.sandboxMode = true;
-  gameState.creativeMode = true;
-  gameState.phase = 'playing';
-  gameState.sandboxUndoStack = [];
-  // Replace world grid in-place (256x256 gives vast territory at all zoom levels)
-  world.length = 0;
-  const sg = createSandboxWorld(256, 256);
-  for (const row of sg) world.push(row);
-  // Center player
-  player.x = 128 * TILE_SIZE;
-  player.y = 128 * TILE_SIZE;
-  player.inventory = [];
-  player.wallet = 0;
-  planted.length = 0;
-  npcStates.length = 0;
-
-  // Generate diverse biomorph palette
-  const palette = [];
-  const modeCounts = [[1,8],[2,6],[3,6],[4,5],[5,5]];
-  const symmetryTypes = ['left-right','up-down','four-way'];
-  for (const [mode, count] of modeCounts) {
-    for (let i = 0; i < count; i++) {
-      const genes = randomInteresting(mode);
-      const colorGenes = randomColorGenes();
-      const sym = mode >= 2
-        ? symmetryTypes[Math.random() < 0.5 ? 0 : (Math.random() < 0.5 ? 1 : 2)]
-        : 'left-right';
-      const name = generateName(genes, mode, colorGenes);
-      palette.push({ genes, mode, colorGenes, symmetry: sym, name });
+  if (!config.spawnNPCs) {
+    // World level: clear NPCs
+    npcStates.length = 0;
+  } else {
+    // Populated / Adventure: reinit NPCs
+    npcStates.length = 0;
+    const fresh = initNPCs(world);
+    npcStates.push(...fresh);
+    // For Populated (no tutorial), make Sage wander immediately
+    if (!config.tutorial) {
+      const sage = npcStates.find(n => n.id === 'sage');
+      if (sage) sage.wanderRadius = 3;
     }
   }
-  // Merge user-bred specimens
-  const imported = loadAllImportable();
-  for (const spec of imported) {
-    if (!palette.some(p => p.name === spec.name))
-      palette.push(spec);
-  }
-  gameState.sandboxPalette = palette;
-  gameState.sandboxPaletteIdx = 0;
-  gameState.sandboxBiomorph = palette[0] || null;
-  gameState.sandboxTool = palette.length > 0 ? -1 : 0;
 
-  if (!musicStarted) { musicStarted = true; startMusic('farm'); }
+  if (config.tutorial) {
+    tutorialState = createTutorialState();
+  } else {
+    // Skip tutorial entirely
+    tutorialState = createTutorialState();
+    tutorialState.active = false;
+    tutorialState.completed = true;
+  }
+
+  if (config.showIntro) {
+    gameState.phase = 'intro';
+    gameState.introPage = 0;
+    gameState.introFade = 0;
+  } else {
+    gameState.phase = 'playing';
+  }
+
+  if (config.music && !musicStarted) { musicStarted = true; startMusic('farm'); }
 }
+
+// Legacy aliases
+function startNewGame() { startLevel('adventure'); }
+function startSandboxGame() { startLevel('canvas'); }
 
 const ZOOM_PRESETS = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0];
 const ZOOM_WHEEL_THRESHOLD = 80; // accumulated deltaY before stepping
@@ -366,6 +416,14 @@ function snapZoom(direction) {
       if (ZOOM_PRESETS[i] < cur - 0.01) return ZOOM_PRESETS[i];
     }
     return ZOOM_PRESETS[0];
+  }
+}
+
+function setZoom(newZoom) {
+  gameState.sandboxZoom = newZoom;
+  const target = gameState.followNpcIdx >= 0 ? npcStates[gameState.followNpcIdx] : player;
+  if (target) {
+    snapCamera(cam, target, world[0].length * TILE_SIZE, world.length * TILE_SIZE, newZoom);
   }
 }
 
@@ -1705,8 +1763,7 @@ function cmdBreed(arg) {
 function cmdZoom(arg) {
   if (!arg) {
     const presets = ZOOM_PRESETS.map(z => {
-      const pct = Math.round(z * 100);
-      return z === gameState.sandboxZoom ? `[${pct}%]` : `${pct}%`;
+      return z === gameState.sandboxZoom ? `[${z}x]` : `${z}x`;
     }).join('  ');
     showMessage(`Zoom: ${presets}`, 4);
     return;
@@ -1716,8 +1773,8 @@ function cmdZoom(arg) {
     showMessage('Usage: zoom <25-200> — e.g. /zoom 75', 3);
     return;
   }
-  gameState.sandboxZoom = pct / 100;
-  showMessage(`Zoom: ${pct}%`, 1.5);
+  setZoom(pct / 100);
+  showMessage(`Zoom: ${pct / 100}x`, 1.5);
 }
 
 function cmdGarden(arg) {
@@ -2275,27 +2332,23 @@ function gameLoop(timestamp) {
       requestAnimationFrame(gameLoop);
       return;
     }
-    // Mode picker submenu
-    if (gameState.titleSubmenu === 'mode-pick') {
+    // Level picker submenu
+    const LEVEL_NAMES = ['canvas', 'world', 'populated', 'adventure'];
+    if (gameState.titleSubmenu === 'level-pick') {
       if (input.justPressed('ArrowUp')) {
         gameState.titleModeCursor = Math.max(0, gameState.titleModeCursor - 1);
       }
       if (input.justPressed('ArrowDown')) {
-        gameState.titleModeCursor = Math.min(2, gameState.titleModeCursor + 1);
+        gameState.titleModeCursor = Math.min(3, gameState.titleModeCursor + 1);
       }
       if (input.justPressed(' ') || input.justPressed('Enter')) {
-        if (gameState.titleModeCursor === 2) {
-          if (hasSandboxSave()) {
-            gameState.titleSubmenu = 'sandbox-pick';
-            gameState.titleSandboxCursor = 0;
-          } else {
-            gameState.titleSubmenu = null;
-            startSandboxGame();
-          }
+        const chosen = LEVEL_NAMES[gameState.titleModeCursor];
+        if (chosen === 'canvas' && hasSandboxSave()) {
+          gameState.titleSubmenu = 'sandbox-pick';
+          gameState.titleSandboxCursor = 0;
         } else {
-          gameState.creativeMode = gameState.titleModeCursor === 1;
           gameState.titleSubmenu = null;
-          startNewGame();
+          startLevel(chosen);
         }
       }
       if (input.justPressed('Escape')) {
@@ -2311,6 +2364,7 @@ function gameLoop(timestamp) {
           // Continue saved sandbox
           const save = loadSandboxWorld();
           if (save) {
+            gameState.level = 'canvas';
             gameState.sandboxMode = true;
             gameState.creativeMode = true;
             gameState.phase = 'playing';
@@ -2326,15 +2380,14 @@ function gameLoop(timestamp) {
             planted.length = 0;
             planted.push(...save.planted);
             npcStates.length = 0;
-            if (!musicStarted) { musicStarted = true; startMusic('farm'); }
             showMessage('Sandbox loaded!');
           }
         } else {
-          startSandboxGame();
+          startLevel('canvas');
         }
       }
       if (input.justPressed('Escape')) {
-        gameState.titleSubmenu = 'mode-pick';
+        gameState.titleSubmenu = 'level-pick';
       }
     } else {
     if (input.justPressed('ArrowUp') || input.justPressed('ArrowDown')) {
@@ -2342,8 +2395,8 @@ function gameLoop(timestamp) {
     }
     if (input.justPressed(' ') || input.justPressed('Enter')) {
       if (gameState.titleCursor === 0) {
-        // New Game — show mode picker
-        gameState.titleSubmenu = 'mode-pick';
+        // New Game — show level picker
+        gameState.titleSubmenu = 'level-pick';
         gameState.titleModeCursor = 0;
       } else if (savedGame) {
         // Continue
@@ -2451,15 +2504,15 @@ function gameLoop(timestamp) {
     } else if (wd !== 0) {
       _zoomWheelAccum += wd;
       if (Math.abs(_zoomWheelAccum) >= ZOOM_WHEEL_THRESHOLD) {
-        gameState.sandboxZoom = snapZoom(_zoomWheelAccum < 0 ? 1 : -1);
+        setZoom(snapZoom(_zoomWheelAccum < 0 ? 1 : -1));
         _zoomWheelAccum = 0;
       }
     }
     if (input.justPressed('=') || input.justPressed('+')) {
-      gameState.sandboxZoom = snapZoom(1);
+      setZoom(snapZoom(1));
     }
     if (input.justPressed('-')) {
-      gameState.sandboxZoom = snapZoom(-1);
+      setZoom(snapZoom(-1));
     }
   } else {
     input.consumeWheel(); // drain unused wheel events
@@ -2861,6 +2914,20 @@ function gameLoop(timestamp) {
 }
 
 window.addEventListener('beforeunload', doSave);
+
+// Auto-level: if ?level= param was stored, skip title screen and launch directly
+{
+  const autoLevel = sessionStorage.getItem('biomorph-auto-level');
+  if (autoLevel) {
+    sessionStorage.removeItem('biomorph-auto-level');
+    // Normalize: accept both numeric ("1"-"4") and named ("canvas", "world", etc.)
+    const LEVEL_BY_ID = { '1': 'canvas', '2': 'world', '3': 'populated', '4': 'adventure' };
+    const levelName = LEVEL_BY_ID[autoLevel] || autoLevel;
+    if (LEVEL_CONFIGS[levelName]) {
+      startLevel(levelName);
+    }
+  }
+}
 
 requestAnimationFrame(ts => {
   lastTime = ts;

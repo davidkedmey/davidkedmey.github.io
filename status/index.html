@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project Dashboard — Biomorph Builder</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --yellow: #d29922;
+      --orange: #db6d28;
+      --purple: #bc8cff;
+      --red: #f85149;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 32px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    .subtitle a { color: var(--accent); text-decoration: none; }
+    .subtitle a:hover { text-decoration: underline; }
+
+    /* ── Section ── */
+    .section {
+      margin-bottom: 40px;
+    }
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ── Cards ── */
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      position: relative;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .card-title a { color: var(--text); text-decoration: none; }
+    .card-title a:hover { color: var(--accent); }
+
+    /* ── Status badges ── */
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .badge-live { background: rgba(63,185,80,0.15); color: var(--green); }
+    .badge-testing { background: rgba(210,153,34,0.15); color: var(--yellow); }
+    .badge-building { background: rgba(88,166,255,0.15); color: var(--accent); }
+    .badge-exploring { background: rgba(188,140,255,0.15); color: var(--purple); }
+    .badge-planned { background: rgba(139,148,158,0.15); color: var(--muted); }
+    .badge-blocked { background: rgba(248,81,73,0.15); color: var(--red); }
+
+    .card-desc {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    /* ── Progress bar ── */
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .progress-bar {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+    .progress-label {
+      font-size: 11px;
+      color: var(--muted);
+      min-width: 32px;
+      text-align: right;
+    }
+
+    /* ── Next steps ── */
+    .next-steps {
+      list-style: none;
+      padding: 0;
+    }
+    .next-steps li {
+      font-size: 13px;
+      padding: 4px 0;
+      padding-left: 18px;
+      position: relative;
+      color: var(--muted);
+    }
+    .next-steps li::before {
+      content: "→";
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+    }
+    .next-steps li.done { text-decoration: line-through; opacity: 0.5; }
+    .next-steps li.done::before { content: "✓"; color: var(--green); }
+    .next-steps li.active { color: var(--text); font-weight: 500; }
+    .next-steps li.active::before { content: "▸"; color: var(--yellow); }
+
+    /* ── Experiences grid ── */
+    .exp-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .exp-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      text-decoration: none;
+      color: var(--text);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .exp-chip:hover { border-color: var(--accent); }
+    .exp-chip .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-green { background: var(--green); }
+    .dot-yellow { background: var(--yellow); }
+    .dot-blue { background: var(--accent); }
+    .dot-purple { background: var(--purple); }
+    .dot-gray { background: var(--muted); }
+
+    /* ── Card action buttons ── */
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .card-btn {
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+    .card-btn:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+    .card-btn-open { flex: 1; justify-content: center; }
+    .card-btn-open:hover { background: rgba(88,166,255,0.1); }
+    .card-btn-copy:hover { background: rgba(63,185,80,0.1); }
+    .card-btn-copy.copied {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    /* ── Last updated ── */
+    .footer {
+      margin-top: 48px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* ── Nav ── */
+    .nav {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+    }
+    .nav a {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+    .nav a:hover { background: var(--border); }
+    .nav { display: flex; gap: 8px; }
+  </style>
+</head>
+<body>
+
+  <div class="nav"><a href="../">← Hub</a><a href="/Users/davidkedmey/Desktop/Clear%20the%20Table/dashboard.html">Life Admin</a></div>
+
+  <h1>Biomorph Builder — Dashboard</h1>
+  <p class="subtitle">Project status &amp; next steps &middot; <a href="https://biomorphbuilder.com">biomorphbuilder.com</a></p>
+
+  <!-- ── Live Experiences ── -->
+  <div class="section">
+    <div class="section-title">Experiences</div>
+    <div class="exp-grid">
+      <a class="exp-chip" href="../breed.html"><span>Breeder</span><span class="dot dot-green"></span></a>
+      <a class="exp-chip" href="../dawkins-paper/"><span>Dawkins Paper</span><span class="dot dot-green"></span></a>
+      <a class="exp-chip" href="../game/"><span>Farm Game</span><span class="dot dot-green"></span></a>
+      <a class="exp-chip" href="../3d/"><span>3D Gallery</span><span class="dot dot-green"></span></a>
+      <a class="exp-chip" href="../museum.html"><span>Museum</span><span class="dot dot-green"></span></a>
+      <a class="exp-chip" href="../search.html"><span>Gene Search</span><span class="dot dot-green"></span></a>
+      <a class="exp-chip" href="../how-we-built-this.html"><span>How We Built This</span><span class="dot dot-green"></span></a>
+      <a class="exp-chip" href="../expedition/"><span>Expedition</span><span class="dot dot-yellow"></span></a>
+      <a class="exp-chip" href="../3d/locomotion.html"><span>Locomotion Arena</span><span class="dot dot-blue"></span></a>
+    </div>
+    <div style="font-size:11px; color:var(--muted); display:flex; gap:16px;">
+      <span><span class="dot dot-green" style="display:inline-block;width:8px;height:8px;border-radius:50;vertical-align:middle"></span> Live</span>
+      <span><span class="dot dot-yellow" style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle"></span> Testing</span>
+      <span><span class="dot dot-blue" style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle"></span> Building</span>
+      <span><span class="dot dot-purple" style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle"></span> Exploring</span>
+      <span><span class="dot dot-gray" style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle"></span> Planned</span>
+    </div>
+  </div>
+
+  <!-- ── Testing Queue ── -->
+  <div class="section">
+    <div class="section-title">Needs Your Attention</div>
+    <div class="cards">
+      <div class="card" style="border-left: 3px solid var(--yellow)"
+           data-link="../game/?level=canvas"
+           data-title="Zoom UX — Sandbox"
+           data-status="Test">
+        <div class="card-header">
+          <div class="card-title"><a href="../game/">Zoom UX — Sandbox</a></div>
+          <span class="badge badge-testing">Test</span>
+        </div>
+        <div class="card-desc">Snap-to-preset zoom (25%–200%), debounced trackpad, <code>/zoom</code> command. Does it feel right? Are the preset levels useful?</div>
+        <ul class="next-steps">
+          <li>Try scroll-wheel / trackpad pinch — does debounce feel natural?</li>
+          <li>Try <code>/zoom 50</code>, <code>/zoom 200</code> — do presets snap correctly?</li>
+          <li>Pan around the 256x256 world at low zoom — is it smooth?</li>
+        </ul>
+      </div>
+      <div class="card" style="border-left: 3px solid var(--yellow)"
+           data-link="../expedition/"
+           data-title="Expedition — Playtesting"
+           data-status="Test">
+        <div class="card-header">
+          <div class="card-title"><a href="../expedition/">Expedition — Playtesting</a></div>
+          <span class="badge badge-testing">Test</span>
+        </div>
+        <div class="card-desc">v1 prototype deployed. First impressions and feel.</div>
+        <ul class="next-steps">
+          <li>Does rarity feel meaningful?</li>
+          <li>Are bots too fast or too slow?</li>
+          <li>Is the morphospace map useful?</li>
+          <li>Is the breeding flow satisfying?</li>
+        </ul>
+      </div>
+      <div class="card" style="border-left: 3px solid var(--yellow)"
+           data-link="../game/?level=populated"
+           data-title="LLM Command Bar — Deploy"
+           data-status="Bug">
+        <div class="card-header">
+          <div class="card-title"><a href="../game/">LLM Command Bar — Deploy</a></div>
+          <span class="badge badge-blocked">Bug</span>
+        </div>
+        <div class="card-desc">Works on localhost, connection issue on deployed site. Needs debugging before testing live.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Active Workstreams ── -->
+  <div class="section">
+    <div class="section-title">Active Workstreams</div>
+    <div class="cards">
+
+      <!-- Locomotion -->
+      <div class="card"
+           data-link="../3d/locomotion.html"
+           data-title="Locomotion — Muscles & Movement"
+           data-status="Exploring">
+        <div class="card-header">
+          <div class="card-title"><a href="../3d/locomotion.html">Locomotion — Muscles &amp; Movement</a></div>
+          <span class="badge badge-exploring">Exploring</span>
+        </div>
+        <div class="card-desc">Making biomorph locomotion gene-driven. Exploring muscle/tendon implementations before deciding on genes.</div>
+        <div class="progress-row">
+          <div class="progress-bar"><div class="progress-fill" style="width:40%; background: var(--purple)"></div></div>
+          <span class="progress-label">40%</span>
+        </div>
+        <ul class="next-steps">
+          <li class="done">Tier 1 — Locomotion parameters (amp, freq, phase, asymmetry)</li>
+          <li class="active">Tier 2 — Regional differentiation (spine/legs/falloff) — sliders built, needs testing</li>
+          <li>Tier 3 — Explicit muscle/tendon model (spring-dampers, antagonist pairs, energy)</li>
+          <li>Decide which parameters become genes</li>
+          <li>Integrate locomotion genes into genotype &amp; breeding</li>
+        </ul>
+      </div>
+
+      <!-- Expedition -->
+      <div class="card"
+           data-link="../expedition/"
+           data-title="Expedition — CryptoBiomorphs"
+           data-status="Testing">
+        <div class="card-header">
+          <div class="card-title"><a href="../expedition/">Expedition — CryptoBiomorphs</a></div>
+          <span class="badge badge-testing">Testing</span>
+        </div>
+        <div class="card-desc">Fake-multiplayer collecting prototype. Bots explore morphospace, player competes to discover rare specimens.</div>
+        <div class="progress-row">
+          <div class="progress-bar"><div class="progress-fill" style="width:60%; background: var(--yellow)"></div></div>
+          <span class="progress-label">60%</span>
+        </div>
+        <ul class="next-steps">
+          <li class="done">v1 prototype complete &amp; deployed</li>
+          <li class="active">Playtesting — does rarity feel meaningful? Are bots paced well?</li>
+          <li>Tune bot speeds/intervals based on feedback</li>
+          <li>Polish UI, add sound/animation juice</li>
+          <li>Morphospace map usefulness assessment</li>
+        </ul>
+      </div>
+
+      <!-- LLM Command Bar -->
+      <div class="card"
+           data-link="../game/?level=populated"
+           data-title="LLM Command Bar"
+           data-status="Testing">
+        <div class="card-header">
+          <div class="card-title"><a href="../game/">LLM Command Bar</a></div>
+          <span class="badge badge-testing">Testing</span>
+        </div>
+        <div class="card-desc">AI fallback for natural language commands in the farm game. Bring-your-own-key, OpenAI-compatible.</div>
+        <div class="progress-row">
+          <div class="progress-bar"><div class="progress-fill" style="width:70%; background: var(--yellow)"></div></div>
+          <span class="progress-label">70%</span>
+        </div>
+        <ul class="next-steps">
+          <li class="done">Core implementation (4 response types, rate limiting)</li>
+          <li class="done">Localhost testing — working</li>
+          <li class="active">Deploy to biomorphbuilder.com &amp; test live</li>
+          <li>Test SAY: responses, gibberish fallback, contextual mapping</li>
+          <li>Fix reported bug: connection issue on deployed site</li>
+        </ul>
+      </div>
+
+      <!-- Interactive Papers Platform -->
+      <div class="card"
+           data-link="../dawkins-paper/"
+           data-title="Interactive Papers Platform"
+           data-status="Planned">
+        <div class="card-header">
+          <div class="card-title"><a href="../dawkins-paper/">Interactive Papers Platform</a></div>
+          <span class="badge badge-planned">Planned</span>
+        </div>
+        <div class="card-desc">Generalize the Dawkins paper features into a platform for Conjecture University courses.</div>
+        <div class="progress-row">
+          <div class="progress-bar"><div class="progress-fill" style="width:15%; background: var(--muted)"></div></div>
+          <span class="progress-label">15%</span>
+        </div>
+        <ul class="next-steps">
+          <li class="done">Dawkins paper v1 — reading modes, study system, widgets</li>
+          <li>Landing page mockup for platform</li>
+          <li>Q&amp;A architecture notes</li>
+          <li>Extract reusable components from dawkins-paper</li>
+          <li>Second paper/course as proof of generalization</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Ideas Pipeline ── -->
+  <div class="section">
+    <div class="section-title">Ideas Pipeline</div>
+    <div class="cards">
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Color Genes</div>
+          <span class="badge badge-planned">Planned</span>
+        </div>
+        <div class="card-desc">2-3 genes for hue/saturation/gradient. Separate evolvable dimension with big visual payoff.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Sexual Reproduction</div>
+          <span class="badge badge-planned">Planned</span>
+        </div>
+        <div class="card-desc">Crossover breeding from two parents. Fundamentally different evolutionary dynamics.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Guided Morphospace Tours</div>
+          <span class="badge badge-planned">Planned</span>
+        </div>
+        <div class="card-desc">Curated 3D walkthroughs of interesting morphospace regions with annotations.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">AI Morphospace Explorer</div>
+          <span class="badge badge-planned">Planned</span>
+        </div>
+        <div class="card-desc">Claude evaluates biomorphs by visual criteria, discovers interesting regions at scale.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Known Issues ── -->
+  <div class="section">
+    <div class="section-title">Known Issues</div>
+    <div class="cards">
+      <div class="card" style="border-color: var(--orange)">
+        <div class="card-header">
+          <div class="card-title">LLM command bar — deployed site</div>
+          <span class="badge badge-blocked">Bug</span>
+        </div>
+        <div class="card-desc">AI mode in the game may need key re-entry or has a connection issue on the deployed site. Works on localhost.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Last updated: 2026-02-18 &middot; Edit this file at <code>status/index.html</code>
+  </div>
+
+<script>
+// Auto-add action buttons to every card that has a data-link
+document.querySelectorAll('.card[data-link]').forEach(card => {
+  // Remove any manually placed card-actions (from earlier version)
+  card.querySelectorAll('.card-actions').forEach(el => el.remove());
+
+  const actions = document.createElement('div');
+  actions.className = 'card-actions';
+  actions.innerHTML = `
+    <button class="card-btn card-btn-open" onclick="openCard(this)">Open</button>
+    <button class="card-btn card-btn-copy" onclick="copyCard(this)">Copy for Claude</button>
+  `;
+  card.appendChild(actions);
+});
+
+function openCard(btn) {
+  const card = btn.closest('.card');
+  const link = card.dataset.link;
+  if (!link) return;
+  // Resolve relative paths against localhost dev server
+  const base = 'http://localhost:8765/';
+  const url = new URL(link, base).href;
+  window.open(url, '_blank');
+}
+
+function copyCard(btn) {
+  const card = btn.closest('.card');
+  const title = card.dataset.title || '';
+  const status = card.dataset.status || '';
+  const desc = card.querySelector('.card-desc');
+  const steps = card.querySelectorAll('.next-steps li');
+
+  let text = `${title} — ${status}`;
+  if (desc) text += `\n${desc.textContent}`;
+  if (steps.length) {
+    text += '\n' + [...steps].map(li => `- ${li.textContent}`).join('\n');
+  }
+
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copy for Claude';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+</script>
+</body>
+</html>

@@ -48,6 +48,16 @@ export function updateCamera(cam, player, dt, worldW, worldH, zoom) {
   cam.y = clamp(cam.y, 0, Math.max(0, wh - viewH));
 }
 
+export function snapCamera(cam, player, worldW, worldH, zoom) {
+  const z = zoom || 1;
+  const ww = worldW || WORLD_W;
+  const wh = worldH || WORLD_H;
+  const viewW = CANVAS_W / z;
+  const viewH = VIEW_H / z;
+  cam.x = clamp(player.x - viewW / 2, 0, Math.max(0, ww - viewW));
+  cam.y = clamp(player.y - viewH / 2, 0, Math.max(0, wh - viewH));
+}
+
 // ── Main render ──
 
 export function render(ctx, world, player, gs, planted, collection, lab, npcStates, cam, wilds, exhibits, registry) {
@@ -182,6 +192,11 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   // Player
   drawPlayer(ctx, player, cx, cy, gs);
 
+  // Sandbox cursor highlight (drawn inside zoom transform so it aligns with tiles)
+  if (gs.sandboxMode && !gs.overlay) {
+    drawSandboxCursor(ctx, gs, cam.x, cam.y);
+  }
+
   // Day/night tint (skip in sandbox)
   if (!gs.sandboxMode) drawDayNight(ctx, gs);
 
@@ -219,11 +234,6 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   if (!gs.overlay && !gs.sandboxMode) {
     drawBuildingPrompt(ctx, player, collection, cx, cy);
     drawNPCPrompt(ctx, player, npcStates, cx, cy, gs);
-  }
-
-  // Sandbox cursor highlight
-  if (gs.sandboxMode && !gs.overlay) {
-    drawSandboxCursor(ctx, gs, cam.x, cam.y);
   }
 
   // HUD (screen space)
@@ -315,33 +325,34 @@ function drawTitle(ctx, gs) {
   ctx.fillStyle = '#555';
   ctx.fillText('[Up/Down] select   [Space] confirm', CANVAS_W / 2, CANVAS_H / 2 + 120);
 
-  // Mode picker submenu
-  if (gs.titleSubmenu === 'mode-pick') {
+  // Level picker submenu
+  if (gs.titleSubmenu === 'level-pick') {
     ctx.fillStyle = '#0a0a12';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = '#c8e6c8'; ctx.font = 'bold 20px Georgia, serif';
-    ctx.fillText('Choose Game Mode', CANVAS_W / 2, CANVAS_H / 2 - 70);
+    ctx.fillText('Choose Level', CANVAS_W / 2, CANVAS_H / 2 - 90);
 
-    const modes = [
-      { label: 'Survival Mode', desc: 'Earn gold, unlock modes, discover species' },
-      { label: 'Creative Mode', desc: 'Infinite gold, all access, plant anywhere' },
-      { label: 'Sandbox Mode', desc: 'Paint terrain, plant biomorphs, build your world' },
+    const levels = [
+      { label: '1. Canvas',    desc: 'Flat world, paint terrain, plant biomorphs freely' },
+      { label: '2. World',     desc: 'Pre-built island, no NPCs, creative mode' },
+      { label: '3. Populated', desc: 'Island with NPCs and shops, creative mode' },
+      { label: '4. Adventure', desc: 'Full experience: intro, tutorial, earn gold' },
     ];
-    for (let i = 0; i < modes.length; i++) {
-      const y = CANVAS_H / 2 - 10 + i * 56;
+    for (let i = 0; i < levels.length; i++) {
+      const y = CANVAS_H / 2 - 50 + i * 50;
       const sel = i === gs.titleModeCursor;
       ctx.font = sel ? 'bold 18px monospace' : '16px monospace';
       ctx.fillStyle = sel ? '#fff' : '#666';
       const arrow = sel ? '\u25b6  ' : '   ';
-      ctx.fillText(arrow + modes[i].label, CANVAS_W / 2, y);
+      ctx.fillText(arrow + levels[i].label, CANVAS_W / 2, y);
       ctx.font = '12px monospace';
       ctx.fillStyle = sel ? '#aaa' : '#444';
-      ctx.fillText(modes[i].desc, CANVAS_W / 2, y + 22);
+      ctx.fillText(levels[i].desc, CANVAS_W / 2, y + 22);
     }
 
     ctx.font = '11px monospace'; ctx.fillStyle = '#555';
-    ctx.fillText('[Up/Down] select   [Space] confirm   [Esc] back', CANVAS_W / 2, CANVAS_H / 2 + 160);
+    ctx.fillText('[Up/Down] select   [Space] confirm   [Esc] back', CANVAS_W / 2, CANVAS_H / 2 + 170);
   }
 
   // Sandbox continue/new submenu
@@ -1178,7 +1189,8 @@ function drawSandboxHUD(ctx, gs, player) {
   const zoom = gs.sandboxZoom || 1;
   ctx.fillStyle = zoom !== 1 ? '#60c0ff' : '#555';
   ctx.font = '10px monospace'; ctx.textAlign = 'center';
-  ctx.fillText(`${Math.round(zoom * 100)}%`, CANVAS_W / 2, HUD_Y + 14);
+  const zoomLabel = zoom === Math.floor(zoom) ? `${zoom}x` : `${zoom}x`;
+  ctx.fillText(zoomLabel, CANVAS_W / 2, HUD_Y + 14);
 
   // Current tool label
   ctx.fillStyle = '#ccc'; ctx.font = '11px monospace'; ctx.textAlign = 'center';
