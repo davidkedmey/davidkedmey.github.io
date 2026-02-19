@@ -361,6 +361,11 @@ function spawnCreature(genes, gaitOverride, physDepth = 2) {
   muscleSystem = new MuscleSystem(skeleton, gait, {
     amplitude: parseFloat(document.getElementById('amp-slider').value) / 10,
     frequency: parseFloat(document.getElementById('freq-slider').value) / 10,
+    phaseSpread: parseFloat(document.getElementById('phase-slider').value) / 10,
+    asymmetry: parseFloat(document.getElementById('asym-slider').value) / 10,
+    spineGain: parseFloat(document.getElementById('spine-slider').value) / 10,
+    legGain: parseFloat(document.getElementById('leg-slider').value) / 10,
+    depthFalloff: parseFloat(document.getElementById('falloff-slider').value) / 10,
   });
 
   startPos.copy(skeleton.rootBody.position);
@@ -574,6 +579,26 @@ document.getElementById('amp-slider').addEventListener('input', (e) => {
 
 document.getElementById('freq-slider').addEventListener('input', (e) => {
   if (muscleSystem) muscleSystem.frequency = parseFloat(e.target.value) / 10;
+});
+
+document.getElementById('phase-slider').addEventListener('input', (e) => {
+  if (muscleSystem) muscleSystem.phaseSpread = parseFloat(e.target.value) / 10;
+});
+
+document.getElementById('asym-slider').addEventListener('input', (e) => {
+  if (muscleSystem) muscleSystem.asymmetry = parseFloat(e.target.value) / 10;
+});
+
+document.getElementById('spine-slider').addEventListener('input', (e) => {
+  if (muscleSystem) muscleSystem.spineGain = parseFloat(e.target.value) / 10;
+});
+
+document.getElementById('leg-slider').addEventListener('input', (e) => {
+  if (muscleSystem) muscleSystem.legGain = parseFloat(e.target.value) / 10;
+});
+
+document.getElementById('falloff-slider').addEventListener('input', (e) => {
+  if (muscleSystem) muscleSystem.depthFalloff = parseFloat(e.target.value) / 10;
 });
 
 // Keyboard shortcuts
