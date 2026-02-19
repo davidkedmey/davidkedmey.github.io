@@ -2317,8 +2317,8 @@ function gameLoop(timestamp) {
   lastTime = timestamp;
 
   // Pass mouse position to renderer for hover highlights
-  gameState._mouseX = input.mouseX;
-  gameState._mouseY = input.mouseY;
+  gameState._mouseX = input.mouseOnCanvas ? input.mouseX : null;
+  gameState._mouseY = input.mouseOnCanvas ? input.mouseY : null;
 
   // ── Title screen ──
   if (gameState.phase === 'title') {
@@ -2905,8 +2905,8 @@ function gameLoop(timestamp) {
 
   // Pass mouse position for sandbox cursor highlight + sidebar hover
   if (gameState.sandboxMode) {
-    gameState._mouseX = input.mouseX;
-    gameState._mouseY = input.mouseY;
+    gameState._mouseX = input.mouseOnCanvas ? input.mouseX : null;
+    gameState._mouseY = input.mouseOnCanvas ? input.mouseY : null;
   }
 
   render(ctx, world, player, gameState, planted, collection, lab, npcStates, cam, wilds, exhibits, registry);

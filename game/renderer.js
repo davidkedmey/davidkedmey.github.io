@@ -1189,8 +1189,7 @@ function drawSandboxHUD(ctx, gs, player) {
   const zoom = gs.sandboxZoom || 1;
   ctx.fillStyle = zoom !== 1 ? '#60c0ff' : '#555';
   ctx.font = '10px monospace'; ctx.textAlign = 'center';
-  const zoomLabel = zoom === Math.floor(zoom) ? `${zoom}x` : `${zoom}x`;
-  ctx.fillText(zoomLabel, CANVAS_W / 2, HUD_Y + 14);
+  ctx.fillText(`${zoom}x`, CANVAS_W / 2, HUD_Y + 14);
 
   // Current tool label
   ctx.fillStyle = '#ccc'; ctx.font = '11px monospace'; ctx.textAlign = 'center';

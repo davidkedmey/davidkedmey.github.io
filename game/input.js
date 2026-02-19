@@ -77,6 +77,7 @@ export function createInput(canvas) {
     // Always-current canvas-relative position (updated on every mousemove)
     x: 0,
     y: 0,
+    onCanvas: false,
     // Click detection: press+release with <5px drag
     leftStartX: 0,
     leftStartY: 0,
@@ -89,6 +90,9 @@ export function createInput(canvas) {
       wheelDelta += e.deltaY;
     }, { passive: false });
     canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    canvas.addEventListener('mouseenter', () => { mouse.onCanvas = true; });
+    canvas.addEventListener('mouseleave', () => { mouse.onCanvas = false; });
 
     canvas.addEventListener('mousedown', e => {
       if (e.button === 2) { // right click
@@ -176,6 +180,7 @@ export function createInput(canvas) {
     // Always-current mouse position (updated on every mousemove)
     get mouseX() { return mouse.x; },
     get mouseY() { return mouse.y; },
+    get mouseOnCanvas() { return mouse.onCanvas; },
     // Click detection: returns {x,y} once then clears, or null
     consumeClick() {
       if (mouse.click) { const c = mouse.click; mouse.click = null; return c; }
