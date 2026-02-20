@@ -66,6 +66,7 @@ function cacheDom() {
   els.overlayInspect = $('overlay-inspect');
   els.closeInspect = $('close-inspect');
   els.inspectSelectParent = $('inspect-select-parent');
+  els.inspectOpenBuilder = $('inspect-open-builder');
   els.mapTooltip = $('map-tooltip');
 }
 
@@ -157,6 +158,13 @@ function bindEvents() {
     if (!entry) return;
     selectParent(entry);
     els.overlayInspect.classList.remove('visible');
+  });
+
+  els.inspectOpenBuilder.addEventListener('click', () => {
+    const entry = els.overlayInspect._entry;
+    if (!entry) return;
+    const hash = `#m=${entry.mode}&g=${entry.genes.join(',')}&s=lr`;
+    window.open('/breed.html' + hash, '_blank');
   });
 
   // Overlay backdrop close
