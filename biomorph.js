@@ -36,6 +36,30 @@ const MODE_CONFIGS = {
     geneMax: [ 9,  9,  9,  9,  9,  9,  9,  9, 8, 8, 12, 9,  9],
     geneLabels: ['g1','g2','g3','g4','g5','g6','g7','g8','depth','segs','segDist','grad1','grad2'],
   },
+  6: { // Buds/Hox — 36 genes: trunk + segments + gradients + bud A + bud B + meta
+    geneCount: 36,
+    geneMin: [
+      -9, -9, -9, -9, -9, -9, -9, -9, 1,    // trunk g1-g8, depth
+       1,  2, -9, -9,                          // segs, segDist, grad1, grad2
+      -9, -9, -9, -9, -9, -9, -9, -9, 1,     // bud A: ag1-ag8, aDepth
+      -9, -9, -9, -9, -9, -9, -9, -9, 1,     // bud B: bg1-bg8, bDepth
+       0,  1,  0,  1, -9,                      // budTrigger, budScale, budSwitch, budDensity, budGrad
+    ],
+    geneMax: [
+       9,  9,  9,  9,  9,  9,  9,  9, 8,     // trunk
+       8, 12,  9,  9,                          // segs, segDist, grad1, grad2
+       9,  9,  9,  9,  9,  9,  9,  9, 8,     // bud A
+       9,  9,  9,  9,  9,  9,  9,  9, 8,     // bud B
+       8,  8,  6,  8,  9,                      // budTrigger, budScale, budSwitch, budDensity, budGrad
+    ],
+    geneLabels: [
+      'g1','g2','g3','g4','g5','g6','g7','g8','depth',
+      'segs','segDist','grad1','grad2',
+      'ag1','ag2','ag3','ag4','ag5','ag6','ag7','ag8','aDepth',
+      'bg1','bg2','bg3','bg4','bg5','bg6','bg7','bg8','bDepth',
+      'budTrigger','budScale','budSwitch','budDensity','budGrad',
+    ],
+  },
 };
 
 const NUM_OFFSPRING = 8;
@@ -47,6 +71,7 @@ const MODE_NAMES = {
   3: 'Segments',
   4: 'Gradients',
   5: 'Full',
+  6: 'Buds',
 };
 
 // ── Current state ────────────────────────────────────────────
@@ -75,6 +100,29 @@ const GENE_TOOLTIPS = {
   segDist: 'Spacing between segments',
   grad1: 'How inner branch spread changes across segments',
   grad2: 'How outer branch spread changes across segments',
+  ag1: 'Bud A: horizontal spread of inner branches',
+  ag2: 'Bud A: horizontal spread of middle branches',
+  ag3: 'Bud A: horizontal spread of outer branches',
+  ag4: 'Bud A: length of central upward stem',
+  ag5: 'Bud A: vertical reach of inner branches',
+  ag6: 'Bud A: vertical reach of middle branches',
+  ag7: 'Bud A: vertical reach of outer branches',
+  ag8: 'Bud A: length of trunk / downward stem',
+  aDepth: 'Bud A: recursion depth — controls bud complexity',
+  bg1: 'Bud B: horizontal spread of inner branches',
+  bg2: 'Bud B: horizontal spread of middle branches',
+  bg3: 'Bud B: horizontal spread of outer branches',
+  bg4: 'Bud B: length of central upward stem',
+  bg5: 'Bud B: vertical reach of inner branches',
+  bg6: 'Bud B: vertical reach of middle branches',
+  bg7: 'Bud B: vertical reach of outer branches',
+  bg8: 'Bud B: length of trunk / downward stem',
+  bDepth: 'Bud B: recursion depth — controls bud complexity',
+  budTrigger: 'Depth at which trunk branches switch to buds (0 = buds off)',
+  budScale: 'Size of bud growths (1-8, where 8 = full size)',
+  budSwitch: 'Segment boundary between Bud A and Bud B (Hox boundary)',
+  budDensity: 'Fraction of branch-tips that sprout buds (1-8)',
+  budGrad: 'Sonic Hedgehog gradient — bud scale varies left-to-right',
 };
 
 // ── URL hash encoding (F3) ──────────────────────────────────
@@ -194,6 +242,13 @@ function originGenotype() {
   genes[8] = 1; // depth
   if (config.geneCount > 9) genes[9] = 1;  // segCount
   if (config.geneCount > 10) genes[10] = 4; // segDist
+  if (config.geneCount >= 36) {
+    genes[21] = 1;  // aDepth
+    genes[30] = 1;  // bDepth
+    genes[32] = 4;  // budScale mid
+    genes[33] = 1;  // budSwitch
+    genes[34] = 8;  // budDensity full
+  }
   return genes;
 }
 
@@ -204,11 +259,16 @@ function cloneGenes(genes) {
 function mutate(genes) {
   const config = getConfig();
   const child = cloneGenes(genes);
-  const i = Math.floor(Math.random() * config.geneCount);
-  // F5: mutation intensity controls max step size
-  const maxDelta = mutationIntensity;
-  const delta = (1 + Math.floor(Math.random() * maxDelta)) * (Math.random() < 0.5 ? -1 : 1);
-  child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], child[i] + delta));
+  // Mode 6 has 36 genes — single-gene mutation is ~3%, too slow.
+  // Mutate intensity+1 genes to maintain ~6-8% proportional pressure.
+  const numMutations = currentMode >= 6 ? mutationIntensity + 1 : 1;
+  for (let m = 0; m < numMutations; m++) {
+    const i = Math.floor(Math.random() * config.geneCount);
+    // F5: mutation intensity controls max step size
+    const maxDelta = mutationIntensity;
+    const delta = (1 + Math.floor(Math.random() * maxDelta)) * (Math.random() < 0.5 ? -1 : 1);
+    child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], child[i] + delta));
+  }
   return child;
 }
 
@@ -251,8 +311,23 @@ function adaptGenes(genes, newMode) {
       adapted[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], genes[i]));
     } else {
       // Sensible defaults for new genes
-      if (i === 9) adapted[i] = 1;  // segCount
+      if (i === 9) adapted[i] = 1;       // segCount
       else if (i === 10) adapted[i] = 4; // segDist
+      else if (i >= 13 && i <= 20) {
+        // Bud A direction genes: copy from trunk (buds start identical to trunk)
+        adapted[i] = genes[i - 13];
+      }
+      else if (i === 21) adapted[i] = Math.max(1, genes[8] || 1); // aDepth = trunk depth
+      else if (i >= 22 && i <= 29) {
+        // Bud B direction genes: copy from trunk
+        adapted[i] = genes[i - 22];
+      }
+      else if (i === 30) adapted[i] = Math.max(1, genes[8] || 1); // bDepth = trunk depth
+      else if (i === 31) adapted[i] = 0;  // budTrigger off — user breeds into buds
+      else if (i === 32) adapted[i] = 4;  // budScale mid
+      else if (i === 33) adapted[i] = 1;  // budSwitch
+      else if (i === 34) adapted[i] = 8;  // budDensity max
+      else if (i === 35) adapted[i] = 0;  // budGrad neutral
       else adapted[i] = 0; // gradients start at 0
     }
   }
@@ -291,6 +366,34 @@ function randomInteresting() {
   if (config.geneCount > 10) genes[10] = 3 + Math.floor(Math.random() * 8);
   if (config.geneCount > 11) genes[11] = randomGene(11, config);
   if (config.geneCount > 12) genes[12] = randomGene(12, config);
+
+  // Mode 6: bud genes and meta genes
+  if (config.geneCount >= 36) {
+    // Bud A direction genes (13-20): own random shape
+    genes[21] = 2 + Math.floor(Math.random() * 3); // aDepth 2-4
+    for (let i = 13; i < 21; i++) {
+      genes[i] = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 5));
+      genes[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], genes[i]));
+    }
+    // Zero out 2 for variety
+    for (let z = 0; z < 2; z++) genes[13 + Math.floor(Math.random() * 8)] = 0;
+
+    // Bud B direction genes (22-29): own random shape
+    genes[30] = 2 + Math.floor(Math.random() * 3); // bDepth 2-4
+    for (let i = 22; i < 30; i++) {
+      genes[i] = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 5));
+      genes[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], genes[i]));
+    }
+    for (let z = 0; z < 2; z++) genes[22 + Math.floor(Math.random() * 8)] = 0;
+
+    // Meta genes
+    const maxTrigger = Math.max(2, genes[8] - 1);
+    genes[31] = 2 + Math.floor(Math.random() * (maxTrigger - 1)); // budTrigger
+    genes[32] = 3 + Math.floor(Math.random() * 4); // budScale 3-6
+    genes[33] = Math.max(1, Math.floor((genes[9] || 1) / 2)); // budSwitch midpoint
+    genes[34] = 3 + Math.floor(Math.random() * 6); // budDensity 3-8
+    genes[35] = (Math.random() < 0.5 ? -1 : 1) * Math.floor(Math.random() * 5); // budGrad
+  }
 
   // Clamp all
   for (let i = 0; i < config.geneCount; i++) {
@@ -422,6 +525,138 @@ function drawSegmented(genes) {
   return allLines;
 }
 
+// ── Segmentation with buds (Mode 6) ─────────────────────
+
+function drawSegmentedWithBuds(genes) {
+  const trunkDepth = genes[8];
+  const segs = genes[9] || 1;
+  const segDist = genes[10] || 4;
+  const grad1 = genes[11]; // trunk grad for g1
+  const grad2 = genes[12]; // trunk grad for g3
+
+  // Bud A genes at offset 13
+  const budAVectors = defineVectors(genes.slice(13, 21));
+  const budADepth = genes[21];
+  // Bud B genes at offset 22
+  const budBVectors = defineVectors(genes.slice(22, 30));
+  const budBDepth = genes[30];
+
+  const budTrigger = genes[31];
+  const budScale = genes[32] / 8;
+  const budSwitch = Math.min(genes[33], segs);
+  const budDensity = genes[34];
+  const budGrad = genes[35];
+
+  const config = getConfig();
+  const allLines = [];
+  let budTipCounter = 0;
+  let budTipTotal = 0;
+
+  for (let s = 0; s < segs; s++) {
+    const useBudA = s < budSwitch;
+    const activeBudVectors = useBudA ? budAVectors : budBVectors;
+    const activeBudDepth = useBudA ? budADepth : budBDepth;
+    const budType = useBudA ? 'budA' : 'budB';
+
+    // Trunk gradient: interpolate g1 and g3 across segments
+    const t = segs > 1 ? s / (segs - 1) : 0;
+    const segGenes = genes.slice(0, 9);
+    segGenes[0] = Math.max(config.geneMin[0], Math.min(config.geneMax[0],
+      Math.round(genes[0] + grad1 * t)));
+    segGenes[2] = Math.max(config.geneMin[2], Math.min(config.geneMax[2],
+      Math.round(genes[2] + grad2 * t)));
+
+    // Alternating asymmetry (if enabled)
+    if (alternatingAsymmetry && s % 2 === 1) {
+      segGenes[0] = -segGenes[0];
+      segGenes[1] = -segGenes[1];
+      segGenes[2] = -segGenes[2];
+    }
+
+    const trunkVectors = defineVectors(segGenes);
+    const yOffset = (s - (segs - 1) / 2) * segDist;
+
+    function recurse(i, c, x0, y0) {
+      if (i === 0) i = 8;
+      else if (i === 9) i = 1;
+
+      const v = trunkVectors[i];
+      const x1 = x0 + c * v[0];
+      const y1 = y0 + c * v[1];
+      allLines.push({ x0, y0: y0 + yOffset, x1, y1: y1 + yOffset, depth: c, type: 'trunk', maxDepth: trunkDepth });
+
+      // Hox switch: at trigger depth, spawn buds (subject to density filter)
+      if (budTrigger > 0 && c === budTrigger) {
+        if (activeBudDepth > 0) {
+          budTipCounter++;
+          if ((budTipCounter % 8) < budDensity) {
+            budTipTotal++;
+            const gradT = budTipTotal / Math.max(1, Math.pow(2, trunkDepth - budTrigger));
+            const gradScale = budScale * Math.max(0.2, 1 + budGrad * 0.08 * (gradT - 0.5));
+            recurseBud(i - 1, activeBudDepth, x1, y1 + yOffset, budType, gradScale);
+            recurseBud(i + 1, activeBudDepth, x1, y1 + yOffset, budType, gradScale);
+          }
+        }
+      } else if (c > 1) {
+        recurse(i - 1, c - 1, x1, y1);
+        recurse(i + 1, c - 1, x1, y1);
+      }
+    }
+
+    function recurseBud(i, c, x0, y0, bType, localScale) {
+      if (i === 0) i = 8;
+      else if (i === 9) i = 1;
+
+      const bVec = bType === 'budA' ? budAVectors : budBVectors;
+      const v = bVec[i];
+      const sc = localScale || budScale;
+      const x1 = x0 + c * v[0] * sc;
+      const y1 = y0 + c * v[1] * sc;
+      allLines.push({ x0, y0, x1, y1, depth: c, type: bType, maxDepth: (bType === 'budA' ? budADepth : budBDepth) });
+
+      if (c > 1) {
+        recurseBud(i - 1, c - 1, x1, y1, bType, localScale);
+        recurseBud(i + 1, c - 1, x1, y1, bType, localScale);
+      }
+    }
+
+    // Apply symmetry per segment, then recurse
+    const segLines = [];
+    const segStartIdx = allLines.length;
+    recurse(4, trunkDepth, 0, 0);
+    const newLines = allLines.splice(segStartIdx);
+
+    // Apply bilateral symmetry for this segment
+    const symLines = (currentMode >= 2) ? applySymmetryTyped(newLines, symmetryType) : newLines;
+    allLines.push(...symLines);
+  }
+
+  return allLines;
+}
+
+function applySymmetryTyped(lines, symType) {
+  if (symType === 'left-right') return lines;
+
+  const result = lines.slice();
+
+  if (symType === 'up-down' || symType === 'four-way') {
+    for (const seg of lines) {
+      result.push({ x0: seg.x0, y0: -seg.y0, x1: seg.x1, y1: -seg.y1, depth: seg.depth, type: seg.type, maxDepth: seg.maxDepth });
+    }
+  }
+  if (symType === 'four-way') {
+    const soFar = result.slice();
+    for (const seg of soFar) {
+      result.push({ x0: -seg.x0, y0: seg.y0, x1: -seg.x1, y1: seg.y1, depth: seg.depth, type: seg.type, maxDepth: seg.maxDepth });
+    }
+  }
+  if (symType === 'asymmetric') {
+    return lines;
+  }
+
+  return result;
+}
+
 // ── Radial symmetry ──────────────────────────────────────────
 
 function applyRadial(lines, arms) {
@@ -449,7 +684,9 @@ function applyRadial(lines, arms) {
 function drawBiomorph(genes) {
   let lines;
 
-  if (currentMode >= 3) {
+  if (currentMode >= 6) {
+    lines = drawSegmentedWithBuds(genes);
+  } else if (currentMode >= 3) {
     lines = drawSegmented(genes);
   } else {
     lines = drawTree(genes);
@@ -458,13 +695,36 @@ function drawBiomorph(genes) {
     }
   }
 
-  // Radial symmetry (Mode 5)
+  // Radial symmetry (Mode 5+)
   if (currentMode >= 5 && radialSymmetry) {
     const segCount = genes[9] || 1;
-    lines = applyRadial(lines, segCount > 1 ? segCount : 5);
+    const arms = segCount > 1 ? segCount : 5;
+    lines = currentMode >= 6 ? applyRadialTyped(lines, arms) : applyRadial(lines, arms);
   }
 
   return lines;
+}
+
+function applyRadialTyped(lines, arms) {
+  if (!arms || arms <= 1) return lines;
+  const result = [];
+  const angleStep = (2 * Math.PI) / arms;
+  for (let a = 0; a < arms; a++) {
+    const cos = Math.cos(angleStep * a);
+    const sin = Math.sin(angleStep * a);
+    for (const seg of lines) {
+      result.push({
+        x0: seg.x0 * cos - seg.y0 * sin,
+        y0: seg.x0 * sin + seg.y0 * cos,
+        x1: seg.x1 * cos - seg.y1 * sin,
+        y1: seg.x1 * sin + seg.y1 * cos,
+        depth: seg.depth,
+        type: seg.type,
+        maxDepth: seg.maxDepth,
+      });
+    }
+  }
+  return result;
 }
 
 // ── Rendering ────────────────────────────────────────────────
@@ -500,48 +760,82 @@ function renderBiomorph(canvas, genes, options) {
   const offsetX = (minX + maxX) / 2;
   const offsetY = (minY + maxY) / 2;
 
-  const useColor = options && options.colorEnabled && options.colorGenes;
-  if (useColor) {
-    const maxDepth = Math.max(...lines.map(s => s.depth));
-    // Group by depth and draw each group in its color
-    const byDepth = new Map();
-    for (const seg of lines) {
-      if (!byDepth.has(seg.depth)) byDepth.set(seg.depth, []);
-      byDepth.get(seg.depth).push(seg);
-    }
-    ctx.lineWidth = 1.5;
+  // Mode 6: three-color developmental rendering (trunk/budA/budB)
+  const isMode6 = lines.length > 0 && lines[0].type !== undefined;
+  if (isMode6) {
+    const BUD_COLORS = { trunk: '#58a6ff', budA: '#f0883e', budB: '#d2a8ff' };
     ctx.lineCap = 'round';
-    for (const [d, segs] of byDepth) {
-      ctx.strokeStyle = depthToColor(d, maxDepth, options.colorGenes.hue, options.colorGenes.spread);
+
+    for (const type of ['trunk', 'budA', 'budB']) {
+      const subset = lines.filter(s => s.type === type);
+      if (subset.length === 0) continue;
+
+      ctx.strokeStyle = BUD_COLORS[type];
+
+      // Group by depth for batch drawing with depth-based thickness
+      const byDepth = new Map();
+      for (const seg of subset) {
+        if (!byDepth.has(seg.depth)) byDepth.set(seg.depth, []);
+        byDepth.get(seg.depth).push(seg);
+      }
+
+      for (const [d, segs] of byDepth) {
+        const maxD = segs[0].maxDepth || 6;
+        const t = maxD > 1 ? (d - 1) / (maxD - 1) : 0;
+        const baseWidth = type === 'trunk' ? 2.5 : 1.8;
+        ctx.lineWidth = 0.6 + t * baseWidth;
+
+        ctx.beginPath();
+        for (const seg of segs) {
+          ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
+          ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
+        }
+        ctx.stroke();
+      }
+    }
+  } else {
+    const useColor = options && options.colorEnabled && options.colorGenes;
+    if (useColor) {
+      const maxDepth = Math.max(...lines.map(s => s.depth));
+      const byDepth = new Map();
+      for (const seg of lines) {
+        if (!byDepth.has(seg.depth)) byDepth.set(seg.depth, []);
+        byDepth.get(seg.depth).push(seg);
+      }
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
+      for (const [d, segs] of byDepth) {
+        ctx.strokeStyle = depthToColor(d, maxDepth, options.colorGenes.hue, options.colorGenes.spread);
+        ctx.beginPath();
+        for (const seg of segs) {
+          ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
+          ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
+        }
+        ctx.stroke();
+      }
+    } else if (options && options.colorMode === 'angle') {
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
+      for (const seg of lines) {
+        const angle = Math.atan2(seg.y1 - seg.y0, seg.x1 - seg.x0);
+        const hue = ((angle / Math.PI) * 180 + 180) % 360;
+        ctx.strokeStyle = `hsl(${hue}, 75%, 60%)`;
+        ctx.beginPath();
+        ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
+        ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
+        ctx.stroke();
+      }
+    } else {
+      ctx.strokeStyle = '#e6edf3';
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      for (const seg of segs) {
+      for (const seg of lines) {
         ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
         ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
       }
       ctx.stroke();
     }
-  } else if (options && options.colorMode === 'angle') {
-    ctx.lineWidth = 1.5;
-    ctx.lineCap = 'round';
-    for (const seg of lines) {
-      const angle = Math.atan2(seg.y1 - seg.y0, seg.x1 - seg.x0);
-      const hue = ((angle / Math.PI) * 180 + 180) % 360;
-      ctx.strokeStyle = `hsl(${hue}, 75%, 60%)`;
-      ctx.beginPath();
-      ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
-      ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
-      ctx.stroke();
-    }
-  } else {
-    ctx.strokeStyle = '#e6edf3';
-    ctx.lineWidth = 1.5;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    for (const seg of lines) {
-      ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
-      ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
-    }
-    ctx.stroke();
   }
 }
 
@@ -1152,6 +1446,14 @@ const CLASSIC_PRESETS = [
     genes: [3, -2, 1, -1, 2, -3, 2, 3, 5, 3, 6, 2, -2],
     mode: 5, symmetry: 'left-right', alternatingAsym: true,
   },
+  {
+    name: 'Hydra',
+    genes: [2, -1, 3, -2, 1, -1, 2, -3, 5, 3, 5, 2, -1,
+            1, 2, -1, 1, -2, 1, -1, 2, 3,
+            -1, 1, 2, -1, 2, -2, 1, -1, 3,
+            3, 5, 2, 6, 2],
+    mode: 6, symmetry: 'left-right',
+  },
 ];
 
 const PRESET_THUMBS_KEY = 'biomorph-preset-thumbs';
@@ -1547,6 +1849,9 @@ const GENOME_GROUPS = [
   { name: 'Complexity', genes: ['depth'], minMode: 1 },
   { name: 'Body Plan', genes: ['segs', 'segDist'], minMode: 3 },
   { name: 'Gradients', genes: ['grad1', 'grad2'], minMode: 4 },
+  { name: 'Bud A (anterior)', genes: ['ag1','ag2','ag3','ag4','ag5','ag6','ag7','ag8','aDepth'], minMode: 6 },
+  { name: 'Bud B (posterior)', genes: ['bg1','bg2','bg3','bg4','bg5','bg6','bg7','bg8','bDepth'], minMode: 6 },
+  { name: 'Hox Genes', genes: ['budTrigger','budScale','budSwitch','budDensity','budGrad'], minMode: 6 },
 ];
 
 const GENOME_SHORT_DESCS = {
@@ -1556,6 +1861,15 @@ const GENOME_SHORT_DESCS = {
   segs: 'Segment count', segDist: 'Segment spacing',
   grad1: 'Inner spread gradient', grad2: 'Outer spread gradient',
   hue: 'Base hue', spread: 'Hue spread',
+  ag1: 'A inner horiz', ag2: 'A mid horiz', ag3: 'A outer horiz',
+  ag4: 'A central stem', ag5: 'A inner vert', ag6: 'A mid vert',
+  ag7: 'A outer vert', ag8: 'A trunk', aDepth: 'A depth',
+  bg1: 'B inner horiz', bg2: 'B mid horiz', bg3: 'B outer horiz',
+  bg4: 'B central stem', bg5: 'B inner vert', bg6: 'B mid vert',
+  bg7: 'B outer vert', bg8: 'B trunk', bDepth: 'B depth',
+  budTrigger: 'Bud activation depth', budScale: 'Bud size',
+  budSwitch: 'A/B boundary', budDensity: 'Tip sprouting',
+  budGrad: 'Shh gradient',
 };
 
 function renderGenomeTable(genes, cGenes) {
@@ -1641,6 +1955,7 @@ const MODE_DESCRIPTIONS = {
   3: '\u201CSegmentation \u2014 the repetition of body units along a backbone \u2014 is one of the great innovations of animal body plans.\u201D \u2014 Dawkins, p.211',
   4: '\u201CIf segments are allowed to differ from each other in a graded fashion\u2026 the creatures begin to look more like real arthropods.\u201D \u2014 Dawkins, p.212',
   5: '\u201CCombining all these embryological tricks\u2026 radial symmetry, alternating asymmetry\u2026 the range of forms is enormously expanded.\u201D \u2014 Dawkins, p.214',
+  6: 'Dual Hox programs grow buds from branch-tips: Bud A (orange) on anterior segments, Bud B (purple) on posterior \u2014 like Hox genes expressing different structures along the body axis. 36 genes total.',
 };
 
 function updateModeDescription() {
@@ -1658,8 +1973,11 @@ function syncUIControls() {
   document.getElementById('alternating-asym').checked = alternatingAsymmetry;
   document.getElementById('radial-sym').checked = radialSymmetry;
   document.getElementById('mutation-intensity').value = mutationIntensity;
-  document.getElementById('color-controls').style.display = currentMode >= 1 ? 'flex' : 'none';
+  // Mode 6 uses three-color developmental scheme — hide user color controls, show bud legend
+  document.getElementById('color-controls').style.display = (currentMode >= 1 && currentMode < 6) ? 'flex' : 'none';
   document.getElementById('color-mode').value = colorMode;
+  const budLegend = document.getElementById('bud-legend');
+  if (budLegend) budLegend.style.display = currentMode >= 6 ? 'flex' : 'none';
   updateExpeditionButton();
   updateModeDescription();
 }
@@ -1918,6 +2236,7 @@ const EXPEDITION_NOUNS_BY_MODE = {
   3: ['Caterpillar', 'Spine', 'Centipede', 'Worm', 'Crawler'],
   4: ['Cascade', 'Coral', 'Fan', 'Crest'],
   5: ['Plume', 'Spiral', 'Tendril', 'Bloom'],
+  6: ['Hydra', 'Polyp', 'Anemone', 'Zooid', 'Colony'],
 };
 
 const EXPEDITION_FALLBACK_NOUNS = ['Form', 'Shape', 'Creature', 'Being'];
