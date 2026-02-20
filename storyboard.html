@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Biomorph Universe — Zoom Storyboard</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0a0e14;
+  color: #d4dce6;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* --- Breadcrumb --- */
+#breadcrumb {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #8a9aaa;
+  background: rgba(10, 14, 20, 0.85);
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid #2a3444;
+  backdrop-filter: blur(8px);
+}
+#breadcrumb .crumb { cursor: pointer; transition: color 0.2s; white-space: nowrap; }
+#breadcrumb .crumb:hover { color: #a8d8a8; }
+#breadcrumb .crumb.active { color: #c8e6c8; font-weight: 600; }
+#breadcrumb .sep { color: #3a5a4a; font-size: 11px; }
+
+/* --- Zoom-out button --- */
+#zoom-out-btn {
+  position: fixed; bottom: 24px; left: 24px; z-index: 100;
+  background: #1a1e26; border: 1px solid #2a3444; color: #a8d8a8;
+  padding: 10px 18px; border-radius: 8px; font-size: 14px; cursor: pointer;
+  transition: background 0.15s, opacity 0.3s; opacity: 0; pointer-events: none;
+}
+#zoom-out-btn:hover { background: #1a3a2a; }
+#zoom-out-btn.visible { opacity: 1; pointer-events: auto; }
+
+/* --- Screens --- */
+.screen {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  opacity: 0; transform: scale(0.85);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  pointer-events: none; padding: 60px 24px 80px;
+  overflow-y: auto;
+}
+.screen.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+.screen.zoom-in-exit { opacity: 0; transform: scale(2.5); }
+.screen.zoom-out-exit { opacity: 0; transform: scale(0.3); }
+
+.screen h2 { font-family: Georgia, serif; font-size: 28px; color: #c8e6c8; margin-bottom: 8px; letter-spacing: 0.03em; }
+.screen .subtitle { font-size: 15px; color: #8a9aaa; max-width: 540px; text-align: center; line-height: 1.6; margin-bottom: 24px; }
+.screen .hint { font-size: 12px; color: #5a6a7a; margin-top: 16px; font-style: italic; }
+
+canvas { display: block; }
+
+/* --- Cosmos --- */
+#cosmos-screen .cosmos-container { position: relative; }
+#cosmos-canvas { border-radius: 12px; cursor: crosshair; }
+.cosmos-label { position: absolute; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; pointer-events: none; }
+.cosmos-label.peppering { color: #5a4a4a; top: 8px; left: 16px; }
+.cosmos-label.structured { color: #4a5a4a; top: 8px; right: 16px; }
+.cosmos-divider-label { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 11px; color: #3a4a5a; pointer-events: none; writing-mode: vertical-rl; letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* --- World Picker & Regime Cards --- */
+.world-grid, .regime-map {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  max-width: 520px; width: 100%;
+}
+.world-grid { grid-template-columns: 1fr 1fr 1fr; }
+.world-card, .regime-card {
+  background: #12161e; border: 1px solid #2a3444; border-radius: 10px;
+  padding: 16px; cursor: pointer; text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+.world-card:hover, .regime-card:hover { border-color: #3a5a4a; background: #1a1e26; }
+.world-card .world-name, .regime-card .regime-name { font-family: Georgia, serif; font-size: 15px; color: #c8e6c8; }
+.world-card .world-desc, .regime-card .regime-desc { font-size: 12px; color: #8a9aaa; margin-top: 4px; line-height: 1.4; }
+.world-card .world-icon { font-size: 32px; margin-bottom: 6px; line-height: 1; }
+.regime-card .regime-tag { display: inline-block; font-size: 10px; color: #5a7a6a; border: 1px solid #2a3a34; border-radius: 4px; padding: 1px 6px; margin-top: 6px; font-family: monospace; }
+.regime-card canvas, .world-card canvas { margin: 8px auto 0; border-radius: 4px; }
+
+/* --- Colony --- */
+.colony-canvas { border-radius: 12px; cursor: pointer; }
+
+/* --- Organism --- */
+.organism-layout { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.organism-canvas-main { border-radius: 12px; border: 1px solid #2a3444; }
+.offspring-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.offspring-grid canvas { border-radius: 6px; border: 1px solid #1a1e26; cursor: pointer; transition: border-color 0.2s; }
+.offspring-grid canvas:hover { border-color: #3a5a4a; }
+.zoom-btn {
+  background: #1a3a2a; border: 1px solid #3a5a4a; color: #a8d8a8;
+  padding: 10px 20px; border-radius: 8px; font-size: 14px; cursor: pointer;
+  transition: background 0.15s; margin-top: 4px;
+}
+.zoom-btn:hover { background: #2a4a3a; }
+
+/* --- Genome --- */
+.genome-layout { display: flex; align-items: flex-start; gap: 32px; }
+.genome-canvas { border-radius: 12px; border: 1px solid #2a3444; }
+.gene-bar { display: flex; flex-direction: column; gap: 6px; }
+.gene-slot {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  border-radius: 6px; background: #12161e; border: 1px solid #2a3444;
+  font-size: 13px; min-width: 180px;
+}
+.gene-slot .gene-label { color: #8a9aaa; font-family: monospace; width: 50px; white-space: nowrap; }
+.gene-slot .gene-value { color: #d4dce6; font-family: monospace; }
+.gene-slot.fossil { opacity: 0.35; border-style: dashed; }
+.gene-slot.fossil .gene-label::after { content: " (fossil)"; font-family: -apple-system, sans-serif; font-size: 10px; color: #5a6a7a; }
+.gene-slot.duplicated { border-color: #3a5a4a; background: #1a2a22; }
+.gene-slot.duplicated .gene-label::after { content: " x2"; font-family: -apple-system, sans-serif; font-size: 10px; color: #a8d8a8; }
+
+/* --- Composite --- */
+#comp-organism-screen .composite-view { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.sub-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.sub-grid .sub-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.sub-grid canvas { border-radius: 6px; border: 1px solid #2a3444; cursor: pointer; transition: border-color 0.2s; }
+.sub-grid canvas:hover { border-color: #3a5a4a; }
+.sub-grid .sub-label { font-size: 10px; color: #5a6a7a; }
+
+/* --- Locomotive --- */
+#loco-organism-screen .loco-view { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+#loco-organism-screen .loco-stage { position: relative; border-radius: 12px; border: 1px solid #2a3444; overflow: hidden; }
+.gait-bar { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.gait-slot {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  border-radius: 6px; background: #12161e; border: 1px solid #2a3444; font-size: 13px; min-width: 200px;
+}
+.gait-slot .gait-label { color: #8a9aaa; font-family: monospace; width: 70px; }
+.gait-slot .gait-value { color: #d4dce6; font-family: monospace; }
+</style>
+</head>
+<body>
+
+<nav id="breadcrumb"></nav>
+<button id="zoom-out-btn">&#8592; Zoom out</button>
+
+<!-- ========== COSMOS ========== -->
+<div class="screen" id="cosmos-screen">
+  <h2>Morphospace</h2>
+  <p class="subtitle">The space of all possible forms. On the left, random peppering — vast, noisy, unnavigable. On the right, developmental rules create structure. Clusters of viable form emerge, reachable step by step.</p>
+  <div class="cosmos-container">
+    <canvas id="cosmos-canvas" width="800" height="400"></canvas>
+    <span class="cosmos-label peppering">Random peppering</span>
+    <span class="cosmos-label structured">Developmental rules</span>
+    <span class="cosmos-divider-label">constraint</span>
+  </div>
+  <p class="hint">Click the structured side to zoom in</p>
+</div>
+
+<!-- ========== WORLD PICKER ========== -->
+<div class="screen" id="worlds-screen">
+  <h2>Worlds</h2>
+  <p class="subtitle">Different worlds, different rules. Each one changes what you find when you zoom in.</p>
+  <div class="world-grid">
+    <div class="world-card" data-world="embryology">
+      <canvas id="world-embryo-canvas" width="90" height="70"></canvas>
+      <div class="world-name">Embryology</div>
+      <div class="world-desc">Developmental toolkits shape form-space. Recursion, segments, gradients.</div>
+    </div>
+    <div class="world-card" data-world="composite">
+      <canvas id="world-comp-canvas" width="90" height="70"></canvas>
+      <div class="world-name">Composite</div>
+      <div class="world-desc">Creatures made of creatures. Zoom in and find more organisms.</div>
+    </div>
+    <div class="world-card" data-world="locomotive">
+      <canvas id="world-loco-canvas" width="90" height="70"></canvas>
+      <div class="world-name">Locomotive</div>
+      <div class="world-desc">Selection for movement. Form meets function meets physics.</div>
+    </div>
+  </div>
+  <p class="hint">Choose a world to explore</p>
+</div>
+
+<!-- ========== EMBRYOLOGY PICKER ========== -->
+<div class="screen" id="embryology-screen">
+  <h2>Embryology</h2>
+  <p class="subtitle">Each developmental toolkit opens a different region of form-space. More rules doesn't mean fewer forms — it means more structure to explore.</p>
+  <div class="regime-map">
+    <div class="regime-card" data-regime="recursive">
+      <div class="regime-name">Recursive</div>
+      <div class="regime-desc">Branching trees from 9 genes. Symmetry makes every mutation meaningful.</div>
+      <div class="regime-tag">mode 1 &middot; 9 genes</div>
+      <canvas width="100" height="75"></canvas>
+    </div>
+    <div class="regime-card" data-regime="segmented">
+      <div class="regime-name">Segmented</div>
+      <div class="regime-desc">Repeat the body plan. Arthropods, centipedes, vertebrae.</div>
+      <div class="regime-tag">mode 3 &middot; 11 genes</div>
+      <canvas width="100" height="75"></canvas>
+    </div>
+    <div class="regime-card" data-regime="gradient">
+      <div class="regime-name">Gradient</div>
+      <div class="regime-desc">Segments that taper and transform. Organic, flowing forms.</div>
+      <div class="regime-tag">mode 5 &middot; 13 genes</div>
+      <canvas width="100" height="75"></canvas>
+    </div>
+    <div class="regime-card" data-regime="symmetric">
+      <div class="regime-name">Symmetry Variants</div>
+      <div class="regime-desc">Same genes, new axes. Up-down, radial — one genome, many body plans.</div>
+      <div class="regime-tag">symmetry &middot; 9 genes</div>
+      <canvas width="100" height="75"></canvas>
+    </div>
+  </div>
+  <p class="hint">Pick a developmental toolkit to explore</p>
+</div>
+
+<!-- ========== EMBRYOLOGY: COLONY ========== -->
+<div class="screen" id="colony-screen">
+  <h2>Colony</h2>
+  <p class="subtitle" id="colony-subtitle">A population shaped by developmental rules. Hidden genetic diversity — the raw material of evolution.</p>
+  <canvas id="colony-canvas" class="colony-canvas" width="700" height="380"></canvas>
+  <p class="hint">Click a creature to zoom in</p>
+</div>
+
+<!-- ========== EMBRYOLOGY: ORGANISM ========== -->
+<div class="screen" id="organism-screen">
+  <h2>Organism</h2>
+  <p class="subtitle">Select. Breed. Shape evolution with your choices. Each offspring is one mutation away.</p>
+  <div class="organism-layout">
+    <canvas id="organism-canvas" class="organism-canvas-main" width="200" height="200"></canvas>
+    <div class="offspring-grid" id="offspring-grid"></div>
+    <button class="zoom-btn" id="genome-link">Zoom into genome &rarr;</button>
+  </div>
+</div>
+
+<!-- ========== GENOME (shared by embryology + composite paths) ========== -->
+<div class="screen" id="genome-screen">
+  <h2>Genome</h2>
+  <p class="subtitle" id="genome-subtitle">The developmental recipe. Every gene shapes the embryology. Fossil genes carry silent history. Duplications open new degrees of freedom.</p>
+  <div class="genome-layout">
+    <canvas id="genome-canvas" class="genome-canvas" width="200" height="200"></canvas>
+    <div class="gene-bar" id="gene-bar"></div>
+  </div>
+</div>
+
+<!-- ========== COMPOSITE: COLONY ========== -->
+<div class="screen" id="comp-colony-screen">
+  <h2>Colony</h2>
+  <p class="subtitle">A population of composite organisms. Each one is built from smaller creatures cooperating as sub-units — like cells in a body.</p>
+  <canvas id="comp-colony-canvas" class="colony-canvas" width="700" height="380"></canvas>
+  <p class="hint">Click a composite creature to zoom in</p>
+</div>
+
+<!-- ========== COMPOSITE: ORGANISM ========== -->
+<div class="screen" id="comp-organism-screen">
+  <h2>Composite Organism</h2>
+  <p class="subtitle">A creature? Or a colony wearing a body plan? The large-scale structure is one genome. But zoom in and each sub-unit is its own evolved organism.</p>
+  <div class="composite-view">
+    <canvas id="comp-organism-canvas" class="organism-canvas-main" width="280" height="240"></canvas>
+    <button class="zoom-btn" id="comp-zoom-in">Zoom into sub-organisms &rarr;</button>
+  </div>
+</div>
+
+<!-- ========== COMPOSITE: SUB-ORGANISMS ========== -->
+<div class="screen" id="sub-organisms-screen">
+  <h2>Sub-organisms</h2>
+  <p class="subtitle">Each sub-unit is itself an evolved creature with its own genome. Mitochondria were once free-living bacteria. Every cell in your body is a composite.</p>
+  <div class="sub-grid" id="sub-grid"></div>
+  <button class="zoom-btn" id="sub-genome-link">Zoom into a sub-organism's genome &rarr;</button>
+</div>
+
+<!-- ========== LOCOMOTIVE: COLONY ========== -->
+<div class="screen" id="loco-colony-screen">
+  <h2>Colony</h2>
+  <p class="subtitle">A population under selection for movement. Form follows function — streamlined, jointed, built to go.</p>
+  <canvas id="loco-colony-canvas" class="colony-canvas" width="700" height="380"></canvas>
+  <p class="hint">Click a creature to zoom in</p>
+</div>
+
+<!-- ========== LOCOMOTIVE: ORGANISM ========== -->
+<div class="screen" id="loco-organism-screen">
+  <h2>Organism in Motion</h2>
+  <p class="subtitle">Morphology is only half the story. The same body can crawl, swim, or bounce — the gait genome controls how.</p>
+  <div class="loco-view">
+    <div class="loco-stage">
+      <canvas id="loco-anim-canvas" width="400" height="250"></canvas>
+    </div>
+    <button class="zoom-btn" id="loco-genome-link">Zoom into kinematics &rarr;</button>
+  </div>
+</div>
+
+<!-- ========== LOCOMOTIVE: KINEMATICS ========== -->
+<div class="screen" id="kinematics-screen">
+  <h2>Kinematics</h2>
+  <p class="subtitle">Two genomes working together: one for form, one for motion. The body plan genome and the gait genome evolve in tandem.</p>
+  <div class="genome-layout">
+    <div>
+      <canvas id="kin-morph-canvas" class="genome-canvas" width="160" height="160"></canvas>
+      <div style="text-align:center; font-size:11px; color:#5a6a7a; margin-top:6px;">Morphology</div>
+    </div>
+    <div>
+      <div class="gene-bar" id="kin-form-bar"></div>
+      <div style="height:16px;"></div>
+      <div style="font-size:12px; color:#c8e6c8; margin-bottom:6px; font-family:Georgia,serif;">Gait genome</div>
+      <div class="gait-bar" id="kin-gait-bar"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { drawTree, randomInteresting, mutate } from './shared/genotype.js';
+
+// =============================================
+// RENDERING HELPERS
+// =============================================
+function getBounds(lines) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const l of lines) {
+    minX = Math.min(minX, l.x0, l.x1); maxX = Math.max(maxX, l.x0, l.x1);
+    minY = Math.min(minY, l.y0, l.y1); maxY = Math.max(maxY, l.y0, l.y1);
+  }
+  return { minX, maxX, minY, maxY, w: maxX - minX || 1, h: maxY - minY || 1 };
+}
+
+function hexToRgb(hex) {
+  return `${parseInt(hex.slice(1,3),16)}, ${parseInt(hex.slice(3,5),16)}, ${parseInt(hex.slice(5,7),16)}`;
+}
+
+function renderBiomorph(canvas, genes, color = '#a8d8a8', lineWidth = 1.2) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const lines = drawTree(genes);
+  if (!lines.length) return;
+  const b = getBounds(lines);
+  const pad = 6;
+  const scale = Math.min((w - pad*2)/b.w, (h - pad*2)/b.h);
+  const ox = w/2 - (b.minX+b.maxX)/2*scale;
+  const oy = h/2 - (b.minY+b.maxY)/2*scale;
+  ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (const l of lines) { ctx.moveTo(l.x0*scale+ox, l.y0*scale+oy); ctx.lineTo(l.x1*scale+ox, l.y1*scale+oy); }
+  ctx.stroke();
+}
+
+function renderSegmented(canvas, genes, numSegs, segDist, color, lineWidth = 1.2) {
+  const ctx = canvas.getContext('2d'); const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const baseLines = drawTree(genes); if (!baseLines.length) return;
+  const b = getBounds(baseLines);
+  const totalH = b.h + (numSegs-1)*segDist; const pad = 6;
+  const scale = Math.min((w-pad*2)/b.w, (h-pad*2)/totalH);
+  ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.lineCap = 'round';
+  for (let s = 0; s < numSegs; s++) {
+    const yOff = s*segDist*scale;
+    const ox = w/2 - (b.minX+b.maxX)/2*scale;
+    const oy = pad + (-b.minY)*scale + yOff;
+    ctx.beginPath();
+    for (const l of baseLines) { ctx.moveTo(l.x0*scale+ox, l.y0*scale+oy); ctx.lineTo(l.x1*scale+ox, l.y1*scale+oy); }
+    ctx.stroke();
+  }
+}
+
+function renderGradient(canvas, genes, numSegs, segDist, color, lineWidth = 1.2) {
+  const ctx = canvas.getContext('2d'); const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const baseLines = drawTree(genes); if (!baseLines.length) return;
+  const b = getBounds(baseLines);
+  const totalH = b.h + (numSegs-1)*segDist; const pad = 6;
+  const scale = Math.min((w-pad*2)/b.w, (h-pad*2)/totalH);
+  ctx.lineCap = 'round';
+  for (let s = 0; s < numSegs; s++) {
+    const t = s/Math.max(1,numSegs-1);
+    const segScale = scale*(1-t*0.5);
+    const yOff = s*segDist*scale;
+    const ox = w/2 - (b.minX+b.maxX)/2*segScale;
+    const oy = pad + (-b.minY)*scale + yOff;
+    ctx.strokeStyle = color.replace(')', `, ${1-t*0.4})`).replace('rgb','rgba');
+    ctx.lineWidth = lineWidth*(1-t*0.3);
+    ctx.beginPath();
+    for (const l of baseLines) { ctx.moveTo(l.x0*segScale+ox, l.y0*segScale+oy); ctx.lineTo(l.x1*segScale+ox, l.y1*segScale+oy); }
+    ctx.stroke();
+  }
+}
+
+function renderSymmetric(canvas, genes, color, lineWidth = 1.2) {
+  const ctx = canvas.getContext('2d'); const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const lines = drawTree(genes); if (!lines.length) return;
+  const b = getBounds(lines);
+  const pad = 6; const scale = Math.min((w-pad*2)/b.w, (h-pad*2)/(b.h*2));
+  ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.lineCap = 'round';
+  const ox = w/2 - (b.minX+b.maxX)/2*scale;
+  const oyTop = h/2 - b.maxY*scale;
+  ctx.beginPath();
+  for (const l of lines) { ctx.moveTo(l.x0*scale+ox, l.y0*scale+oyTop); ctx.lineTo(l.x1*scale+ox, l.y1*scale+oyTop); }
+  ctx.stroke();
+  const oyBot = h/2 + b.maxY*scale;
+  ctx.beginPath();
+  for (const l of lines) { ctx.moveTo(l.x0*scale+ox, -l.y0*scale+oyBot); ctx.lineTo(l.x1*scale+ox, -l.y1*scale+oyBot); }
+  ctx.stroke();
+}
+
+function drawTinyBiomorph(ctx, genes, x, y, size, color, alpha = 0.7) {
+  const lines = drawTree(genes); if (!lines.length) return;
+  const b = getBounds(lines);
+  const scale = size / Math.max(b.w, b.h);
+  const ox = x - (b.minX+b.maxX)/2*scale;
+  const oy = y - (b.minY+b.maxY)/2*scale;
+  ctx.strokeStyle = color.includes('rgba') ? color : `rgba(${hexToRgb(color)}, ${alpha})`;
+  ctx.lineWidth = 0.6;
+  ctx.beginPath();
+  for (const l of lines) { ctx.moveTo(l.x0*scale+ox, l.y0*scale+oy); ctx.lineTo(l.x1*scale+ox, l.y1*scale+oy); }
+  ctx.stroke();
+}
+
+// Draw a composite biomorph: body-plan tree with sub-biomorphs at terminal nodes
+function drawCompositeBiomorph(ctx, bodyGenes, cellGenes, cx, cy, totalSize, bodyColor, cellColor) {
+  const lines = drawTree(bodyGenes); if (!lines.length) return;
+  const b = getBounds(lines);
+  const scale = totalSize / Math.max(b.w, b.h);
+  const ox = cx - (b.minX+b.maxX)/2*scale;
+  const oy = cy - (b.minY+b.maxY)/2*scale;
+
+  // Draw body-plan skeleton faintly
+  ctx.strokeStyle = bodyColor;
+  ctx.lineWidth = 1;
+  ctx.lineCap = 'round';
+  ctx.globalAlpha = 0.25;
+  ctx.beginPath();
+  for (const l of lines) { ctx.moveTo(l.x0*scale+ox, l.y0*scale+oy); ctx.lineTo(l.x1*scale+ox, l.y1*scale+oy); }
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Find terminal nodes (endpoints that aren't branch points)
+  const endpoints = new Map();
+  for (const l of lines) {
+    const key1 = `${l.x1.toFixed(2)},${l.y1.toFixed(2)}`;
+    endpoints.set(key1, (endpoints.get(key1) || 0) + 1);
+  }
+  // Also count starts
+  for (const l of lines) {
+    const key0 = `${l.x0.toFixed(2)},${l.y0.toFixed(2)}`;
+    endpoints.set(key0, (endpoints.get(key0) || 0) + 1);
+  }
+
+  // Draw sub-biomorphs at line endpoints (sparser — every 3rd line end)
+  const drawn = new Set();
+  let count = 0;
+  for (const l of lines) {
+    if (l.depth <= 1) {
+      const px = l.x1 * scale + ox;
+      const py = l.y1 * scale + oy;
+      const key = `${Math.round(px)},${Math.round(py)}`;
+      if (!drawn.has(key)) {
+        drawn.add(key);
+        // Pick a slightly varied cell
+        const cellVariant = count % cellGenes.length;
+        drawTinyBiomorph(ctx, cellGenes[cellVariant], px, py, 10, cellColor, 0.8);
+        count++;
+      }
+    }
+  }
+}
+
+// =============================================
+// STATE
+// =============================================
+// Navigation as a stack (supports branching paths)
+let navStack = ['cosmos'];
+let currentRegime = 'recursive';
+let currentWorld = 'embryology';
+
+const SCREEN_LABELS = {
+  cosmos: 'Cosmos', worlds: 'Worlds',
+  embryology: 'Embryology', colony: 'Colony', organism: 'Organism', genome: 'Genome',
+  'comp-colony': 'Colony', 'comp-organism': 'Organism', 'sub-organisms': 'Sub-organisms',
+  'loco-colony': 'Colony', 'loco-organism': 'Organism', kinematics: 'Kinematics',
+};
+
+// Pre-generate specimens
+const regimePopulations = {
+  recursive: Array.from({ length: 50 }, () => randomInteresting(1)),
+  segmented: Array.from({ length: 30 }, () => randomInteresting(1)),
+  gradient: Array.from({ length: 30 }, () => randomInteresting(1)),
+  symmetric: Array.from({ length: 30 }, () => randomInteresting(1)),
+};
+const cosmosStructured = Array.from({ length: 55 }, () => randomInteresting(1));
+
+// Composite state
+const compBodyGenes = randomInteresting(1);
+const compCellGenes = Array.from({ length: 8 }, () => randomInteresting(1));
+let compColonyPop = Array.from({ length: 25 }, () => {
+  const body = mutate(mutate(compBodyGenes.slice(), 1, 1), 1, 1);
+  return { body, cells: compCellGenes.map(c => mutate(c.slice(), 1, 1)) };
+});
+let focusComposite = compColonyPop[0];
+
+// Locomotive state
+const locoBase = randomInteresting(1);
+let locoColonyPop = Array.from({ length: 25 }, () => {
+  let g = locoBase.slice();
+  for (let i = 0; i < 3; i++) g = mutate(g, 1, 1);
+  return { genes: g, gait: { speed: 0.5+Math.random()*2, amplitude: 5+Math.random()*15, frequency: 1+Math.random()*3, bounce: 2+Math.random()*8 } };
+});
+let focusLoco = locoColonyPop[0];
+let locoAnimId = null;
+
+// Embryology state
+let colonyBase = randomInteresting(1);
+let colonyPopulation = [];
+let focusOrganism = colonyBase.slice();
+let offspring = [];
+
+function buildColony() {
+  colonyPopulation = Array.from({ length: 30 }, () => {
+    let g = colonyBase.slice();
+    for (let i = 0; i < 2; i++) g = mutate(g, 1, 1);
+    return g;
+  });
+  focusOrganism = colonyBase.slice();
+  offspring = Array.from({ length: 8 }, () => mutate(focusOrganism, 1, 1));
+}
+
+// Seeded random for peppering
+let pepperSeed = 42;
+function seededRandom() {
+  pepperSeed = (pepperSeed * 16807) % 2147483647;
+  return pepperSeed / 2147483647;
+}
+
+// =============================================
+// NAVIGATION (stack-based)
+// =============================================
+function currentScreen() { return navStack[navStack.length - 1]; }
+
+function goTo(screenId) {
+  const oldId = currentScreen();
+  if (oldId === screenId) return;
+
+  const oldEl = document.getElementById(oldId + '-screen');
+  const newEl = document.getElementById(screenId + '-screen');
+  if (!oldEl || !newEl) return;
+
+  // Stop locomotive animation when leaving
+  if (locoAnimId) { cancelAnimationFrame(locoAnimId); locoAnimId = null; }
+
+  oldEl.classList.remove('active');
+  oldEl.classList.add('zoom-in-exit');
+  setTimeout(() => oldEl.classList.remove('zoom-in-exit'), 600);
+
+  navStack.push(screenId);
+  newEl.classList.add('active');
+  updateBreadcrumb();
+  updateZoomButton();
+  renderScreen(screenId);
+}
+
+function goBack() {
+  if (navStack.length <= 1) return;
+  const oldId = navStack.pop();
+  const newId = currentScreen();
+
+  if (locoAnimId) { cancelAnimationFrame(locoAnimId); locoAnimId = null; }
+
+  const oldEl = document.getElementById(oldId + '-screen');
+  const newEl = document.getElementById(newId + '-screen');
+
+  oldEl.classList.remove('active');
+  oldEl.classList.add('zoom-out-exit');
+  setTimeout(() => oldEl.classList.remove('zoom-out-exit'), 600);
+
+  newEl.classList.add('active');
+  updateBreadcrumb();
+  updateZoomButton();
+  renderScreen(newId);
+}
+
+function goToStack(index) {
+  // Navigate to a specific point in the stack (for breadcrumb clicks)
+  while (navStack.length - 1 > index) {
+    const removed = navStack.pop();
+    document.getElementById(removed + '-screen')?.classList.remove('active');
+  }
+  if (locoAnimId) { cancelAnimationFrame(locoAnimId); locoAnimId = null; }
+  const cur = currentScreen();
+  // Make sure current is active
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(cur + '-screen').classList.add('active');
+  updateBreadcrumb();
+  updateZoomButton();
+  renderScreen(cur);
+}
+
+function updateBreadcrumb() {
+  const nav = document.getElementById('breadcrumb');
+  nav.innerHTML = '';
+  for (let i = 0; i < navStack.length; i++) {
+    if (i > 0) {
+      const sep = document.createElement('span');
+      sep.className = 'sep'; sep.textContent = '›';
+      nav.appendChild(sep);
+    }
+    const crumb = document.createElement('span');
+    const isActive = i === navStack.length - 1;
+    crumb.className = 'crumb' + (isActive ? ' active' : '');
+    crumb.textContent = SCREEN_LABELS[navStack[i]] || navStack[i];
+    const idx = i;
+    crumb.addEventListener('click', () => { if (idx < navStack.length - 1) goToStack(idx); });
+    nav.appendChild(crumb);
+  }
+}
+
+function updateZoomButton() {
+  const btn = document.getElementById('zoom-out-btn');
+  if (navStack.length > 1) {
+    btn.classList.add('visible');
+    btn.textContent = `\u2190 ${SCREEN_LABELS[navStack[navStack.length - 2]] || 'Back'}`;
+  } else {
+    btn.classList.remove('visible');
+  }
+}
+
+document.getElementById('zoom-out-btn').addEventListener('click', goBack);
+
+function renderScreen(id) {
+  const renderers = {
+    cosmos: drawCosmos, worlds: drawWorlds,
+    embryology: drawEmbryology, colony: drawColony, organism: drawOrganism, genome: drawGenome,
+    'comp-colony': drawCompColony, 'comp-organism': drawCompOrganism, 'sub-organisms': drawSubOrganisms,
+    'loco-colony': drawLocoColony, 'loco-organism': drawLocoOrganism, kinematics: drawKinematics,
+  };
+  renderers[id]?.();
+}
+
+// =============================================
+// COSMOS
+// =============================================
+function drawCosmos() {
+  const canvas = document.getElementById('cosmos-canvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height, mid = w/2;
+  ctx.clearRect(0,0,w,h); ctx.fillStyle = '#0a0e14'; ctx.fillRect(0,0,w,h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(42,52,68,0.2)'; ctx.lineWidth = 0.5;
+  for (let x=0;x<w;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+  for (let y=0;y<h;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+
+  // LEFT: peppering
+  pepperSeed = 42;
+  for (let i=0;i<300;i++){
+    const x=seededRandom()*(mid-30)+15, y=seededRandom()*(h-30)+15;
+    const brightness=seededRandom()*0.4+0.1;
+    ctx.fillStyle=`rgba(${100+Math.floor(seededRandom()*80)},${60+Math.floor(seededRandom()*40)},${60+Math.floor(seededRandom()*40)},${brightness})`;
+    const bs=2+Math.floor(seededRandom()*4);
+    for(let px=0;px<bs;px++)for(let py=0;py<bs;py++)if(seededRandom()>0.5)ctx.fillRect(x+px,y+py,1,1);
+  }
+  for(let i=0;i<12;i++){
+    const x=seededRandom()*(mid-60)+30,y=seededRandom()*(h-60)+30;
+    ctx.fillStyle=`rgba(140,80,80,${0.15+seededRandom()*0.2})`;
+    for(let px=0;px<8;px++)for(let py=0;py<8;py++)if(seededRandom()>0.45)ctx.fillRect(x+px*1.5,y+py*1.5,1.5,1.5);
+  }
+
+  // Divider
+  ctx.strokeStyle='rgba(42,52,68,0.5)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(mid,0);ctx.lineTo(mid,h);ctx.stroke();ctx.setLineDash([]);
+
+  // RIGHT: structured
+  const clusters = [
+    {cx:mid+80,cy:100,r:55,count:12,label:'recursive'},
+    {cx:mid+240,cy:90,r:45,count:10,label:'segmented'},
+    {cx:mid+160,cy:250,r:65,count:18,label:'gradient'},
+    {cx:mid+320,cy:280,r:40,count:8,label:'symmetric'},
+    {cx:mid+60,cy:330,r:35,count:7,label:''},
+  ];
+  let idx=0;
+  for(const cluster of clusters){
+    for(let j=0;j<cluster.count&&idx<cosmosStructured.length;j++,idx++){
+      const angle=Math.random()*Math.PI*2, dist=Math.random()*cluster.r;
+      const x=cluster.cx+Math.cos(angle)*dist, y=cluster.cy+Math.sin(angle)*dist;
+      const brightness=0.4+Math.random()*0.6;
+      const g=Math.floor(180+brightness*40);
+      drawTinyBiomorph(ctx,cosmosStructured[idx],x,y,14,`rgba(${Math.floor(130*brightness)},${g},${Math.floor(130*brightness)},${0.4+brightness*0.4})`,0.5+brightness*0.3);
+      ctx.fillStyle=`rgba(168,216,168,${0.2+brightness*0.3})`;ctx.beginPath();ctx.arc(x,y,1.2,0,Math.PI*2);ctx.fill();
+    }
+    const grad=ctx.createRadialGradient(cluster.cx,cluster.cy,0,cluster.cx,cluster.cy,cluster.r);
+    grad.addColorStop(0,'rgba(168,216,168,0.05)');grad.addColorStop(1,'rgba(168,216,168,0)');
+    ctx.fillStyle=grad;ctx.beginPath();ctx.arc(cluster.cx,cluster.cy,cluster.r,0,Math.PI*2);ctx.fill();
+    if(cluster.label){ctx.fillStyle='rgba(168,216,168,0.25)';ctx.font='9px -apple-system,sans-serif';ctx.textAlign='center';ctx.fillText(cluster.label,cluster.cx,cluster.cy+cluster.r+12);}
+  }
+  // Connecting lines
+  ctx.strokeStyle='rgba(168,216,168,0.06)';ctx.lineWidth=0.5;
+  for(let i=0;i<clusters.length;i++)for(let j=i+1;j<clusters.length;j++){
+    const dx=clusters[i].cx-clusters[j].cx,dy=clusters[i].cy-clusters[j].cy;
+    if(Math.sqrt(dx*dx+dy*dy)<200){ctx.beginPath();ctx.moveTo(clusters[i].cx,clusters[i].cy);ctx.lineTo(clusters[j].cx,clusters[j].cy);ctx.stroke();}
+  }
+}
+
+document.getElementById('cosmos-canvas').addEventListener('click', (e) => {
+  const rect = e.target.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (e.target.width / rect.width);
+  if (x > e.target.width / 2) goTo('worlds');
+});
+
+// =============================================
+// WORLD PICKER
+// =============================================
+function drawWorlds() {
+  // Embryology preview
+  renderBiomorph(document.getElementById('world-embryo-canvas'), regimePopulations.recursive[0], '#a8d8a8', 1.2);
+  // Composite preview
+  const cc = document.getElementById('world-comp-canvas');
+  const cctx = cc.getContext('2d');
+  cctx.clearRect(0,0,cc.width,cc.height);
+  drawCompositeBiomorph(cctx, compBodyGenes, compCellGenes, cc.width/2, cc.height/2, 50, 'rgba(200,180,120,0.4)', '#ddcc88');
+  // Locomotive preview
+  renderBiomorph(document.getElementById('world-loco-canvas'), locoColonyPop[0].genes, '#88ccdd', 1.2);
+}
+
+document.querySelectorAll('.world-card').forEach(card => {
+  card.addEventListener('click', () => {
+    currentWorld = card.dataset.world;
+    if (currentWorld === 'embryology') goTo('embryology');
+    else if (currentWorld === 'composite') goTo('comp-colony');
+    else if (currentWorld === 'locomotive') goTo('loco-colony');
+  });
+});
+
+// =============================================
+// EMBRYOLOGY PATH
+// =============================================
+function drawEmbryology() {
+  const configs = {
+    recursive:{genes:regimePopulations.recursive[0],color:'#a8d8a8',mode:'basic'},
+    segmented:{genes:regimePopulations.segmented[0],color:'#88bbdd',mode:'seg'},
+    gradient:{genes:regimePopulations.gradient[0],color:'#ddbb88',mode:'grad'},
+    symmetric:{genes:regimePopulations.symmetric[0],color:'#bb99cc',mode:'sym'},
+  };
+  document.querySelectorAll('.regime-card').forEach(card => {
+    const r=card.dataset.regime, c=card.querySelector('canvas'), conf=configs[r];
+    if(conf.mode==='basic')renderBiomorph(c,conf.genes,conf.color,1.2);
+    else if(conf.mode==='seg')renderSegmented(c,conf.genes,3,8,conf.color,1);
+    else if(conf.mode==='grad')renderGradient(c,conf.genes,4,7,`rgb(${hexToRgb(conf.color)})`,1);
+    else if(conf.mode==='sym')renderSymmetric(c,conf.genes,conf.color,1);
+  });
+}
+
+document.querySelectorAll('.regime-card').forEach(card => {
+  card.addEventListener('click', () => {
+    currentRegime = card.dataset.regime;
+    colonyBase = regimePopulations[currentRegime][0];
+    buildColony();
+    goTo('colony');
+  });
+});
+
+function drawColony() {
+  const canvas = document.getElementById('colony-canvas');
+  const ctx = canvas.getContext('2d');
+  const w=canvas.width, h=canvas.height;
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0a0e14'; ctx.fillRect(0,0,w,h);
+  const colors={recursive:'#a8d8a8',segmented:'#88bbdd',gradient:'#ddbb88',symmetric:'#bb99cc'};
+  const color=colors[currentRegime]||'#a8d8a8';
+  const names={recursive:'recursive branching',segmented:'segmentation',gradient:'gradient development',symmetric:'symmetry variants'};
+  document.getElementById('colony-subtitle').textContent=`A population shaped by ${names[currentRegime]||'developmental rules'}. Hidden genetic diversity \u2014 the raw material of evolution.`;
+  const positions=[];
+  for(let i=0;i<colonyPopulation.length;i++){const a=Math.random()*Math.PI*2,d=Math.pow(Math.random(),0.6)*Math.min(w,h)*0.42;positions.push({x:w/2+Math.cos(a)*d,y:h/2+Math.sin(a)*d});}
+  for(let i=0;i<colonyPopulation.length;i++){
+    const genes=colonyPopulation[i],p=positions[i],br=0.5+Math.random()*0.3;
+    if(currentRegime==='segmented'){
+      const lines=drawTree(genes);if(!lines.length)continue;const b=getBounds(lines);const sz=18+Math.random()*8,sc=sz/Math.max(b.w,b.h);
+      ctx.strokeStyle=`rgba(${hexToRgb(color)},${br})`;ctx.lineWidth=0.7;
+      for(let s=0;s<2;s++){const ox=p.x-(b.minX+b.maxX)/2*sc,oy=p.y-(b.minY+b.maxY)/2*sc+s*6*sc;ctx.beginPath();for(const l of lines){ctx.moveTo(l.x0*sc+ox,l.y0*sc+oy);ctx.lineTo(l.x1*sc+ox,l.y1*sc+oy);}ctx.stroke();}
+    }else if(currentRegime==='symmetric'){
+      const lines=drawTree(genes);if(!lines.length)continue;const b=getBounds(lines);const sc=16/Math.max(b.w,b.h*2);const ox=p.x-(b.minX+b.maxX)/2*sc;
+      ctx.strokeStyle=`rgba(${hexToRgb(color)},${br})`;ctx.lineWidth=0.7;
+      const oyT=p.y-b.maxY*sc;ctx.beginPath();for(const l of lines){ctx.moveTo(l.x0*sc+ox,l.y0*sc+oyT);ctx.lineTo(l.x1*sc+ox,l.y1*sc+oyT);}ctx.stroke();
+      const oyB=p.y+b.maxY*sc;ctx.beginPath();for(const l of lines){ctx.moveTo(l.x0*sc+ox,-l.y0*sc+oyB);ctx.lineTo(l.x1*sc+ox,-l.y1*sc+oyB);}ctx.stroke();
+    }else{drawTinyBiomorph(ctx,genes,p.x,p.y,20+Math.random()*10,color,br);}
+  }
+  const grad=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,w*0.4);grad.addColorStop(0,`rgba(${hexToRgb(color)},0.03)`);grad.addColorStop(1,`rgba(${hexToRgb(color)},0)`);ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);
+  canvas._positions=positions;
+}
+
+document.getElementById('colony-canvas').addEventListener('click',(e)=>{
+  const canvas=e.target,rect=canvas.getBoundingClientRect();
+  const x=(e.clientX-rect.left)*(canvas.width/rect.width),y=(e.clientY-rect.top)*(canvas.height/rect.height);
+  let best=0,bestD=Infinity;
+  for(let i=0;i<(canvas._positions||[]).length;i++){const p=canvas._positions[i],d=(x-p.x)**2+(y-p.y)**2;if(d<bestD){bestD=d;best=i;}}
+  focusOrganism=colonyPopulation[best].slice();
+  offspring=Array.from({length:8},()=>mutate(focusOrganism,1,1));
+  goTo('organism');
+});
+
+function drawOrganism() {
+  renderBiomorph(document.getElementById('organism-canvas'),focusOrganism,'#a8d8a8',2);
+  const grid=document.getElementById('offspring-grid');grid.innerHTML='';
+  for(let i=0;i<8;i++){
+    const c=document.createElement('canvas');c.width=80;c.height=80;
+    renderBiomorph(c,offspring[i],'#7ab87a',1);
+    c.addEventListener('click',()=>{focusOrganism=offspring[i].slice();offspring=Array.from({length:8},()=>mutate(focusOrganism,1,1));drawOrganism();});
+    grid.appendChild(c);
+  }
+}
+
+document.getElementById('genome-link').addEventListener('click',()=>goTo('genome'));
+
+function drawGenome() {
+  document.getElementById('genome-subtitle').textContent = 'The developmental recipe. Every gene shapes the embryology. Fossil genes carry silent history. Duplications open new degrees of freedom.';
+  renderBiomorph(document.getElementById('genome-canvas'),focusOrganism,'#a8d8a8',2);
+  const bar=document.getElementById('gene-bar');bar.innerHTML='';
+  const labels=['g1','g2','g3','g4','g5','g6','g7','g8','depth'];
+  for(let i=0;i<focusOrganism.length;i++){
+    const slot=document.createElement('div');slot.className='gene-slot';
+    if(i===5)slot.classList.add('fossil');if(i===2)slot.classList.add('duplicated');
+    const label=document.createElement('span');label.className='gene-label';label.textContent=labels[i]||`g${i+1}`;
+    const value=document.createElement('span');value.className='gene-value';
+    const val=focusOrganism[i],maxVal=i===8?8:9,bw=Math.abs(val)/maxVal*60;
+    const bc=i===5?'#3a3a3a':(val>=0?'#3a5a4a':'#5a3a3a');
+    value.innerHTML=`<span style="display:inline-block;width:${bw}px;height:8px;background:${bc};border-radius:3px;margin-right:6px;vertical-align:middle;"></span>${val}`;
+    slot.appendChild(label);slot.appendChild(value);bar.appendChild(slot);
+  }
+}
+
+// =============================================
+// COMPOSITE PATH
+// =============================================
+function drawCompColony() {
+  const canvas=document.getElementById('comp-colony-canvas');
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width,h=canvas.height;
+  ctx.clearRect(0,0,w,h);ctx.fillStyle='#0a0e14';ctx.fillRect(0,0,w,h);
+
+  const positions=[];
+  for(let i=0;i<compColonyPop.length;i++){
+    const a=Math.random()*Math.PI*2,d=Math.pow(Math.random(),0.6)*Math.min(w,h)*0.4;
+    positions.push({x:w/2+Math.cos(a)*d,y:h/2+Math.sin(a)*d});
+  }
+  for(let i=0;i<compColonyPop.length;i++){
+    const p=positions[i],c=compColonyPop[i];
+    drawCompositeBiomorph(ctx,c.body,c.cells,p.x,p.y,28,'rgba(200,180,120,0.3)','#ddcc88');
+  }
+  // Ambient glow
+  const grad=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,w*0.4);
+  grad.addColorStop(0,'rgba(220,200,130,0.03)');grad.addColorStop(1,'rgba(220,200,130,0)');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);
+  canvas._positions=positions;
+}
+
+document.getElementById('comp-colony-canvas').addEventListener('click',(e)=>{
+  const canvas=e.target,rect=canvas.getBoundingClientRect();
+  const x=(e.clientX-rect.left)*(canvas.width/rect.width),y=(e.clientY-rect.top)*(canvas.height/rect.height);
+  let best=0,bestD=Infinity;
+  for(let i=0;i<(canvas._positions||[]).length;i++){const p=canvas._positions[i],d=(x-p.x)**2+(y-p.y)**2;if(d<bestD){bestD=d;best=i;}}
+  focusComposite=compColonyPop[best];
+  goTo('comp-organism');
+});
+
+function drawCompOrganism() {
+  const canvas=document.getElementById('comp-organism-canvas');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawCompositeBiomorph(ctx,focusComposite.body,focusComposite.cells,canvas.width/2,canvas.height/2,160,'rgba(200,180,120,0.5)','#ddcc88');
+}
+
+document.getElementById('comp-zoom-in').addEventListener('click',()=>goTo('sub-organisms'));
+
+function drawSubOrganisms() {
+  const grid=document.getElementById('sub-grid');grid.innerHTML='';
+  // Show the sub-organisms extracted from the composite
+  const cells = focusComposite.cells;
+  for(let i=0;i<cells.length;i++){
+    const cell=document.createElement('div');cell.className='sub-cell';
+    const c=document.createElement('canvas');c.width=80;c.height=80;
+    renderBiomorph(c,cells[i],'#ddcc88',1.5);
+    const label=document.createElement('div');label.className='sub-label';label.textContent=`sub-unit ${i+1}`;
+    cell.appendChild(c);cell.appendChild(label);
+    c.addEventListener('click',()=>{
+      focusOrganism=cells[i].slice();
+      offspring=Array.from({length:8},()=>mutate(focusOrganism,1,1));
+    });
+    grid.appendChild(cell);
+  }
+}
+
+document.getElementById('sub-genome-link').addEventListener('click',()=>{
+  // Use the first sub-organism's genes for genome view
+  focusOrganism=focusComposite.cells[0].slice();
+  document.getElementById('genome-subtitle').textContent='The sub-organism\'s genome. Once free-living, now a domesticated component of a larger whole. Its genes still carry traces of its independent ancestry.';
+  goTo('genome');
+});
+
+// =============================================
+// LOCOMOTIVE PATH
+// =============================================
+function drawLocoColony() {
+  const canvas=document.getElementById('loco-colony-canvas');
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width,h=canvas.height;
+  ctx.clearRect(0,0,w,h);ctx.fillStyle='#0a0e14';ctx.fillRect(0,0,w,h);
+
+  const positions=[];
+  for(let i=0;i<locoColonyPop.length;i++){
+    const a=Math.random()*Math.PI*2,d=Math.pow(Math.random(),0.6)*Math.min(w,h)*0.4;
+    positions.push({x:w/2+Math.cos(a)*d,y:h/2+Math.sin(a)*d});
+  }
+  // Draw with slight horizontal offset to suggest motion
+  const t=Date.now()*0.001;
+  for(let i=0;i<locoColonyPop.length;i++){
+    const p=positions[i],g=locoColonyPop[i];
+    const wobble=Math.sin(t*g.gait.frequency+i)*g.gait.amplitude*0.3;
+    drawTinyBiomorph(ctx,g.genes,p.x+wobble,p.y,20+Math.random()*8,'#88ccdd',0.5+Math.random()*0.3);
+  }
+  const grad=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,w*0.4);
+  grad.addColorStop(0,'rgba(136,204,221,0.03)');grad.addColorStop(1,'rgba(136,204,221,0)');
+  ctx.fillStyle=grad;ctx.fillRect(0,0,w,h);
+  canvas._positions=positions;
+}
+
+document.getElementById('loco-colony-canvas').addEventListener('click',(e)=>{
+  const canvas=e.target,rect=canvas.getBoundingClientRect();
+  const x=(e.clientX-rect.left)*(canvas.width/rect.width),y=(e.clientY-rect.top)*(canvas.height/rect.height);
+  let best=0,bestD=Infinity;
+  for(let i=0;i<(canvas._positions||[]).length;i++){const p=canvas._positions[i],d=(x-p.x)**2+(y-p.y)**2;if(d<bestD){bestD=d;best=i;}}
+  focusLoco=locoColonyPop[best];
+  goTo('loco-organism');
+});
+
+function drawLocoOrganism() {
+  const canvas=document.getElementById('loco-anim-canvas');
+  const ctx=canvas.getContext('2d');
+  const w=canvas.width,h=canvas.height;
+  const genes=focusLoco.genes;
+  const gait=focusLoco.gait;
+
+  // Ground line
+  function drawFrame() {
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle='#0a0e14';ctx.fillRect(0,0,w,h);
+
+    // Ground
+    ctx.strokeStyle='rgba(136,204,221,0.15)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,h*0.78);ctx.lineTo(w,h*0.78);ctx.stroke();
+
+    // Creature position oscillates
+    const t=Date.now()*0.001;
+    const xPos=w*0.3 + Math.sin(t*gait.speed*0.5)*60;
+    const yPos=h*0.55 - Math.abs(Math.sin(t*gait.frequency))*gait.bounce;
+    const tilt=Math.sin(t*gait.frequency*0.7)*0.15; // slight rotation
+
+    // Draw the biomorph with transform
+    const lines=drawTree(genes);if(!lines.length){locoAnimId=requestAnimationFrame(drawFrame);return;}
+    const b=getBounds(lines);
+    const scale=80/Math.max(b.w,b.h);
+
+    ctx.save();
+    ctx.translate(xPos,yPos);
+    ctx.rotate(tilt);
+
+    ctx.strokeStyle='#88ccdd';ctx.lineWidth=2;ctx.lineCap='round';
+    ctx.beginPath();
+    for(const l of lines){
+      const lx0=l.x0*scale-(b.minX+b.maxX)/2*scale;
+      const ly0=l.y0*scale-(b.minY+b.maxY)/2*scale;
+      const lx1=l.x1*scale-(b.minX+b.maxX)/2*scale;
+      const ly1=l.y1*scale-(b.minY+b.maxY)/2*scale;
+      // Add per-branch oscillation for "walking" effect
+      const branchPhase=l.depth*0.5;
+      const wiggle=Math.sin(t*gait.frequency*2+branchPhase)*gait.amplitude*0.08*(8-l.depth);
+      ctx.moveTo(lx0+wiggle,ly0);ctx.lineTo(lx1+wiggle,ly1);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Motion trail dots
+    ctx.fillStyle='rgba(136,204,221,0.1)';
+    for(let i=1;i<=5;i++){
+      const tx=xPos-i*18;const ty=h*0.55-Math.abs(Math.sin((t-i*0.15)*gait.frequency))*gait.bounce;
+      ctx.beginPath();ctx.arc(tx,ty,2-i*0.3,0,Math.PI*2);ctx.fill();
+    }
+
+    // Speed/amplitude readout
+    ctx.fillStyle='rgba(136,204,221,0.3)';ctx.font='11px monospace';ctx.textAlign='right';
+    ctx.fillText(`speed: ${gait.speed.toFixed(1)}  amp: ${gait.amplitude.toFixed(0)}  freq: ${gait.frequency.toFixed(1)}`,w-12,h-10);
+
+    locoAnimId=requestAnimationFrame(drawFrame);
+  }
+  drawFrame();
+}
+
+document.getElementById('loco-genome-link').addEventListener('click',()=>goTo('kinematics'));
+
+function drawKinematics() {
+  renderBiomorph(document.getElementById('kin-morph-canvas'),focusLoco.genes,'#88ccdd',2);
+
+  // Form genome
+  const formBar=document.getElementById('kin-form-bar');formBar.innerHTML='';
+  const labels=['g1','g2','g3','g4','g5','g6','g7','g8','depth'];
+  for(let i=0;i<focusLoco.genes.length;i++){
+    const slot=document.createElement('div');slot.className='gene-slot';
+    const label=document.createElement('span');label.className='gene-label';label.textContent=labels[i]||`g${i+1}`;
+    const value=document.createElement('span');value.className='gene-value';
+    const val=focusLoco.genes[i],maxVal=i===8?8:9,bw=Math.abs(val)/maxVal*60;
+    value.innerHTML=`<span style="display:inline-block;width:${bw}px;height:8px;background:${val>=0?'#3a5a5a':'#5a3a4a'};border-radius:3px;margin-right:6px;vertical-align:middle;"></span>${val}`;
+    slot.appendChild(label);slot.appendChild(value);formBar.appendChild(slot);
+  }
+
+  // Gait genome
+  const gaitBar=document.getElementById('kin-gait-bar');gaitBar.innerHTML='';
+  const gait=focusLoco.gait;
+  const gaitParams=[
+    {label:'speed',value:gait.speed,max:3,color:'#3a5a5a'},
+    {label:'amplitude',value:gait.amplitude,max:20,color:'#3a5a5a'},
+    {label:'frequency',value:gait.frequency,max:4,color:'#3a5a5a'},
+    {label:'bounce',value:gait.bounce,max:10,color:'#3a5a5a'},
+  ];
+  for(const gp of gaitParams){
+    const slot=document.createElement('div');slot.className='gait-slot';
+    const label=document.createElement('span');label.className='gait-label';label.textContent=gp.label;
+    const value=document.createElement('span');value.className='gait-value';
+    const bw=gp.value/gp.max*60;
+    value.innerHTML=`<span style="display:inline-block;width:${bw}px;height:8px;background:${gp.color};border-radius:3px;margin-right:6px;vertical-align:middle;"></span>${gp.value.toFixed(1)}`;
+    slot.appendChild(label);slot.appendChild(value);gaitBar.appendChild(slot);
+  }
+}
+
+// =============================================
+// INIT
+// =============================================
+document.getElementById('cosmos-screen').classList.add('active');
+drawCosmos();
+updateBreadcrumb();
+updateZoomButton();
+</script>
+</body>
+</html>
