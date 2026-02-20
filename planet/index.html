@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planet — Biomorph Builder</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: #0a0e14;
+    color: #d4dce6;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: #12161e;
+    border-bottom: 1px solid #2a3444;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .header h1 { font-size: 1rem; font-weight: 600; letter-spacing: 0.05em; }
+  .stats {
+    display: flex;
+    gap: 16px;
+    font-size: 0.75rem;
+    color: #8a9aaa;
+  }
+  .stats span { white-space: nowrap; }
+  .stat-value { color: #c8e6c8; }
+  .header-right { display: flex; align-items: center; gap: 8px; }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid #2a3444;
+    background: #12161e;
+    color: #8a9aaa;
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn:hover { border-color: #4a5a6a; color: #d4dce6; }
+  .btn.active { border-color: #c8e6c8; color: #c8e6c8; }
+  .speed-controls { display: flex; gap: 4px; }
+
+  /* ── Main layout ── */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── World panel ── */
+  .world-panel {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+  #world-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: default;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 300px;
+    background: #0d1117;
+    border-left: 1px solid #2a3444;
+    overflow-y: auto;
+    flex-shrink: 0;
+    padding: 16px;
+  }
+  .sidebar-placeholder {
+    color: #4a5a6a;
+    font-size: 0.8rem;
+    text-align: center;
+    margin-top: 40px;
+    line-height: 1.6;
+  }
+  .biome-name {
+    font-size: 1rem;
+    margin-bottom: 4px;
+    color: #d4dce6;
+  }
+  .biome-desc {
+    font-size: 0.75rem;
+    color: #6a7a8a;
+    margin-bottom: 6px;
+    line-height: 1.4;
+  }
+  .biome-pressure {
+    font-size: 0.7rem;
+    color: #8a9aaa;
+    margin-bottom: 16px;
+    font-style: italic;
+  }
+  .biome-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .bstat {
+    background: #12161e;
+    border: 1px solid #2a3444;
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+  .bstat-val {
+    display: block;
+    font-size: 1rem;
+    color: #c8e6c8;
+  }
+  .bstat-label {
+    font-size: 0.65rem;
+    color: #6a7a8a;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .biome-top h3 {
+    font-size: 0.8rem;
+    color: #8a9aaa;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .top-specimens {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .top-specimen {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px;
+    background: #12161e;
+    border: 1px solid #2a3444;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .top-specimen:hover { border-color: #4a5a6a; }
+  .top-sprite {
+    border-radius: 4px;
+    background: #0a0e14;
+    flex-shrink: 0;
+  }
+  .top-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .top-name {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .top-meta {
+    font-size: 0.65rem;
+    color: #6a7a8a;
+  }
+
+  /* ── Tooltip ── */
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: #12161eee;
+    border: 1px solid #2a3444;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    color: #d4dce6;
+    white-space: nowrap;
+    z-index: 100;
+    display: none;
+  }
+
+  /* ── Inspect overlay ── */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: #0008;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+  }
+  .overlay.open { display: flex; }
+  .inspect-card {
+    background: #12161e;
+    border: 1px solid #2a3444;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 360px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .inspect-card h2 {
+    font-size: 1rem;
+    margin-bottom: 4px;
+  }
+  .inspect-meta {
+    font-size: 0.75rem;
+    color: #6a7a8a;
+    margin-bottom: 12px;
+  }
+  .inspect-preview {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 16px;
+  }
+  .inspect-preview canvas {
+    border-radius: 8px;
+    background: #0d1117;
+  }
+  .inspect-genes {
+    font-size: 0.7rem;
+    color: #6a7a8a;
+    margin-bottom: 16px;
+    word-break: break-all;
+  }
+  .inspect-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .inspect-actions .btn { font-size: 0.75rem; padding: 6px 14px; }
+  .btn-primary {
+    background: #1a3a2a;
+    border-color: #2a6a3a;
+    color: #c8e6c8;
+  }
+  .btn-primary:hover { background: #2a4a3a; border-color: #3a8a4a; }
+
+  /* ── Activity feed ── */
+  .activity-feed {
+    background: #0d1117;
+    border-top: 1px solid #2a3444;
+    max-height: 90px;
+    overflow-y: auto;
+    padding: 4px 12px;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+  }
+  .feed-item {
+    padding: 2px 0;
+    color: #6a7a8a;
+  }
+  .feed-birth { color: #a8d8a8; }
+  .feed-death { color: #d8a8a8; }
+  .feed-migration { color: #a8c8d8; }
+  .feed-name { color: #d4dce6; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Planet</h1>
+    <div class="stats">
+      <span>Pop: <span class="stat-value" id="stat-pop">0</span></span>
+      <span>Migrations: <span class="stat-value" id="stat-migrations">0</span></span>
+      <span>Tick: <span class="stat-value" id="stat-tick">0</span></span>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="speed-controls">
+      <button class="btn" data-speed="0" title="Pause">&#x23F8;</button>
+      <button class="btn active" data-speed="500" title="Normal">&#x25B6;</button>
+      <button class="btn" data-speed="100" title="Fast">&#x23E9;</button>
+    </div>
+    <a class="btn" href="../">Hub</a>
+  </div>
+</div>
+
+<div class="main">
+  <div class="world-panel">
+    <canvas id="world-canvas"></canvas>
+  </div>
+  <div class="sidebar" id="sidebar-content">
+    <div class="sidebar-placeholder">
+      <p>Click a biome region to see its stats and top specimens.</p>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<div class="overlay" id="overlay-inspect">
+  <div class="inspect-card">
+    <h2 id="inspect-name"></h2>
+    <div class="inspect-meta" id="inspect-meta"></div>
+    <div class="inspect-preview"><canvas id="inspect-canvas" width="128" height="128"></canvas></div>
+    <div class="inspect-genes" id="inspect-genes"></div>
+    <div class="inspect-actions">
+      <a class="btn btn-primary" id="inspect-builder" target="_blank">Open in Builder</a>
+      <button class="btn" id="inspect-colony">Zoom to Colony</button>
+      <button class="btn" id="inspect-expedition">Send to Expedition</button>
+      <button class="btn" id="inspect-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="activity-feed" id="activity-feed"></div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
