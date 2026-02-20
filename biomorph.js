@@ -1660,6 +1660,7 @@ function syncUIControls() {
   document.getElementById('mutation-intensity').value = mutationIntensity;
   document.getElementById('color-controls').style.display = currentMode >= 1 ? 'flex' : 'none';
   document.getElementById('color-mode').value = colorMode;
+  updateExpeditionButton();
   updateModeDescription();
 }
 
@@ -1896,6 +1897,156 @@ function setMode(mode) {
   spawnOffspring();
 }
 
+// ── Send to Expedition ──────────────────────────────────────
+
+const EXPEDITION_ADJECTIVES = {
+  highSymmetry: ['Balanced', 'Mirrored', 'Symmetric'],
+  lowSymmetry:  ['Twisted', 'Lopsided', 'Crooked'],
+  highComplexity: ['Dense', 'Intricate', 'Elaborate'],
+  stout: ['Stout', 'Sturdy'],
+  spindly: ['Spindly', 'Lanky'],
+  tiny: ['Little', 'Tiny'],
+  grand: ['Ancient', 'Grand'],
+  warm: ['Crimson', 'Golden', 'Amber'],
+  cool: ['Azure', 'Jade', 'Violet'],
+  neutral: ['Pale', 'Dusky', 'Ashen'],
+};
+
+const EXPEDITION_NOUNS_BY_MODE = {
+  1: ['Fern', 'Branch', 'Twig', 'Sapling', 'Bough'],
+  2: ['Shrub', 'Bush', 'Thicket', 'Hedge'],
+  3: ['Caterpillar', 'Spine', 'Centipede', 'Worm', 'Crawler'],
+  4: ['Cascade', 'Coral', 'Fan', 'Crest'],
+  5: ['Plume', 'Spiral', 'Tendril', 'Bloom'],
+};
+
+const EXPEDITION_FALLBACK_NOUNS = ['Form', 'Shape', 'Creature', 'Being'];
+
+function expeditionRarity(genes, mode) {
+  const depth = genes[8] || 1;
+  const dirGenes = genes.slice(0, 8);
+  const avgExtremity = dirGenes.reduce((s, g) => s + Math.abs(g), 0) / dirGenes.length;
+
+  let score = 0;
+  score += (depth - 1) * 3;
+  score += (mode - 1) * 4;
+  score += Math.min(avgExtremity, 9) * 1.5;
+
+  if (genes.length > 9) score += ((genes[9] || 1) - 1) * 1.5;
+  if (genes.length > 11) score += (Math.abs(genes[11] || 0) + Math.abs(genes[12] || 0)) * 0.5;
+
+  if (score >= 45) return 'legendary';
+  if (score >= 32) return 'epic';
+  if (score >= 20) return 'rare';
+  if (score >= 10) return 'uncommon';
+  return 'common';
+}
+
+function expeditionName(genes, mode) {
+  function symScore(g) {
+    const pairs = [[0,6], [1,5], [2,4]];
+    let s = 0;
+    for (const [a, b] of pairs) s += (3 - Math.min(Math.abs(g[a] + g[b]), 3)) / 3;
+    return s / pairs.length;
+  }
+  function cmplxScore(g) {
+    let nz = 0;
+    for (let i = 0; i < 8; i++) if (g[i] !== 0) nz++;
+    return (nz / 8) * 0.4 + ((g[8] - 1) / 7) * 0.6;
+  }
+  function balScore(g) {
+    const hM = Math.abs(g[0]) + Math.abs(g[1]) + Math.abs(g[2]);
+    const vM = Math.abs(g[4]) + Math.abs(g[5]) + Math.abs(g[6]);
+    const t = hM + vM;
+    return t === 0 ? 0.5 : Math.min(hM, vM) / t;
+  }
+
+  let h = mode * 31;
+  for (let i = 0; i < genes.length; i++) h = ((h << 5) - h + Math.round(genes[i]) + 128) | 0;
+  h = Math.abs(h);
+
+  const depth = genes[8];
+  const sym = symScore(genes);
+  const cmplx = cmplxScore(genes);
+  const bal = balScore(genes);
+
+  let adjPool;
+  if (depth <= 2) adjPool = EXPEDITION_ADJECTIVES.tiny;
+  else if (depth >= 7) adjPool = EXPEDITION_ADJECTIVES.grand;
+  else if (sym > 0.8) adjPool = EXPEDITION_ADJECTIVES.highSymmetry;
+  else if (sym < 0.3) adjPool = EXPEDITION_ADJECTIVES.lowSymmetry;
+  else if (cmplx > 0.7) adjPool = EXPEDITION_ADJECTIVES.highComplexity;
+  else if (bal > 0.4) adjPool = EXPEDITION_ADJECTIVES.stout;
+  else if (bal < 0.15) adjPool = EXPEDITION_ADJECTIVES.spindly;
+  else adjPool = EXPEDITION_ADJECTIVES.neutral;
+
+  const adj = adjPool[h % adjPool.length];
+  const nouns = EXPEDITION_NOUNS_BY_MODE[mode] || EXPEDITION_FALLBACK_NOUNS;
+  const noun = nouns[(h >> 3) % nouns.length];
+  return `${adj} ${noun}`;
+}
+
+const EXPEDITION_RARITY_LABELS = {
+  common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic', legendary: 'Legendary'
+};
+
+function showExpeditionToast(message, rarity) {
+  let toast = document.getElementById('expedition-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'expedition-toast';
+    toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);' +
+      'padding:10px 20px;border-radius:8px;color:#fff;font-weight:bold;z-index:9999;' +
+      'opacity:0;transition:opacity 0.3s;pointer-events:none;text-align:center;' +
+      'font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+    document.body.appendChild(toast);
+  }
+  const colors = { common:'#666', uncommon:'#3a3', rare:'#38e', epic:'#94f', legendary:'#f90' };
+  toast.style.background = colors[rarity] || '#444';
+  toast.textContent = message;
+  toast.style.opacity = '1';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 2500);
+}
+
+function sendToExpedition() {
+  if (currentMode === 0) return;
+
+  const genes = parentGenes;
+  const mode = currentMode;
+  const hash = `m${mode}:${genes.map(g => Math.round(g * 10) / 10).join(',')}`;
+
+  const raw = localStorage.getItem('expedition-registry');
+  if (!raw) {
+    showExpeditionToast('Visit Expedition first to initialize the registry.', 'common');
+    return;
+  }
+  const registry = JSON.parse(raw);
+
+  if (registry.entries[hash]) {
+    showExpeditionToast(`Already in Expedition: "${registry.entries[hash].name}"`, 'common');
+    return;
+  }
+
+  const rarity = expeditionRarity(genes, mode);
+  const name = expeditionName(genes, mode);
+  const entry = { discoverer: 'player', genes: genes.slice(), mode, rarity, name, time: Date.now() };
+  registry.entries[hash] = entry;
+
+  if (!registry.collectors.player) registry.collectors.player = { count: 0, specimens: [] };
+  registry.collectors.player.count++;
+  registry.collectors.player.specimens.push(hash);
+  registry.log.push({ hash, discoverer: 'player', rarity, name, time: entry.time });
+
+  localStorage.setItem('expedition-registry', JSON.stringify(registry));
+  showExpeditionToast(`Sent "${name}" (${EXPEDITION_RARITY_LABELS[rarity]}) to Expedition!`, rarity);
+}
+
+function updateExpeditionButton() {
+  const btn = document.getElementById('btn-send-expedition');
+  if (btn) btn.style.display = currentMode === 0 ? 'none' : '';
+}
+
 // ── Init ─────────────────────────────────────────────────────
 
 function init() {
@@ -2008,6 +2159,9 @@ function init() {
       spawnOffspring();
     }
   });
+
+  // Send to Expedition
+  document.getElementById('btn-send-expedition').addEventListener('click', sendToExpedition);
 
   // Collapsible panels (Gallery + Genealogy)
   document.querySelectorAll('.panel-toggle').forEach(btn => {
