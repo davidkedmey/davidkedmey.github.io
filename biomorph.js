@@ -631,8 +631,24 @@ function randomInteresting() {
 
 // ── DefineVectors ────────────────────────────────────────────
 
-function defineVectors(genes) {
+function defineVectors(genes, asymmetric) {
   const [g1, g2, g3, g4, g5, g6, g7, g8] = genes;
+  if (asymmetric) {
+    // True asymmetry: left-side horizontal components use g5/g6/g7 instead of
+    // mirroring g1/g2/g3. This frees the 16 underlying dx/dy parameters that
+    // Dawkins constrained to 9 via bilateral symmetry. Same genes, reinterpreted.
+    return [
+      null,
+      [-g7,  g7],    // v1: left outer — horizontal from g7 (was -g3)
+      [-g6,  g6],    // v2: left middle — horizontal from g6 (was -g2)
+      [-g5,  g5],    // v3: left inner — horizontal from g5 (was -g1)
+      [  0,  g4],    // v4: central stem
+      [ g1,  g5],    // v5: right inner (unchanged)
+      [ g2,  g6],    // v6: right middle (unchanged)
+      [ g3,  g7],    // v7: right outer (unchanged)
+      [  0,  g8],    // v8: trunk
+    ];
+  }
   return [
     null,
     [-g3,  g7],    // v1
@@ -646,10 +662,12 @@ function defineVectors(genes) {
   ];
 }
 
+const isAsymmetric = () => symmetryType === 'asymmetric';
+
 // ── Core tree drawing ────────────────────────────────────────
 
 function drawTree(genes) {
-  const vectors = defineVectors(genes);
+  const vectors = defineVectors(genes, isAsymmetric());
   const depth = genes[8];
   const lines = [];
 
@@ -799,7 +817,7 @@ function drawSegmentedWithBuds(genes) {
       segGenes[2] = -segGenes[2];
     }
 
-    const trunkVectors = defineVectors(segGenes);
+    const trunkVectors = defineVectors(segGenes, isAsymmetric());
     const yOffset = (s - (segs - 1) / 2) * segDist;
 
     function recurse(i, c, x0, y0) {
@@ -899,7 +917,8 @@ function drawMustardBiomorph(genes) {
 
   const budDepth = Math.max(1, Math.min(8, trunkDepth + depthMod));
   const budGeneValues = deriveBudGenes(genes, angleMod, flipMod, suppressGene);
-  const trunkVectors = defineVectors(genes.slice(0, 8));
+  const asym = isAsymmetric();
+  const trunkVectors = defineVectors(genes.slice(0, 8), asym);
   const budVectors = defineVectors(budGeneValues);
 
   const allLines = [];
@@ -915,7 +934,7 @@ function drawMustardBiomorph(genes) {
       segTrunkGenes[1] = -segTrunkGenes[1];
       segTrunkGenes[2] = -segTrunkGenes[2];
     }
-    const segVectors = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segTrunkGenes) : trunkVectors;
+    const segVectors = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segTrunkGenes, asym) : trunkVectors;
 
     const segStartIdx = allLines.length;
 
@@ -986,7 +1005,8 @@ function drawExploSkeleton(genes) {
   const depth = genes[8];
   const segs = genes[13];
   const segDist = genes[14];
-  const vectors = defineVectors(genes.slice(0, 8));
+  const asym = isAsymmetric();
+  const vectors = defineVectors(genes.slice(0, 8), asym);
   const allLines = [];
 
   for (let s = 0; s < segs; s++) {
@@ -999,7 +1019,7 @@ function drawExploSkeleton(genes) {
       segGenes[1] = -segGenes[1];
       segGenes[2] = -segGenes[2];
     }
-    const segVectors = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segGenes) : vectors;
+    const segVectors = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segGenes, asym) : vectors;
 
     const segStartIdx = allLines.length;
 
@@ -1143,8 +1163,9 @@ function drawWeakLinkage(genes) {
   const blend = genes[12];
   const segs = genes[13];
 
+  const asym = isAsymmetric();
   const trunkGenes8 = genes.slice(0, 8);
-  const trunkVectors = defineVectors(trunkGenes8);
+  const trunkVectors = defineVectors(trunkGenes8, asym);
   const progAGenes = applyTransform(trunkGenes8, switchA);
   const progBGenes = applyTransform(trunkGenes8, switchB);
   const progAVectors = defineVectors(progAGenes);
@@ -1182,7 +1203,7 @@ function drawWeakLinkage(genes) {
       segTrunkGenes[1] = -segTrunkGenes[1];
       segTrunkGenes[2] = -segTrunkGenes[2];
     }
-    const segVectors = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segTrunkGenes) : trunkVectors;
+    const segVectors = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segTrunkGenes, asym) : trunkVectors;
 
     const segStartIdx = allLines.length;
 
@@ -1269,8 +1290,9 @@ function drawRedundancy(genes) {
   const dominance = genes[17];
   const segs = genes[19];
 
-  const guardianVectors = defineVectors(genes.slice(0, 8));
-  const explorerVectors = defineVectors(genes.slice(9, 17));
+  const asym = isAsymmetric();
+  const guardianVectors = defineVectors(genes.slice(0, 8), asym);
+  const explorerVectors = defineVectors(genes.slice(9, 17), asym);
 
   const segDist = 6;
   const allLines = [];
@@ -1285,7 +1307,7 @@ function drawRedundancy(genes) {
       segGuardGenes[1] = -segGuardGenes[1];
       segGuardGenes[2] = -segGuardGenes[2];
     }
-    const segGuardVec = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segGuardGenes) : guardianVectors;
+    const segGuardVec = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segGuardGenes, asym) : guardianVectors;
 
     const segStartIdx = allLines.length;
 
