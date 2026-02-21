@@ -88,6 +88,21 @@ const MODE_CONFIGS = {
       'seeds','reach','branch','steps','segs','segDist',
     ],
   },
+  9: { // Weak Linkage — 14 genes: trunk + program switches
+    geneCount: 14,
+    geneMin: [-9, -9, -9, -9, -9, -9, -9, -9, 1, 0, 0, 1, 0, 1],
+    geneMax: [ 9,  9,  9,  9,  9,  9,  9,  9, 8, 7, 7, 7, 4, 6],
+    geneLabels: ['g1','g2','g3','g4','g5','g6','g7','g8','depth',
+      'switchA','switchB','threshold','blend','segs'],
+  },
+  10: { // Redundancy — 20 genes: guardian + explorer cassettes
+    geneCount: 20,
+    geneMin: [-9,-9,-9,-9,-9,-9,-9,-9, 1, -9,-9,-9,-9,-9,-9,-9,-9, 0, 1, 1],
+    geneMax: [ 9, 9, 9, 9, 9, 9, 9, 9, 8,  9, 9, 9, 9, 9, 9, 9, 9, 8, 4, 6],
+    geneLabels: ['guard1','guard2','guard3','guard4','guard5','guard6','guard7','guard8','depth',
+      'exp1','exp2','exp3','exp4','exp5','exp6','exp7','exp8',
+      'dominance','divergence','segs'],
+  },
   8: { // Buds/Hox — 36 genes: trunk + segments + gradients + bud A + bud B + meta
     geneCount: 36,
     geneMin: [
@@ -126,6 +141,8 @@ const MODE_NAMES = {
   6: 'Buds (Mustard)',
   7: 'Exploratory',
   8: 'Buds (Hox)',
+  9: 'Weak Linkage',
+  10: 'Redundancy',
 };
 
 // ── Current state ────────────────────────────────────────────
@@ -188,6 +205,30 @@ const GENE_TOOLTIPS = {
   reach: 'How far tissue can wander from bone',
   branch: 'Branching factor for tissue growth',
   steps: 'Growth steps per tissue branch',
+  // Mode 9 (Weak Linkage) genes
+  switchA: 'Transform rule for Program A (0-7: identity, reverse, rotate, negate, halve, double)',
+  switchB: 'Transform rule for Program B (0-7)',
+  threshold: 'Depth at which trunk switches to developmental programs',
+  blend: 'Transition smoothness (0 = hard switch, 4 = gradual blend)',
+  // Mode 10 (Redundancy) genes
+  guard1: 'Guardian: horizontal spread of inner branches',
+  guard2: 'Guardian: horizontal spread of middle branches',
+  guard3: 'Guardian: horizontal spread of outer branches',
+  guard4: 'Guardian: length of central upward stem',
+  guard5: 'Guardian: vertical reach of inner branches',
+  guard6: 'Guardian: vertical reach of middle branches',
+  guard7: 'Guardian: vertical reach of outer branches',
+  guard8: 'Guardian: length of trunk / downward stem',
+  exp1: 'Explorer: horizontal spread of inner branches',
+  exp2: 'Explorer: horizontal spread of middle branches',
+  exp3: 'Explorer: horizontal spread of outer branches',
+  exp4: 'Explorer: length of central upward stem',
+  exp5: 'Explorer: vertical reach of inner branches',
+  exp6: 'Explorer: vertical reach of middle branches',
+  exp7: 'Explorer: vertical reach of outer branches',
+  exp8: 'Explorer: length of trunk / downward stem',
+  dominance: 'Expression balance — 0 = pure guardian, 8 = pure explorer',
+  divergence: 'Explorer mutation rate multiplier (1-4)',
 };
 
 // ── URL hash encoding (F3) ──────────────────────────────────
@@ -313,6 +354,7 @@ function originGenotype() {
     depth: 1, segs: 1, segDist: 4,
     aDepth: 1, bDepth: 1, budScale: 4, budSwitch: 1, budDensity: 8,
     scaleMod: 4, seeds: 6, reach: 3, branch: 2, steps: 4,
+    threshold: 3, divergence: 2,
   };
   for (const [label, val] of Object.entries(defaults)) {
     if (labelIdx[label] !== undefined) genes[labelIdx[label]] = val;
@@ -325,6 +367,7 @@ function cloneGenes(genes) {
 }
 
 function mutate(genes) {
+  if (currentMode === 10) return mutateRedundancy(genes);
   const config = getConfig();
   const child = cloneGenes(genes);
   // Modes 6+ have 15-36 genes — single-gene mutation is too slow.
@@ -341,6 +384,27 @@ function mutate(genes) {
 }
 
 function mutateLostAnt(genes) {
+  if (currentMode === 10) {
+    // Lost ant for redundancy: amplify the asymmetric mutation
+    const config = MODE_CONFIGS[10];
+    const child = cloneGenes(genes);
+    const divergence = child[18];
+    const numMutations = (mutationIntensity + 1) * 3;
+    for (let m = 0; m < numMutations; m++) {
+      const i = Math.floor(Math.random() * config.geneCount);
+      const maxDelta = mutationIntensity * 2;
+      if (i >= 9 && i <= 16) {
+        for (let d = 0; d < divergence; d++) {
+          const delta = (1 + Math.floor(Math.random() * maxDelta)) * (Math.random() < 0.5 ? -1 : 1);
+          child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], child[i] + delta));
+        }
+      } else {
+        const delta = (1 + Math.floor(Math.random() * maxDelta)) * (Math.random() < 0.5 ? -1 : 1);
+        child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], child[i] + delta));
+      }
+    }
+    return child;
+  }
   const config = getConfig();
   const child = cloneGenes(genes);
   // Lost ant: 2-3x more genes mutated with larger steps
@@ -401,6 +465,8 @@ function adaptGenes(genes, newMode, oldMode) {
     budTrigger: 0, depthMod: 0, scaleMod: 4, angleMod: 0, flipMod: 0, suppressGene: 0,
     seeds: 6, reach: 3, branch: 2, steps: 4,
     budScale: 4, budSwitch: 1, budDensity: 8, budGrad: 0,
+    switchA: 0, switchB: 1, threshold: 3, blend: 0,
+    dominance: 0, divergence: 2,
   };
 
   // Bud A/B defaults: copy from trunk genes if available
@@ -415,6 +481,17 @@ function adaptGenes(genes, newMode, oldMode) {
     bg5: trunkCopy('g5'), bg6: trunkCopy('g6'), bg7: trunkCopy('g7'), bg8: trunkCopy('g8'),
     bDepth: Math.max(1, srcMap['depth'] || 1),
   };
+  // Guardian/Explorer defaults: copy from trunk genes (g1-g8) or each other
+  const guardSrc = (n) => srcMap['guard' + n] !== undefined ? srcMap['guard' + n] : trunkCopy('g' + n);
+  const guardianDefaults = {
+    guard1: guardSrc(1), guard2: guardSrc(2), guard3: guardSrc(3), guard4: guardSrc(4),
+    guard5: guardSrc(5), guard6: guardSrc(6), guard7: guardSrc(7), guard8: guardSrc(8),
+  };
+  const expSrc = (n) => srcMap['exp' + n] !== undefined ? srcMap['exp' + n] : guardSrc(n);
+  const explorerDefaults = {
+    exp1: expSrc(1), exp2: expSrc(2), exp3: expSrc(3), exp4: expSrc(4),
+    exp5: expSrc(5), exp6: expSrc(6), exp7: expSrc(7), exp8: expSrc(8),
+  };
 
   const adapted = new Array(newConfig.geneCount);
   for (let i = 0; i < newConfig.geneCount; i++) {
@@ -425,6 +502,10 @@ function adaptGenes(genes, newMode, oldMode) {
       adapted[i] = budADefaults[label];
     } else if (budBDefaults[label] !== undefined) {
       adapted[i] = budBDefaults[label];
+    } else if (guardianDefaults[label] !== undefined) {
+      adapted[i] = guardianDefaults[label];
+    } else if (explorerDefaults[label] !== undefined) {
+      adapted[i] = explorerDefaults[label];
     } else if (DEFAULTS[label] !== undefined) {
       adapted[i] = DEFAULTS[label];
     } else {
@@ -487,6 +568,29 @@ function randomInteresting() {
     genes[12] = 3 + Math.floor(Math.random() * 4);    // steps
     genes[13] = 1 + Math.floor(Math.random() * 4);    // segs
     genes[14] = 3 + Math.floor(Math.random() * 5);    // segDist
+  }
+
+  // Mode 9 (Weak Linkage): program switches
+  if (currentMode === 9) {
+    genes[9] = Math.floor(Math.random() * 8);                      // switchA
+    genes[10] = Math.floor(Math.random() * 8);                     // switchB
+    while (genes[10] === genes[9]) genes[10] = Math.floor(Math.random() * 8); // ensure different
+    genes[11] = Math.max(1, genes[8] - 2 + Math.floor(Math.random() * 2));   // threshold near depth-2
+    genes[12] = Math.floor(Math.random() * 3);                     // blend 0-2
+    genes[13] = 1 + Math.floor(Math.random() * 4);                 // segs 1-4
+  }
+
+  // Mode 10 (Redundancy): guardian + explorer cassettes
+  if (currentMode === 10) {
+    // Explorer: start as copy of guardian with random deltas
+    for (let i = 9; i < 17; i++) {
+      const guardVal = genes[i - 9];
+      const delta = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 3));
+      genes[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], guardVal + delta));
+    }
+    genes[17] = 3 + Math.floor(Math.random() * 3);   // dominance 3-5 (visible mosaic)
+    genes[18] = 2 + Math.floor(Math.random() * 2);   // divergence 2-3
+    genes[19] = 1 + Math.floor(Math.random() * 4);   // segs 1-4
   }
 
   // Mode 8: bud genes and meta genes
@@ -997,6 +1101,223 @@ function drawExploratory(genes) {
   return [...tissue, ...skeleton];
 }
 
+// ── Weak Linkage (Mode 9) ─────────────────────────────
+
+const TRANSFORM_NAMES = [
+  'Identity', 'Reverse', 'Rotate+2', 'Rotate+4',
+  'Negate-odds', 'Negate-evens', 'Halve', 'Double',
+];
+
+function applyTransform(trunkGenes8, switchValue) {
+  const g = trunkGenes8.slice(0, 8);
+  switch (switchValue) {
+    case 0: return g; // Identity
+    case 1: return g.slice().reverse(); // Reverse
+    case 2: { // Rotate+2
+      const r = new Array(8);
+      for (let i = 0; i < 8; i++) r[i] = g[(i + 2) % 8];
+      return r;
+    }
+    case 3: { // Rotate+4
+      const r = new Array(8);
+      for (let i = 0; i < 8; i++) r[i] = g[(i + 4) % 8];
+      return r;
+    }
+    case 4: // Negate-odds
+      return g.map((v, i) => i % 2 === 1 ? -v : v);
+    case 5: // Negate-evens
+      return g.map((v, i) => i % 2 === 0 ? -v : v);
+    case 6: // Halve
+      return g.map(v => Math.floor(v / 2));
+    case 7: // Double-clamp
+      return g.map(v => Math.max(-9, Math.min(9, v * 2)));
+    default: return g;
+  }
+}
+
+function drawWeakLinkage(genes) {
+  const trunkDepth = genes[8];
+  const switchA = genes[9];
+  const switchB = genes[10];
+  const threshold = genes[11];
+  const blend = genes[12];
+  const segs = genes[13];
+
+  const trunkGenes8 = genes.slice(0, 8);
+  const trunkVectors = defineVectors(trunkGenes8);
+  const progAGenes = applyTransform(trunkGenes8, switchA);
+  const progBGenes = applyTransform(trunkGenes8, switchB);
+  const progAVectors = defineVectors(progAGenes);
+  const progBVectors = defineVectors(progBGenes);
+
+  // Blended vectors at transition depth
+  let blendAVectors = progAVectors;
+  let blendBVectors = progBVectors;
+  if (blend > 0) {
+    const t = blend / 4; // 0-1
+    const blendVec = (trunk, prog) => {
+      const result = [null];
+      for (let i = 1; i <= 8; i++) {
+        result.push([
+          trunk[i][0] * (1 - t) + prog[i][0] * t,
+          trunk[i][1] * (1 - t) + prog[i][1] * t,
+        ]);
+      }
+      return result;
+    };
+    blendAVectors = blendVec(trunkVectors, progAVectors);
+    blendBVectors = blendVec(trunkVectors, progBVectors);
+  }
+
+  const segDist = 6;
+  const allLines = [];
+
+  for (let s = 0; s < segs; s++) {
+    const yOffset = (s - (segs - 1) / 2) * segDist;
+
+    let segTrunkGenes = trunkGenes8;
+    if (alternatingAsymmetry && s % 2 === 1) {
+      segTrunkGenes = segTrunkGenes.slice();
+      segTrunkGenes[0] = -segTrunkGenes[0];
+      segTrunkGenes[1] = -segTrunkGenes[1];
+      segTrunkGenes[2] = -segTrunkGenes[2];
+    }
+    const segVectors = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segTrunkGenes) : trunkVectors;
+
+    const segStartIdx = allLines.length;
+
+    function recurse(i, c, x0, y0) {
+      if (i === 0) i = 8;
+      else if (i === 9) i = 1;
+
+      // Determine which vectors and type to use
+      let vec, type;
+      if (c > threshold) {
+        // Above threshold: trunk
+        vec = segVectors;
+        type = 'trunk';
+      } else if (c === threshold && blend > 0) {
+        // At threshold with blend: use blended vectors
+        vec = (i < 4 || (i === 4 && s % 2 === 0)) ? blendAVectors : blendBVectors;
+        type = (i < 4 || (i === 4 && s % 2 === 0)) ? 'progA' : 'progB';
+      } else {
+        // Below threshold: dispatch by branch direction
+        if (i < 4 || (i === 4 && s % 2 === 0)) {
+          vec = progAVectors;
+          type = 'progA';
+        } else {
+          vec = progBVectors;
+          type = 'progB';
+        }
+      }
+
+      const v = vec[i];
+      const x1 = x0 + c * v[0];
+      const y1 = y0 + c * v[1];
+      allLines.push({ x0, y0: y0 + yOffset, x1, y1: y1 + yOffset, depth: c, type, maxDepth: trunkDepth });
+
+      if (c > 1) {
+        recurse(i - 1, c - 1, x1, y1);
+        recurse(i + 1, c - 1, x1, y1);
+      }
+    }
+
+    recurse(4, trunkDepth, 0, 0);
+    const newLines = allLines.splice(segStartIdx);
+    const symLines = (currentMode >= 2) ? applySymmetryTyped(newLines, symmetryType) : newLines;
+    allLines.push(...symLines);
+  }
+
+  return allLines;
+}
+
+// ── Redundancy / Gene Duplication (Mode 10) ──────────
+
+function mutateRedundancy(genes) {
+  const config = MODE_CONFIGS[10];
+  const child = cloneGenes(genes);
+  const divergence = child[18]; // divergence gene
+  const numMutations = mutationIntensity + 1; // modes 6+: multi-gene mutation
+
+  for (let m = 0; m < numMutations; m++) {
+    const i = Math.floor(Math.random() * config.geneCount);
+    const maxDelta = mutationIntensity;
+
+    if (i >= 0 && i <= 7) {
+      // Guardian: 50% chance to skip (half mutation rate)
+      if (Math.random() < 0.5) continue;
+      const delta = (1 + Math.floor(Math.random() * maxDelta)) * (Math.random() < 0.5 ? -1 : 1);
+      child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], child[i] + delta));
+    } else if (i >= 9 && i <= 16) {
+      // Explorer: mutate divergence times (amplified rate)
+      for (let d = 0; d < divergence; d++) {
+        const delta = (1 + Math.floor(Math.random() * maxDelta)) * (Math.random() < 0.5 ? -1 : 1);
+        child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], child[i] + delta));
+      }
+    } else {
+      // Other genes: normal
+      const delta = (1 + Math.floor(Math.random() * maxDelta)) * (Math.random() < 0.5 ? -1 : 1);
+      child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], child[i] + delta));
+    }
+  }
+
+  return child;
+}
+
+function drawRedundancy(genes) {
+  const depth = genes[8];
+  const dominance = genes[17];
+  const segs = genes[19];
+
+  const guardianVectors = defineVectors(genes.slice(0, 8));
+  const explorerVectors = defineVectors(genes.slice(9, 17));
+
+  const segDist = 6;
+  const allLines = [];
+
+  for (let s = 0; s < segs; s++) {
+    const yOffset = (s - (segs - 1) / 2) * segDist;
+
+    let segGuardGenes = genes.slice(0, 8);
+    if (alternatingAsymmetry && s % 2 === 1) {
+      segGuardGenes = segGuardGenes.slice();
+      segGuardGenes[0] = -segGuardGenes[0];
+      segGuardGenes[1] = -segGuardGenes[1];
+      segGuardGenes[2] = -segGuardGenes[2];
+    }
+    const segGuardVec = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segGuardGenes) : guardianVectors;
+
+    const segStartIdx = allLines.length;
+
+    function recurse(i, c, x0, y0) {
+      if (i === 0) i = 8;
+      else if (i === 9) i = 1;
+
+      // Use explorer at deeper levels (c <= dominance), guardian at surface
+      const useExplorer = c <= dominance;
+      const vec = useExplorer ? explorerVectors : segGuardVec;
+      const type = useExplorer ? 'explorer' : 'guardian';
+
+      const v = vec[i];
+      const x1 = x0 + c * v[0];
+      const y1 = y0 + c * v[1];
+      allLines.push({ x0, y0: y0 + yOffset, x1, y1: y1 + yOffset, depth: c, type, maxDepth: depth });
+
+      if (c > 1) {
+        recurse(i - 1, c - 1, x1, y1);
+        recurse(i + 1, c - 1, x1, y1);
+      }
+    }
+
+    recurse(4, depth, 0, 0);
+    const newLines = allLines.splice(segStartIdx);
+    const symLines = (currentMode >= 2) ? applySymmetryTyped(newLines, symmetryType) : newLines;
+    allLines.push(...symLines);
+  }
+
+  return allLines;
+}
+
 // ── Typed symmetry helpers ──────────────────────────────
 
 function applySymmetryTyped(lines, symType) {
@@ -1049,7 +1370,11 @@ function applyRadial(lines, arms) {
 function drawBiomorph(genes) {
   let lines;
 
-  if (currentMode === 8) {
+  if (currentMode === 10) {
+    lines = drawRedundancy(genes);
+  } else if (currentMode === 9) {
+    lines = drawWeakLinkage(genes);
+  } else if (currentMode === 8) {
     lines = drawSegmentedWithBuds(genes);
   } else if (currentMode === 7) {
     lines = drawExploratory(genes);
@@ -1137,6 +1462,8 @@ function renderBiomorph(canvas, genes, options) {
     const TYPE_COLORS = {
       trunk: '#58a6ff', bud: '#3fb950', budA: '#f0883e', budB: '#d2a8ff',
       skeleton: '#58a6ff',
+      progA: '#f0883e', progB: '#3fb950',
+      guardian: '#58a6ff', explorer: '#da3633',
     };
     const TISSUE_RGB = {
       nerve: [218, 54, 51], vessel: [63, 185, 80], muscle: [210, 168, 255],
@@ -2258,6 +2585,10 @@ const GENOME_GROUPS = [
   { name: 'Gradients', genes: ['grad1', 'grad2'], minMode: 4 },
   { name: 'Bud Regulation', genes: ['budTrigger','depthMod','scaleMod','angleMod','flipMod','suppressGene'], minMode: 6, maxMode: 6 },
   { name: 'Tissue', genes: ['seeds','reach','branch','steps'], minMode: 7, maxMode: 7 },
+  { name: 'Program Switches', genes: ['switchA','switchB','threshold','blend'], minMode: 9, maxMode: 9 },
+  { name: 'Guardian Cassette', genes: ['guard1','guard2','guard3','guard4','guard5','guard6','guard7','guard8'], minMode: 10, maxMode: 10 },
+  { name: 'Explorer Cassette', genes: ['exp1','exp2','exp3','exp4','exp5','exp6','exp7','exp8'], minMode: 10, maxMode: 10 },
+  { name: 'Duplication Control', genes: ['dominance','divergence'], minMode: 10, maxMode: 10 },
   { name: 'Bud A (anterior)', genes: ['ag1','ag2','ag3','ag4','ag5','ag6','ag7','ag8','aDepth'], minMode: 8 },
   { name: 'Bud B (posterior)', genes: ['bg1','bg2','bg3','bg4','bg5','bg6','bg7','bg8','bDepth'], minMode: 8 },
   { name: 'Hox Genes', genes: ['budTrigger','budScale','budSwitch','budDensity','budGrad'], minMode: 8 },
@@ -2282,6 +2613,14 @@ const GENOME_SHORT_DESCS = {
   depthMod: 'Bud depth modifier', scaleMod: 'Bud size', angleMod: 'Bud rotation',
   flipMod: 'Bud flip', suppressGene: 'Silenced gene',
   seeds: 'Tissue seeds', reach: 'Tissue reach', branch: 'Branch factor', steps: 'Growth steps',
+  switchA: 'Program A rule', switchB: 'Program B rule', threshold: 'Switch depth', blend: 'Transition blend',
+  guard1: 'G inner horiz', guard2: 'G mid horiz', guard3: 'G outer horiz',
+  guard4: 'G central stem', guard5: 'G inner vert', guard6: 'G mid vert',
+  guard7: 'G outer vert', guard8: 'G trunk',
+  exp1: 'E inner horiz', exp2: 'E mid horiz', exp3: 'E outer horiz',
+  exp4: 'E central stem', exp5: 'E inner vert', exp6: 'E mid vert',
+  exp7: 'E outer vert', exp8: 'E trunk',
+  dominance: 'Guard/Explore balance', divergence: 'Explorer drift rate',
 };
 
 function renderGenomeTable(genes, cGenes) {
@@ -2371,6 +2710,8 @@ const MODE_DESCRIPTIONS = {
   6: '\u201CThe key to facilitated variation is that the core processes \u2026 reduce the number of genetic changes needed to produce viable phenotypic change.\u201D \u2014 Kirschner & Gerhart. Buds derive their shape from trunk genes via modifiers.',
   7: '\u201CExploratory processes generate a large amount of variation \u2026 then what is useful is selectively stabilized.\u201D \u2014 Kirschner & Gerhart. Tissue grows randomly but stabilizes near the skeleton.',
   8: 'Dual Hox programs grow buds from branch-tips: Bud A (orange) on anterior segments, Bud B (purple) on posterior \u2014 like Hox genes expressing different structures along the body axis. 36 genes total.',
+  9: '\u201CSignals don\u2019t instruct \u2014 they permit. The organism contains pre-built developmental programs; regulatory signals merely select which program is expressed.\u201D \u2014 after Kirschner & Gerhart. Switch genes select from a menu of transforms applied to the trunk.',
+  10: '\u201CGene duplication creates redundancy: one copy guards the old function while the other explores freely. Hidden variation accumulates in the shadow copy, revealed when regulation shifts.\u201D \u2014 after Kirschner & Gerhart',
 };
 
 function updateModeDescription() {
@@ -2398,7 +2739,9 @@ function syncUIControls() {
     const legendItems =
       currentMode === 6 ? [['#58a6ff','Trunk'],['#3fb950','Bud']] :
       currentMode === 7 ? [['#58a6ff','Skeleton'],['rgb(218,54,51)','Nerve'],['rgb(63,185,80)','Vessel'],['rgb(210,168,255)','Muscle']] :
-      currentMode === 8 ? [['#58a6ff','Trunk'],['#f0883e','Bud A'],['#d2a8ff','Bud B']] : [];
+      currentMode === 8 ? [['#58a6ff','Trunk'],['#f0883e','Bud A'],['#d2a8ff','Bud B']] :
+      currentMode === 9 ? [['#58a6ff','Trunk'],['#f0883e','Program A'],['#3fb950','Program B']] :
+      currentMode === 10 ? [['#58a6ff','Guardian'],['#da3633','Explorer']] : [];
     for (const [color, label] of legendItems) {
       const span = document.createElement('span');
       span.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin-right:12px';
@@ -2683,6 +3026,8 @@ const EXPEDITION_NOUNS_BY_MODE = {
   6: ['Sprout', 'Mustard', 'Seedling', 'Shoot', 'Frond'],
   7: ['Organism', 'Embryo', 'Tissue', 'Growth', 'Network'],
   8: ['Hydra', 'Polyp', 'Anemone', 'Zooid', 'Colony'],
+  9: ['Switch', 'Circuit', 'Relay', 'Toggle', 'Junction'],
+  10: ['Twin', 'Clone', 'Echo', 'Shadow', 'Double'],
 };
 
 const EXPEDITION_FALLBACK_NOUNS = ['Form', 'Shape', 'Creature', 'Being'];
