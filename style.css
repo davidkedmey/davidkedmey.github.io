@@ -88,7 +88,7 @@ body {
 .mode-tab {
   font-family: inherit;
   font-size: 0.75rem;
-  padding: 6px 12px;
+  padding: 6px 10px;
   border: 1px solid #30363d;
   border-radius: 6px;
   background: #161b22;
@@ -294,6 +294,10 @@ main {
 
 .offspring-card:hover canvas {
   border-color: #58a6ff;
+}
+
+.offspring-card.lost-ant canvas {
+  border: 2px dashed #f0883e;
 }
 
 .offspring-number {

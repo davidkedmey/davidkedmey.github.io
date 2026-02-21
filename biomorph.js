@@ -36,7 +36,59 @@ const MODE_CONFIGS = {
     geneMax: [ 9,  9,  9,  9,  9,  9,  9,  9, 8, 8, 12, 9,  9],
     geneLabels: ['g1','g2','g3','g4','g5','g6','g7','g8','depth','segs','segDist','grad1','grad2'],
   },
-  6: { // Buds/Hox — 36 genes: trunk + segments + gradients + bud A + bud B + meta
+  6: { // Buds (Mustard) — 16 genes: trunk + regulation modifiers
+    geneCount: 16,
+    geneMin: [
+      -9, -9, -9, -9, -9, -9, -9, -9, 1,    // trunk g1-g8, depth
+       0,                                      // budTrigger
+      -3,                                      // depthMod
+       1,                                      // scaleMod
+      -4,                                      // angleMod
+       0,                                      // flipMod
+       0,                                      // suppressGene
+       1,                                      // segs
+    ],
+    geneMax: [
+       9,  9,  9,  9,  9,  9,  9,  9, 8,     // trunk
+       8,                                      // budTrigger
+       3,                                      // depthMod
+       8,                                      // scaleMod
+       4,                                      // angleMod
+       1,                                      // flipMod
+       8,                                      // suppressGene
+       6,                                      // segs
+    ],
+    geneLabels: [
+      'g1','g2','g3','g4','g5','g6','g7','g8','depth',
+      'budTrigger','depthMod','scaleMod','angleMod','flipMod','suppressGene','segs',
+    ],
+  },
+  7: { // Exploratory growth — 15 genes: skeleton + tissue parameters
+    geneCount: 15,
+    geneMin: [
+      -9, -9, -9, -9, -9, -9, -9, -9, 1,    // skeleton g1-g8, depth
+       2,                                      // seeds
+       1,                                      // reach
+       1,                                      // branch
+       2,                                      // steps
+       1,                                      // segs
+       2,                                      // segDist
+    ],
+    geneMax: [
+       9,  9,  9,  9,  9,  9,  9,  9, 8,     // skeleton
+      16,                                      // seeds
+       6,                                      // reach
+       5,                                      // branch
+       8,                                      // steps
+       5,                                      // segs
+      10,                                      // segDist
+    ],
+    geneLabels: [
+      'g1','g2','g3','g4','g5','g6','g7','g8','depth',
+      'seeds','reach','branch','steps','segs','segDist',
+    ],
+  },
+  8: { // Buds/Hox — 36 genes: trunk + segments + gradients + bud A + bud B + meta
     geneCount: 36,
     geneMin: [
       -9, -9, -9, -9, -9, -9, -9, -9, 1,    // trunk g1-g8, depth
@@ -71,7 +123,9 @@ const MODE_NAMES = {
   3: 'Segments',
   4: 'Gradients',
   5: 'Full',
-  6: 'Buds',
+  6: 'Buds (Mustard)',
+  7: 'Exploratory',
+  8: 'Buds (Hox)',
 };
 
 // ── Current state ────────────────────────────────────────────
@@ -123,6 +177,17 @@ const GENE_TOOLTIPS = {
   budSwitch: 'Segment boundary between Bud A and Bud B (Hox boundary)',
   budDensity: 'Fraction of branch-tips that sprout buds (1-8)',
   budGrad: 'Sonic Hedgehog gradient — bud scale varies left-to-right',
+  // Mode 6 (Mustard) genes
+  depthMod: 'Bud depth relative to trunk (modifier)',
+  scaleMod: 'Bud size (1-8, where 8 = full trunk scale)',
+  angleMod: 'Circular shift of bud gene program',
+  flipMod: 'Reverse bud gene order (0 = normal, 1 = flipped)',
+  suppressGene: 'Silence one trunk gene in buds (0 = none, 1-8 = gene index)',
+  // Mode 7 (Exploratory) genes
+  seeds: 'Number of tissue seed points along skeleton',
+  reach: 'How far tissue can wander from bone',
+  branch: 'Branching factor for tissue growth',
+  steps: 'Growth steps per tissue branch',
 };
 
 // ── URL hash encoding (F3) ──────────────────────────────────
@@ -172,7 +237,7 @@ function decodeState(hash) {
 
   if (!params.m || !params.g) return null;
 
-  const mode = parseInt(params.m);
+  let mode = parseInt(params.m);
   let genes;
 
   if (mode === 0) {
@@ -186,6 +251,8 @@ function decodeState(hash) {
     }
   } else {
     genes = params.g.split(',').map(Number);
+    // Migration: old m=6 with 36 genes → mode 8
+    if (mode === 6 && genes.length === 36) mode = 8;
     // Validate against mode config
     const config = MODE_CONFIGS[mode];
     if (config && genes.length === config.geneCount) {
@@ -239,15 +306,16 @@ function randomGenotype() {
 function originGenotype() {
   const config = getConfig();
   const genes = new Array(config.geneCount).fill(0);
-  genes[8] = 1; // depth
-  if (config.geneCount > 9) genes[9] = 1;  // segCount
-  if (config.geneCount > 10) genes[10] = 4; // segDist
-  if (config.geneCount >= 36) {
-    genes[21] = 1;  // aDepth
-    genes[30] = 1;  // bDepth
-    genes[32] = 4;  // budScale mid
-    genes[33] = 1;  // budSwitch
-    genes[34] = 8;  // budDensity full
+  // Set defaults by label
+  const labelIdx = {};
+  for (let i = 0; i < config.geneLabels.length; i++) labelIdx[config.geneLabels[i]] = i;
+  const defaults = {
+    depth: 1, segs: 1, segDist: 4,
+    aDepth: 1, bDepth: 1, budScale: 4, budSwitch: 1, budDensity: 8,
+    scaleMod: 4, seeds: 6, reach: 3, branch: 2, steps: 4,
+  };
+  for (const [label, val] of Object.entries(defaults)) {
+    if (labelIdx[label] !== undefined) genes[labelIdx[label]] = val;
   }
   return genes;
 }
@@ -259,13 +327,27 @@ function cloneGenes(genes) {
 function mutate(genes) {
   const config = getConfig();
   const child = cloneGenes(genes);
-  // Mode 6 has 36 genes — single-gene mutation is ~3%, too slow.
+  // Modes 6+ have 15-36 genes — single-gene mutation is too slow.
   // Mutate intensity+1 genes to maintain ~6-8% proportional pressure.
   const numMutations = currentMode >= 6 ? mutationIntensity + 1 : 1;
   for (let m = 0; m < numMutations; m++) {
     const i = Math.floor(Math.random() * config.geneCount);
     // F5: mutation intensity controls max step size
     const maxDelta = mutationIntensity;
+    const delta = (1 + Math.floor(Math.random() * maxDelta)) * (Math.random() < 0.5 ? -1 : 1);
+    child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], child[i] + delta));
+  }
+  return child;
+}
+
+function mutateLostAnt(genes) {
+  const config = getConfig();
+  const child = cloneGenes(genes);
+  // Lost ant: 2-3x more genes mutated with larger steps
+  const numMutations = (currentMode >= 6 ? mutationIntensity + 1 : 1) * 3;
+  for (let m = 0; m < numMutations; m++) {
+    const i = Math.floor(Math.random() * config.geneCount);
+    const maxDelta = mutationIntensity * 2;
     const delta = (1 + Math.floor(Math.random() * maxDelta)) * (Math.random() < 0.5 ? -1 : 1);
     child[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], child[i] + delta));
   }
@@ -300,36 +382,55 @@ function crossoverColor(cGenes1, cGenes2) {
 }
 
 /**
- * Adapt genes when switching modes: extend or trim to fit new gene count.
+ * Adapt genes when switching modes: label-based transfer with sensible defaults.
  */
-function adaptGenes(genes, newMode) {
-  const config = MODE_CONFIGS[newMode];
-  if (genes.length === config.geneCount) return genes.slice();
-  const adapted = new Array(config.geneCount);
-  for (let i = 0; i < config.geneCount; i++) {
-    if (i < genes.length) {
-      adapted[i] = Math.max(config.geneMin[i], Math.min(config.geneMax[i], genes[i]));
+function adaptGenes(genes, newMode, oldMode) {
+  const newConfig = MODE_CONFIGS[newMode];
+  const oldConfig = MODE_CONFIGS[oldMode || currentMode] || MODE_CONFIGS[1];
+  if (genes.length === newConfig.geneCount && oldMode === newMode) return genes.slice();
+
+  // Build label→value map from source genes
+  const srcMap = {};
+  for (let i = 0; i < oldConfig.geneLabels.length && i < genes.length; i++) {
+    srcMap[oldConfig.geneLabels[i]] = genes[i];
+  }
+
+  // Defaults for genes not present in source
+  const DEFAULTS = {
+    depth: 1, segs: 1, segDist: 4, grad1: 0, grad2: 0,
+    budTrigger: 0, depthMod: 0, scaleMod: 4, angleMod: 0, flipMod: 0, suppressGene: 0,
+    seeds: 6, reach: 3, branch: 2, steps: 4,
+    budScale: 4, budSwitch: 1, budDensity: 8, budGrad: 0,
+  };
+
+  // Bud A/B defaults: copy from trunk genes if available
+  const trunkCopy = (label) => srcMap[label] || 0;
+  const budADefaults = {
+    ag1: trunkCopy('g1'), ag2: trunkCopy('g2'), ag3: trunkCopy('g3'), ag4: trunkCopy('g4'),
+    ag5: trunkCopy('g5'), ag6: trunkCopy('g6'), ag7: trunkCopy('g7'), ag8: trunkCopy('g8'),
+    aDepth: Math.max(1, srcMap['depth'] || 1),
+  };
+  const budBDefaults = {
+    bg1: trunkCopy('g1'), bg2: trunkCopy('g2'), bg3: trunkCopy('g3'), bg4: trunkCopy('g4'),
+    bg5: trunkCopy('g5'), bg6: trunkCopy('g6'), bg7: trunkCopy('g7'), bg8: trunkCopy('g8'),
+    bDepth: Math.max(1, srcMap['depth'] || 1),
+  };
+
+  const adapted = new Array(newConfig.geneCount);
+  for (let i = 0; i < newConfig.geneCount; i++) {
+    const label = newConfig.geneLabels[i];
+    if (srcMap[label] !== undefined) {
+      adapted[i] = srcMap[label];
+    } else if (budADefaults[label] !== undefined) {
+      adapted[i] = budADefaults[label];
+    } else if (budBDefaults[label] !== undefined) {
+      adapted[i] = budBDefaults[label];
+    } else if (DEFAULTS[label] !== undefined) {
+      adapted[i] = DEFAULTS[label];
     } else {
-      // Sensible defaults for new genes
-      if (i === 9) adapted[i] = 1;       // segCount
-      else if (i === 10) adapted[i] = 4; // segDist
-      else if (i >= 13 && i <= 20) {
-        // Bud A direction genes: copy from trunk (buds start identical to trunk)
-        adapted[i] = genes[i - 13];
-      }
-      else if (i === 21) adapted[i] = Math.max(1, genes[8] || 1); // aDepth = trunk depth
-      else if (i >= 22 && i <= 29) {
-        // Bud B direction genes: copy from trunk
-        adapted[i] = genes[i - 22];
-      }
-      else if (i === 30) adapted[i] = Math.max(1, genes[8] || 1); // bDepth = trunk depth
-      else if (i === 31) adapted[i] = 0;  // budTrigger off — user breeds into buds
-      else if (i === 32) adapted[i] = 4;  // budScale mid
-      else if (i === 33) adapted[i] = 1;  // budSwitch
-      else if (i === 34) adapted[i] = 8;  // budDensity max
-      else if (i === 35) adapted[i] = 0;  // budGrad neutral
-      else adapted[i] = 0; // gradients start at 0
+      adapted[i] = 0;
     }
+    adapted[i] = Math.max(newConfig.geneMin[i], Math.min(newConfig.geneMax[i], adapted[i]));
   }
   return adapted;
 }
@@ -367,7 +468,28 @@ function randomInteresting() {
   if (config.geneCount > 11) genes[11] = randomGene(11, config);
   if (config.geneCount > 12) genes[12] = randomGene(12, config);
 
-  // Mode 6: bud genes and meta genes
+  // Mode 6 (Mustard): regulatory modifiers
+  if (currentMode === 6) {
+    genes[9] = 2 + Math.floor(Math.random() * Math.max(1, genes[8] - 2)); // budTrigger
+    genes[10] = -2 + Math.floor(Math.random() * 4);  // depthMod
+    genes[11] = 3 + Math.floor(Math.random() * 4);    // scaleMod
+    genes[12] = (Math.random() < 0.5 ? -1 : 1) * Math.floor(Math.random() * 4); // angleMod
+    genes[13] = Math.random() < 0.3 ? 1 : 0;          // flipMod
+    genes[14] = Math.random() < 0.4 ? (1 + Math.floor(Math.random() * 8)) : 0; // suppressGene
+    genes[15] = 2 + Math.floor(Math.random() * 4);    // segs
+  }
+
+  // Mode 7 (Exploratory): tissue parameters
+  if (currentMode === 7) {
+    genes[9] = 4 + Math.floor(Math.random() * 9);     // seeds
+    genes[10] = 2 + Math.floor(Math.random() * 4);    // reach
+    genes[11] = 2 + Math.floor(Math.random() * 3);    // branch
+    genes[12] = 3 + Math.floor(Math.random() * 4);    // steps
+    genes[13] = 1 + Math.floor(Math.random() * 4);    // segs
+    genes[14] = 3 + Math.floor(Math.random() * 5);    // segDist
+  }
+
+  // Mode 8: bud genes and meta genes
   if (config.geneCount >= 36) {
     // Bud A direction genes (13-20): own random shape
     genes[21] = 2 + Math.floor(Math.random() * 3); // aDepth 2-4
@@ -525,7 +647,7 @@ function drawSegmented(genes) {
   return allLines;
 }
 
-// ── Segmentation with buds (Mode 6) ─────────────────────
+// ── Segmentation with buds (Mode 8) ─────────────────────
 
 function drawSegmentedWithBuds(genes) {
   const trunkDepth = genes[8];
@@ -634,6 +756,249 @@ function drawSegmentedWithBuds(genes) {
   return allLines;
 }
 
+// ── Mustard Plant Principle (Mode 6) ─────────────────────
+
+function deriveBudGenes(trunkGenes, angleMod, flipMod, suppressGene) {
+  let budGenes = trunkGenes.slice(0, 8);
+
+  // Suppress one gene (set to 0)
+  if (suppressGene >= 1 && suppressGene <= 8) {
+    budGenes[suppressGene - 1] = 0;
+  }
+
+  // Flip: reverse the gene order (mirror the program)
+  if (flipMod === 1) {
+    budGenes = budGenes.slice().reverse();
+  }
+
+  // Angle mod: circular shift the gene array
+  if (angleMod !== 0) {
+    const shifted = new Array(8);
+    for (let i = 0; i < 8; i++) {
+      shifted[i] = budGenes[((i + angleMod) % 8 + 8) % 8];
+    }
+    budGenes = shifted;
+  }
+
+  return budGenes;
+}
+
+function drawMustardBiomorph(genes) {
+  const trunkDepth = genes[8];
+  const budTrigger = genes[9];
+  const depthMod = genes[10];
+  const budScale = genes[11] / 8;
+  const angleMod = genes[12];
+  const flipMod = genes[13];
+  const suppressGene = genes[14];
+  const segs = genes[15];
+
+  const budDepth = Math.max(1, Math.min(8, trunkDepth + depthMod));
+  const budGeneValues = deriveBudGenes(genes, angleMod, flipMod, suppressGene);
+  const trunkVectors = defineVectors(genes.slice(0, 8));
+  const budVectors = defineVectors(budGeneValues);
+
+  const allLines = [];
+  const segDist = 6;
+
+  for (let s = 0; s < segs; s++) {
+    const yOffset = (s - (segs - 1) / 2) * segDist;
+
+    let segTrunkGenes = genes.slice(0, 8);
+    if (alternatingAsymmetry && s % 2 === 1) {
+      segTrunkGenes = segTrunkGenes.slice();
+      segTrunkGenes[0] = -segTrunkGenes[0];
+      segTrunkGenes[1] = -segTrunkGenes[1];
+      segTrunkGenes[2] = -segTrunkGenes[2];
+    }
+    const segVectors = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segTrunkGenes) : trunkVectors;
+
+    const segStartIdx = allLines.length;
+
+    function recurse(i, c, x0, y0) {
+      if (i === 0) i = 8;
+      else if (i === 9) i = 1;
+
+      const v = segVectors[i];
+      const x1 = x0 + c * v[0];
+      const y1 = y0 + c * v[1];
+      allLines.push({ x0, y0: y0 + yOffset, x1, y1: y1 + yOffset, depth: c, type: 'trunk', maxDepth: trunkDepth });
+
+      if (budTrigger > 0 && c === budTrigger) {
+        if (budDepth > 0) {
+          recurseBud(i - 1, budDepth, x1, y1 + yOffset);
+          recurseBud(i + 1, budDepth, x1, y1 + yOffset);
+        }
+      } else if (c > 1) {
+        recurse(i - 1, c - 1, x1, y1);
+        recurse(i + 1, c - 1, x1, y1);
+      }
+    }
+
+    function recurseBud(i, c, x0, y0) {
+      if (i === 0) i = 8;
+      else if (i === 9) i = 1;
+
+      const v = budVectors[i];
+      const x1 = x0 + c * v[0] * budScale;
+      const y1 = y0 + c * v[1] * budScale;
+      allLines.push({ x0, y0, x1, y1, depth: c, type: 'bud', maxDepth: budDepth });
+
+      if (c > 1) {
+        recurseBud(i - 1, c - 1, x1, y1);
+        recurseBud(i + 1, c - 1, x1, y1);
+      }
+    }
+
+    recurse(4, trunkDepth, 0, 0);
+    const newLines = allLines.splice(segStartIdx);
+    const symLines = (currentMode >= 2) ? applySymmetryTyped(newLines, symmetryType) : newLines;
+    allLines.push(...symLines);
+  }
+
+  return allLines;
+}
+
+// ── Exploratory Growth (Mode 7) ─────────────────────────
+
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function genotypeHash(genes) {
+  let h = 0;
+  for (let i = 0; i < genes.length; i++) {
+    h = ((h << 5) - h + genes[i]) | 0;
+  }
+  return h;
+}
+
+function drawExploSkeleton(genes) {
+  const depth = genes[8];
+  const segs = genes[13];
+  const segDist = genes[14];
+  const vectors = defineVectors(genes.slice(0, 8));
+  const allLines = [];
+
+  for (let s = 0; s < segs; s++) {
+    const yOffset = (s - (segs - 1) / 2) * segDist;
+
+    let segGenes = genes.slice(0, 8);
+    if (alternatingAsymmetry && s % 2 === 1) {
+      segGenes = segGenes.slice();
+      segGenes[0] = -segGenes[0];
+      segGenes[1] = -segGenes[1];
+      segGenes[2] = -segGenes[2];
+    }
+    const segVectors = alternatingAsymmetry && s % 2 === 1 ? defineVectors(segGenes) : vectors;
+
+    const segStartIdx = allLines.length;
+
+    function recurse(i, c, x0, y0) {
+      if (i === 0) i = 8;
+      else if (i === 9) i = 1;
+
+      const v = segVectors[i];
+      const x1 = x0 + c * v[0];
+      const y1 = y0 + c * v[1];
+      allLines.push({ x0, y0: y0 + yOffset, x1, y1: y1 + yOffset, depth: c, type: 'skeleton', maxDepth: depth });
+
+      if (c > 1) {
+        recurse(i - 1, c - 1, x1, y1);
+        recurse(i + 1, c - 1, x1, y1);
+      }
+    }
+
+    recurse(4, depth, 0, 0);
+    const newLines = allLines.splice(segStartIdx);
+    const symLines = (currentMode >= 2) ? applySymmetryTyped(newLines, symmetryType) : newLines;
+    allLines.push(...symLines);
+  }
+
+  return allLines;
+}
+
+function growTissue(skeletonLines, genes) {
+  const seeds = genes[9];
+  const reach = genes[10];
+  const branchFactor = genes[11];
+  const steps = genes[12];
+
+  const rng = mulberry32(genotypeHash(genes));
+
+  // Build spatial index of skeleton points
+  const bonePoints = [];
+  for (const line of skeletonLines) {
+    bonePoints.push(line.x0, line.y0);
+    bonePoints.push(line.x1, line.y1);
+  }
+
+  function distToBone(x, y) {
+    let minDist = Infinity;
+    for (let i = 0; i < bonePoints.length; i += 2) {
+      const dx = x - bonePoints[i];
+      const dy = y - bonePoints[i + 1];
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d < minDist) minDist = d;
+    }
+    return minDist;
+  }
+
+  const tissueLines = [];
+  const tissueTypes = ['nerve', 'vessel', 'muscle'];
+  const maxDist = reach * 2.5;
+
+  for (let s = 0; s < seeds; s++) {
+    const srcLine = skeletonLines[Math.floor(rng() * skeletonLines.length)];
+    const t = rng();
+    const sx = srcLine.x0 + t * (srcLine.x1 - srcLine.x0);
+    const sy = srcLine.y0 + t * (srcLine.y1 - srcLine.y0);
+    const tissueType = tissueTypes[s % 3];
+
+    function growBranch(x0, y0, stepsLeft, angle) {
+      if (stepsLeft <= 0) return;
+
+      const stepLen = 1.5 + rng() * 2;
+      const jitter = (rng() - 0.5) * Math.PI * 0.8;
+      const a = angle + jitter;
+      const x1 = x0 + Math.cos(a) * stepLen;
+      const y1 = y0 + Math.sin(a) * stepLen;
+
+      const dist = distToBone(x1, y1);
+      if (dist > maxDist) return;
+
+      const proximity = 1 - dist / maxDist;
+      tissueLines.push({ x0, y0, x1, y1, type: tissueType, proximity });
+
+      const numBranches = 1 + Math.floor(rng() * branchFactor);
+      for (let b = 0; b < numBranches; b++) {
+        growBranch(x1, y1, stepsLeft - 1, a);
+      }
+    }
+
+    const startBranches = 1 + Math.floor(rng() * 3);
+    for (let b = 0; b < startBranches; b++) {
+      const angle = rng() * Math.PI * 2;
+      growBranch(sx, sy, steps, angle);
+    }
+  }
+
+  return tissueLines;
+}
+
+function drawExploratory(genes) {
+  const skeleton = drawExploSkeleton(genes);
+  const tissue = growTissue(skeleton, genes);
+  return [...tissue, ...skeleton];
+}
+
+// ── Typed symmetry helpers ──────────────────────────────
+
 function applySymmetryTyped(lines, symType) {
   if (symType === 'left-right') return lines;
 
@@ -684,8 +1049,12 @@ function applyRadial(lines, arms) {
 function drawBiomorph(genes) {
   let lines;
 
-  if (currentMode >= 6) {
+  if (currentMode === 8) {
     lines = drawSegmentedWithBuds(genes);
+  } else if (currentMode === 7) {
+    lines = drawExploratory(genes);
+  } else if (currentMode === 6) {
+    lines = drawMustardBiomorph(genes);
   } else if (currentMode >= 3) {
     lines = drawSegmented(genes);
   } else {
@@ -699,7 +1068,7 @@ function drawBiomorph(genes) {
   if (currentMode >= 5 && radialSymmetry) {
     const segCount = genes[9] || 1;
     const arms = segCount > 1 ? segCount : 5;
-    lines = currentMode >= 6 ? applyRadialTyped(lines, arms) : applyRadial(lines, arms);
+    lines = (currentMode >= 6) ? applyRadialTyped(lines, arms) : applyRadial(lines, arms);
   }
 
   return lines;
@@ -713,7 +1082,7 @@ function applyRadialTyped(lines, arms) {
     const cos = Math.cos(angleStep * a);
     const sin = Math.sin(angleStep * a);
     for (const seg of lines) {
-      result.push({
+      const rotated = {
         x0: seg.x0 * cos - seg.y0 * sin,
         y0: seg.x0 * sin + seg.y0 * cos,
         x1: seg.x1 * cos - seg.y1 * sin,
@@ -721,7 +1090,9 @@ function applyRadialTyped(lines, arms) {
         depth: seg.depth,
         type: seg.type,
         maxDepth: seg.maxDepth,
-      });
+      };
+      if (seg.proximity !== undefined) rotated.proximity = seg.proximity;
+      result.push(rotated);
     }
   }
   return result;
@@ -760,19 +1131,45 @@ function renderBiomorph(canvas, genes, options) {
   const offsetX = (minX + maxX) / 2;
   const offsetY = (minY + maxY) / 2;
 
-  // Mode 6: three-color developmental rendering (trunk/budA/budB)
-  const isMode6 = lines.length > 0 && lines[0].type !== undefined;
-  if (isMode6) {
-    const BUD_COLORS = { trunk: '#58a6ff', budA: '#f0883e', budB: '#d2a8ff' };
+  // Typed-line rendering (modes 6-8: trunk/bud/budA/budB/skeleton/tissue)
+  const hasTypedLines = lines.length > 0 && lines[0].type !== undefined;
+  if (hasTypedLines) {
+    const TYPE_COLORS = {
+      trunk: '#58a6ff', bud: '#3fb950', budA: '#f0883e', budB: '#d2a8ff',
+      skeleton: '#58a6ff',
+    };
+    const TISSUE_RGB = {
+      nerve: [218, 54, 51], vessel: [63, 185, 80], muscle: [210, 168, 255],
+    };
     ctx.lineCap = 'round';
 
-    for (const type of ['trunk', 'budA', 'budB']) {
-      const subset = lines.filter(s => s.type === type);
+    // Separate tissue lines (have proximity field) from skeleton/trunk lines
+    const tissueLines = lines.filter(s => s.proximity !== undefined);
+    const solidLines = lines.filter(s => s.proximity === undefined);
+
+    // Draw tissue FIRST (behind skeleton)
+    for (const seg of tissueLines) {
+      const rgb = TISSUE_RGB[seg.type] || [150, 150, 150];
+      const alpha = 0.15 + (seg.proximity || 0) * 0.55;
+      ctx.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${alpha})`;
+      ctx.lineWidth = 0.8 + (seg.proximity || 0) * 1.2;
+      ctx.beginPath();
+      ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
+      ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
+      ctx.stroke();
+    }
+
+    // Draw solid typed lines (trunk, bud, budA, budB, skeleton) with depth-based thickness
+    // Collect unique types
+    const types = new Set();
+    for (const seg of solidLines) types.add(seg.type);
+
+    for (const type of types) {
+      const subset = solidLines.filter(s => s.type === type);
       if (subset.length === 0) continue;
 
-      ctx.strokeStyle = BUD_COLORS[type];
+      ctx.strokeStyle = TYPE_COLORS[type] || '#e6edf3';
 
-      // Group by depth for batch drawing with depth-based thickness
       const byDepth = new Map();
       for (const seg of subset) {
         if (!byDepth.has(seg.depth)) byDepth.set(seg.depth, []);
@@ -782,7 +1179,7 @@ function renderBiomorph(canvas, genes, options) {
       for (const [d, segs] of byDepth) {
         const maxD = segs[0].maxDepth || 6;
         const t = maxD > 1 ? (d - 1) / (maxD - 1) : 0;
-        const baseWidth = type === 'trunk' ? 2.5 : 1.8;
+        const baseWidth = (type === 'trunk' || type === 'skeleton') ? 2.5 : 1.8;
         ctx.lineWidth = 0.6 + t * baseWidth;
 
         ctx.beginPath();
@@ -1149,7 +1546,7 @@ function showBreedModal(specimens) {
 
     // Adapt genes
     let mateGenes = spec.genes.slice();
-    if (spec.mode !== savedMode) mateGenes = adaptGenes(mateGenes, savedMode);
+    if (spec.mode !== savedMode) mateGenes = adaptGenes(mateGenes, savedMode, spec.mode);
     allParentGenes.push(mateGenes);
 
     const mateColorGenes = spec.colorGenes || { hue: 7, spread: 3 };
@@ -1452,7 +1849,7 @@ const CLASSIC_PRESETS = [
             1, 2, -1, 1, -2, 1, -1, 2, 3,
             -1, 1, 2, -1, 2, -2, 1, -1, 3,
             3, 5, 2, 6, 2],
-    mode: 6, symmetry: 'left-right',
+    mode: 8, symmetry: 'left-right',
   },
 ];
 
@@ -1482,7 +1879,17 @@ function ensurePresetThumbnails() {
 
 function loadGallery() {
   try {
-    return JSON.parse(localStorage.getItem(GALLERY_KEY)) || [];
+    const gallery = JSON.parse(localStorage.getItem(GALLERY_KEY)) || [];
+    // Migrate old mode 6 (36 genes) → mode 8
+    let dirty = false;
+    for (const spec of gallery) {
+      if (spec.mode === 6 && spec.genes && spec.genes.length === 36) {
+        spec.mode = 8;
+        dirty = true;
+      }
+    }
+    if (dirty) localStorage.setItem(GALLERY_KEY, JSON.stringify(gallery));
+    return gallery;
   } catch { return []; }
 }
 
@@ -1849,9 +2256,11 @@ const GENOME_GROUPS = [
   { name: 'Complexity', genes: ['depth'], minMode: 1 },
   { name: 'Body Plan', genes: ['segs', 'segDist'], minMode: 3 },
   { name: 'Gradients', genes: ['grad1', 'grad2'], minMode: 4 },
-  { name: 'Bud A (anterior)', genes: ['ag1','ag2','ag3','ag4','ag5','ag6','ag7','ag8','aDepth'], minMode: 6 },
-  { name: 'Bud B (posterior)', genes: ['bg1','bg2','bg3','bg4','bg5','bg6','bg7','bg8','bDepth'], minMode: 6 },
-  { name: 'Hox Genes', genes: ['budTrigger','budScale','budSwitch','budDensity','budGrad'], minMode: 6 },
+  { name: 'Bud Regulation', genes: ['budTrigger','depthMod','scaleMod','angleMod','flipMod','suppressGene'], minMode: 6, maxMode: 6 },
+  { name: 'Tissue', genes: ['seeds','reach','branch','steps'], minMode: 7, maxMode: 7 },
+  { name: 'Bud A (anterior)', genes: ['ag1','ag2','ag3','ag4','ag5','ag6','ag7','ag8','aDepth'], minMode: 8 },
+  { name: 'Bud B (posterior)', genes: ['bg1','bg2','bg3','bg4','bg5','bg6','bg7','bg8','bDepth'], minMode: 8 },
+  { name: 'Hox Genes', genes: ['budTrigger','budScale','budSwitch','budDensity','budGrad'], minMode: 8 },
 ];
 
 const GENOME_SHORT_DESCS = {
@@ -1870,6 +2279,9 @@ const GENOME_SHORT_DESCS = {
   budTrigger: 'Bud activation depth', budScale: 'Bud size',
   budSwitch: 'A/B boundary', budDensity: 'Tip sprouting',
   budGrad: 'Shh gradient',
+  depthMod: 'Bud depth modifier', scaleMod: 'Bud size', angleMod: 'Bud rotation',
+  flipMod: 'Bud flip', suppressGene: 'Silenced gene',
+  seeds: 'Tissue seeds', reach: 'Tissue reach', branch: 'Branch factor', steps: 'Growth steps',
 };
 
 function renderGenomeTable(genes, cGenes) {
@@ -1884,6 +2296,7 @@ function renderGenomeTable(genes, cGenes) {
 
   for (const group of GENOME_GROUPS) {
     if (currentMode < group.minMode) continue;
+    if (group.maxMode !== undefined && currentMode > group.maxMode) continue;
     // Check that at least one gene in this group exists in current config
     const activeGenes = group.genes.filter(g => labelToIndex[g] !== undefined);
     if (activeGenes.length === 0) continue;
@@ -1955,7 +2368,9 @@ const MODE_DESCRIPTIONS = {
   3: '\u201CSegmentation \u2014 the repetition of body units along a backbone \u2014 is one of the great innovations of animal body plans.\u201D \u2014 Dawkins, p.211',
   4: '\u201CIf segments are allowed to differ from each other in a graded fashion\u2026 the creatures begin to look more like real arthropods.\u201D \u2014 Dawkins, p.212',
   5: '\u201CCombining all these embryological tricks\u2026 radial symmetry, alternating asymmetry\u2026 the range of forms is enormously expanded.\u201D \u2014 Dawkins, p.214',
-  6: 'Dual Hox programs grow buds from branch-tips: Bud A (orange) on anterior segments, Bud B (purple) on posterior \u2014 like Hox genes expressing different structures along the body axis. 36 genes total.',
+  6: '\u201CThe key to facilitated variation is that the core processes \u2026 reduce the number of genetic changes needed to produce viable phenotypic change.\u201D \u2014 Kirschner & Gerhart. Buds derive their shape from trunk genes via modifiers.',
+  7: '\u201CExploratory processes generate a large amount of variation \u2026 then what is useful is selectively stabilized.\u201D \u2014 Kirschner & Gerhart. Tissue grows randomly but stabilizes near the skeleton.',
+  8: 'Dual Hox programs grow buds from branch-tips: Bud A (orange) on anterior segments, Bud B (purple) on posterior \u2014 like Hox genes expressing different structures along the body axis. 36 genes total.',
 };
 
 function updateModeDescription() {
@@ -1973,11 +2388,24 @@ function syncUIControls() {
   document.getElementById('alternating-asym').checked = alternatingAsymmetry;
   document.getElementById('radial-sym').checked = radialSymmetry;
   document.getElementById('mutation-intensity').value = mutationIntensity;
-  // Mode 6 uses three-color developmental scheme — hide user color controls, show bud legend
+  // Modes 6+ use typed-line developmental scheme — hide user color controls, show type legend
   document.getElementById('color-controls').style.display = (currentMode >= 1 && currentMode < 6) ? 'flex' : 'none';
   document.getElementById('color-mode').value = colorMode;
   const budLegend = document.getElementById('bud-legend');
-  if (budLegend) budLegend.style.display = currentMode >= 6 ? 'flex' : 'none';
+  if (budLegend) {
+    budLegend.style.display = currentMode >= 6 ? 'flex' : 'none';
+    budLegend.innerHTML = '';
+    const legendItems =
+      currentMode === 6 ? [['#58a6ff','Trunk'],['#3fb950','Bud']] :
+      currentMode === 7 ? [['#58a6ff','Skeleton'],['rgb(218,54,51)','Nerve'],['rgb(63,185,80)','Vessel'],['rgb(210,168,255)','Muscle']] :
+      currentMode === 8 ? [['#58a6ff','Trunk'],['#f0883e','Bud A'],['#d2a8ff','Bud B']] : [];
+    for (const [color, label] of legendItems) {
+      const span = document.createElement('span');
+      span.style.cssText = 'display:inline-flex;align-items:center;gap:4px;margin-right:12px';
+      span.innerHTML = `<span style="width:10px;height:10px;border-radius:2px;background:${color};display:inline-block"></span> ${label}`;
+      budLegend.appendChild(span);
+    }
+  }
   updateExpeditionButton();
   updateModeDescription();
 }
@@ -2014,14 +2442,10 @@ function selectOffspring(childGenes, childColorGenes) {
   spawnOffspring();
 }
 
-function spawnOffspring() {
-  offspringGrid.innerHTML = '';
-
-  // ── Parent card (first in grid) ──
+function createParentCard() {
   const parentCard = document.createElement('div');
   parentCard.className = 'offspring-card parent-card';
 
-  // Parent label (above canvas)
   const label = document.createElement('div');
   label.className = 'parent-label';
   label.innerHTML = `Parent \u00B7 ${MODE_NAMES[currentMode]} \u00B7 Gen ${generation}`
@@ -2034,7 +2458,6 @@ function spawnOffspring() {
   parentCard.appendChild(pCanvas);
   parentCanvasRef = pCanvas;
 
-  // Parent hover icons (save, play, link)
   const pSaveBtn = document.createElement('button');
   pSaveBtn.className = 'card-icon card-icon-save';
   pSaveBtn.title = 'Save to gallery';
@@ -2066,7 +2489,6 @@ function spawnOffspring() {
       e.stopPropagation();
       if (animationTimer !== null) {
         stopAnimation();
-        // Re-render the full parent
         renderBiomorph(parentCanvasRef, parentGenes, colorOptions());
       } else {
         animateGrowth();
@@ -2077,91 +2499,113 @@ function spawnOffspring() {
     parentAnimBtn = null;
   }
 
-  offspringGrid.appendChild(parentCard);
-
-  // Render parent
   if (currentMode === 0) {
     renderPeppering(pCanvas, parentGenes);
   } else {
     renderBiomorph(pCanvas, parentGenes, colorOptions());
   }
 
-  // ── 8 Offspring cards ──
+  return parentCard;
+}
+
+function createOffspringCard(childGenes, childColorGenes, index, isLostAnt) {
+  const card = document.createElement('div');
+  card.className = 'offspring-card';
+
+  const badge = document.createElement('span');
+  badge.className = 'offspring-number';
+  badge.textContent = String(index + 1);
+  card.appendChild(badge);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 180;
+  canvas.height = 180;
+  canvas.title = 'Click to select \u00B7 Shift+click to compare';
+  card.appendChild(canvas);
+
+  if (isLostAnt) card.classList.add('lost-ant');
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'card-icon card-icon-save';
+  saveBtn.title = 'Save to gallery';
+  saveBtn.innerHTML = '&#8595;';
+  saveBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    saveChildToGallery(childGenes, childColorGenes, saveBtn);
+  });
+  card.appendChild(saveBtn);
+
+  const linkBtn = document.createElement('button');
+  linkBtn.className = 'card-icon card-icon-link';
+  linkBtn.title = 'Copy link';
+  linkBtn.textContent = '\uD83D\uDD17';
+  linkBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    copyBiomorphLink(childGenes, childColorGenes, linkBtn);
+  });
+  card.appendChild(linkBtn);
+
+  if (currentMode !== 0) {
+    const animBtn = document.createElement('button');
+    animBtn.className = 'card-icon card-icon-animate';
+    animBtn.title = 'Watch growth animation';
+    animBtn.innerHTML = '&#9654;';
+    animBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (offspringAnimations.has(canvas)) {
+        stopOffspringAnimation(canvas, childGenes, childColorGenes);
+        animBtn.innerHTML = '&#9654;';
+        animBtn.classList.remove('animating');
+      } else {
+        animateOffspring(canvas, childGenes, childColorGenes, animBtn);
+      }
+    });
+    card.appendChild(animBtn);
+  }
+
+  if (currentMode === 0) {
+    renderPeppering(canvas, childGenes);
+  } else {
+    renderBiomorph(canvas, childGenes, colorOptions(childColorGenes));
+  }
+
+  canvas.addEventListener('click', (e) => {
+    if (e.shiftKey) {
+      showComparison(childGenes, childColorGenes);
+      return;
+    }
+    selectOffspring(childGenes, childColorGenes);
+  });
+
+  return card;
+}
+
+function spawnOffspring() {
+  offspringGrid.innerHTML = '';
+
+  // Generate all 8 offspring upfront
   const offspringData = [];
+  const lostAntIndex = currentMode >= 1 ? Math.floor(Math.random() * NUM_OFFSPRING) : -1;
+
   for (let i = 0; i < NUM_OFFSPRING; i++) {
+    const isLostAnt = i === lostAntIndex;
     const childGenes = currentMode === 0
       ? pepperingMutate(parentGenes)
-      : mutate(parentGenes);
+      : (isLostAnt ? mutateLostAnt(parentGenes) : mutate(parentGenes));
     const childColorGenes = colorMode === 'depth' ? mutateColor(colorGenes) : null;
-    offspringData.push({ genes: childGenes, colorGenes: childColorGenes });
+    offspringData.push({ genes: childGenes, colorGenes: childColorGenes, isLostAnt });
+  }
 
-    const card = document.createElement('div');
-    card.className = 'offspring-card';
-
-    const badge = document.createElement('span');
-    badge.className = 'offspring-number';
-    badge.textContent = String(i + 1);
-    card.appendChild(badge);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 180;
-    canvas.height = 180;
-    canvas.title = 'Click to select \u00B7 Shift+click to compare';
-    card.appendChild(canvas);
-
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'card-icon card-icon-save';
-    saveBtn.title = 'Save to gallery';
-    saveBtn.innerHTML = '&#8595;';
-    saveBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      saveChildToGallery(childGenes, childColorGenes, saveBtn);
-    });
-    card.appendChild(saveBtn);
-
-    const linkBtn = document.createElement('button');
-    linkBtn.className = 'card-icon card-icon-link';
-    linkBtn.title = 'Copy link';
-    linkBtn.textContent = '\uD83D\uDD17';
-    linkBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      copyBiomorphLink(childGenes, childColorGenes, linkBtn);
-    });
-    card.appendChild(linkBtn);
-
-    if (currentMode !== 0) {
-      const animBtn = document.createElement('button');
-      animBtn.className = 'card-icon card-icon-animate';
-      animBtn.title = 'Watch growth animation';
-      animBtn.innerHTML = '&#9654;';
-      animBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (offspringAnimations.has(canvas)) {
-          stopOffspringAnimation(canvas, childGenes, childColorGenes);
-          animBtn.innerHTML = '&#9654;';
-          animBtn.classList.remove('animating');
-        } else {
-          animateOffspring(canvas, childGenes, childColorGenes, animBtn);
-        }
-      });
-      card.appendChild(animBtn);
-    }
-
-    offspringGrid.appendChild(card);
-
-    if (currentMode === 0) {
-      renderPeppering(canvas, childGenes);
+  // Place parent at center (position 4 in 3x3 grid), offspring around it
+  let offspringIdx = 0;
+  for (let pos = 0; pos < 9; pos++) {
+    if (pos === 4) {
+      offspringGrid.appendChild(createParentCard());
     } else {
-      renderBiomorph(canvas, childGenes, colorOptions(childColorGenes));
+      const od = offspringData[offspringIdx];
+      offspringGrid.appendChild(createOffspringCard(od.genes, od.colorGenes, offspringIdx, od.isLostAnt));
+      offspringIdx++;
     }
-
-    canvas.addEventListener('click', (e) => {
-      if (e.shiftKey) {
-        showComparison(childGenes, childColorGenes);
-        return;
-      }
-      selectOffspring(childGenes, childColorGenes);
-    });
   }
 
   window._offspringData = offspringData;
@@ -2199,7 +2643,7 @@ function setMode(mode) {
   if (prevMode === 0 || mode === 0) {
     parentGenes = mode === 0 ? pepperingOriginGenotype() : originGenotype();
   } else {
-    parentGenes = adaptGenes(parentGenes, mode);
+    parentGenes = adaptGenes(parentGenes, mode, prevMode);
   }
 
   generation = 0;
@@ -2236,7 +2680,9 @@ const EXPEDITION_NOUNS_BY_MODE = {
   3: ['Caterpillar', 'Spine', 'Centipede', 'Worm', 'Crawler'],
   4: ['Cascade', 'Coral', 'Fan', 'Crest'],
   5: ['Plume', 'Spiral', 'Tendril', 'Bloom'],
-  6: ['Hydra', 'Polyp', 'Anemone', 'Zooid', 'Colony'],
+  6: ['Sprout', 'Mustard', 'Seedling', 'Shoot', 'Frond'],
+  7: ['Organism', 'Embryo', 'Tissue', 'Growth', 'Network'],
+  8: ['Hydra', 'Polyp', 'Anemone', 'Zooid', 'Colony'],
 };
 
 const EXPEDITION_FALLBACK_NOUNS = ['Form', 'Shape', 'Creature', 'Being'];
