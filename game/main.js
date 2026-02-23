@@ -1328,6 +1328,7 @@ function handleInventoryInput() {
 const PLAYER_HALF = 14; // half of PLAYER_SIZE (28)
 
 function canAutoMoveTo(x, y) {
+  if (gameState.creativeMode) return true; // no-clip in creative
   return !isSolid(tileAt(world, Math.floor((x - PLAYER_HALF) / TILE_SIZE), Math.floor((y - PLAYER_HALF) / TILE_SIZE)))
       && !isSolid(tileAt(world, Math.floor((x + PLAYER_HALF - 1) / TILE_SIZE), Math.floor((y - PLAYER_HALF) / TILE_SIZE)))
       && !isSolid(tileAt(world, Math.floor((x - PLAYER_HALF) / TILE_SIZE), Math.floor((y + PLAYER_HALF - 1) / TILE_SIZE)))
@@ -2845,6 +2846,50 @@ function cmdDestroy(arg) {
   cmdDemolish(arg);
 }
 
+function cmdMoveStructure(arg) {
+  if (!arg) { showMessage('Usage: movestructure <name> <col> <row>'); return; }
+  const parts = arg.split(/\s+/);
+  if (parts.length < 3) { showMessage('Usage: movestructure <name> <col> <row>'); return; }
+  const newCol = parseInt(parts[parts.length - 2]);
+  const newRow = parseInt(parts[parts.length - 1]);
+  const name = parts.slice(0, -2).join(' ').toLowerCase();
+  if (isNaN(newCol) || isNaN(newRow)) { showMessage('Usage: movestructure <name> <col> <row>'); return; }
+
+  const structure = gameState.structures.find(s => s.name.toLowerCase() === name);
+  if (!structure) { showMessage(`No structure named "${parts.slice(0, -2).join(' ')}".`); return; }
+
+  const tmpl = STRUCTURE_TEMPLATES[structure.type];
+  const tiles = parseStructureTiles(structure.type);
+
+  // Validate new location
+  for (const off of tiles) {
+    const c = newCol + off.dc, r = newRow + off.dr;
+    if (c < 0 || c >= COLS || r < 0 || r >= ROWS) { showMessage('Too close to the edge.'); return; }
+    const existing = tileAt(world, c, r);
+    if (existing !== TILE.GRASS && existing !== TILE.DIRT) {
+      // Allow if it's part of the structure's own footprint
+      const isOwnTile = structure.savedTiles.some(st => st.col === c && st.row === r);
+      if (!isOwnTile) { showMessage('Can only move to grass or dirt tiles.'); return; }
+    }
+  }
+
+  // Restore old tiles
+  for (const st of structure.savedTiles) {
+    world[st.row][st.col] = st.was;
+  }
+
+  // Save new tiles and place
+  structure.savedTiles = [];
+  for (const off of tiles) {
+    const c = newCol + off.dc, r = newRow + off.dr;
+    structure.savedTiles.push({ col: c, row: r, was: tileAt(world, c, r) });
+    world[r][c] = off.tile;
+  }
+  structure.col = newCol;
+  structure.row = newRow;
+  showMessage(`Moved ${structure.name} to (${newCol}, ${newRow}).`, 3);
+}
+
 function cmdStructures() {
   if (gameState.structures.length === 0) {
     showMessage('No structures built yet.', 2);
@@ -2929,6 +2974,7 @@ const COMMANDS = {
   cleartrees: cmdClearTrees,
   destroy: cmdDestroy,
   structures: cmdStructures,
+  movestructure: cmdMoveStructure,
   xyzzy: () => showMessage('A hollow voice says: "Plugh."', 3),
   plugh: () => showMessage('A hollow voice says: "Xyzzy."', 3),
   hello: () => showMessage('Hello, farmer! The biomorphs wave their branches at you.', 2),

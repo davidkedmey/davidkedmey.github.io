@@ -177,8 +177,9 @@ Farming:
 Building & Destruction:
   build <type> [name]   — build a structure (shed/cottage/barn/tower/pen/wall). Free in creative, costs gold otherwise.
   demolish <name|nearest> — walk to and demolish a named structure, restoring original tiles
-  clearplants [all]     — remove all player crops (or all in creative). Instant, reports count.
-  cleartrees [all]      — remove trees on player property (or all in creative). TREE→GRASS.
+  movestructure <name> <col> <row> — relocate a structure to new coordinates
+  clearplants [all]     — walk to and remove crops. In creative, clears NPC crops too.
+  cleartrees [all]      — walk to and remove trees. In creative, clears all trees.
   destroy <target>      — meta: "plants"→clearplants, "trees"→cleartrees, "everything"→both, else→demolish by name
   structures            — list all player-built structures
 
