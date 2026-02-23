@@ -1501,7 +1501,20 @@ function doPlant(slotIdx) {
       if (p.offspring) p.offspring = p.offspring.filter(c => !(c.col === ft.col && c.row === ft.row));
     }
   }
-  const idx = slotIdx != null ? slotIdx : player.selectedSlot;
+  let idx = slotIdx != null ? slotIdx : player.selectedSlot;
+  // In creative mode, auto-generate a seed if none available
+  if (gameState.creativeMode) {
+    if (idx < 0 || idx >= player.inventory.length || !player.inventory[idx] || player.inventory[idx].kind !== 'organism') {
+      const orgIdx = player.inventory.findIndex(it => it.kind === 'organism');
+      if (orgIdx >= 0) {
+        idx = orgIdx;
+      } else {
+        const mode = Math.ceil(Math.random() * 5);
+        player.inventory.push(createSeed(mode));
+        idx = player.inventory.length - 1;
+      }
+    }
+  }
   if (idx < 0 || idx >= player.inventory.length) { showMessage('No item selected.'); return false; }
   const selected = player.inventory[idx];
   if (!selected || selected.kind !== 'organism') { showMessage("Can only plant organisms!"); return false; }
@@ -2914,6 +2927,16 @@ function cmdMoveTo(arg) {
   gameState.walkTarget = { x, y, label: 'moveto' };
 }
 
+function cmdSpawn(arg) {
+  if (!gameState.creativeMode) { showMessage('Spawn is only available in creative mode.'); return; }
+  const count = Math.min(parseInt(arg) || 1, 9);
+  for (let i = 0; i < count; i++) {
+    const mode = Math.ceil(Math.random() * 5);
+    player.inventory.push(createSeed(mode));
+  }
+  showMessage(`Spawned ${count} seed${count > 1 ? 's' : ''}!`);
+}
+
 const COMMANDS = {
   follow: cmdFollow, f: cmdFollow,
   stop: cmdStop, unfollow: cmdStop,
@@ -2976,12 +2999,13 @@ const COMMANDS = {
   destroy: cmdDestroy,
   structures: cmdStructures,
   movestructure: cmdMoveStructure,
+  spawn: cmdSpawn,
   xyzzy: () => showMessage('A hollow voice says: "Plugh."', 3),
   plugh: () => showMessage('A hollow voice says: "Xyzzy."', 3),
   hello: () => showMessage('Hello, farmer! The biomorphs wave their branches at you.', 2),
 };
 
-const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'settings', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level', 'moveto', 'creative', 'build', 'demolish', 'movestructure', 'structures', 'clearplants', 'cleartrees', 'destroy', 'plant', 'harvest', 'plow'];
+const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'settings', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level', 'moveto', 'creative', 'build', 'demolish', 'movestructure', 'structures', 'clearplants', 'cleartrees', 'destroy', 'plant', 'harvest', 'plow', 'spawn'];
 
 function executeCommand(raw) {
   const rawParts = raw.split(/\s+/);
