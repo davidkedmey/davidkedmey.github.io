@@ -2980,7 +2980,7 @@ const COMMANDS = {
   hello: () => showMessage('Hello, farmer! The biomorphs wave their branches at you.', 2),
 };
 
-const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'settings', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level', 'moveto'];
+const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'settings', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level', 'moveto', 'creative', 'build', 'demolish', 'movestructure', 'structures', 'clearplants', 'cleartrees', 'destroy', 'plant', 'harvest', 'plow'];
 
 function executeCommand(raw) {
   const rawParts = raw.split(/\s+/);
