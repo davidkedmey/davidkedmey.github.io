@@ -3633,11 +3633,6 @@ function gameLoop(timestamp) {
     }
   }
 
-  // Auto-walk to target (from /go command)
-  if (gameState.walkTarget && !gameState.overlay) {
-    autoWalkToTarget(dt);
-  }
-
   // Dance spin timer
   if (gameState.playerSpin > 0) {
     gameState.playerSpin -= dt;
@@ -3723,6 +3718,11 @@ function gameLoop(timestamp) {
     wildDayTick(wilds, world);
   }
   } // end: !sandboxMode
+
+  // Auto-walk to target (works in all modes including sandbox/canvas)
+  if (gameState.walkTarget && !gameState.overlay) {
+    autoWalkToTarget(dt);
+  }
 
   // Message timer
   if (gameState.message) {
