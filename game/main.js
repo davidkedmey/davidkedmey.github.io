@@ -2346,6 +2346,23 @@ function cmdStatus() {
   showMessage(lines, 4);
 }
 
+function cmdQuest() {
+  const quests = [];
+  if (player.inventory.length === 0) quests.push('Buy a seed from the shop and plant it');
+  if (player.inventory.length > 0 && player.inventory.length < 3) quests.push('Fill your inventory — breed or buy until you have 3+ biomorphs');
+  if (player.inventory.length >= 2) quests.push(`Breed ${player.inventory[0]?.nickname || 'slot 1'} with ${player.inventory[1]?.nickname || 'slot 2'} and see what happens`);
+  if (player.wallet < 500) quests.push('Earn 500g by selling or trading');
+  if (player.wallet >= 500) quests.push('Visit the shop and buy the most expensive seed');
+  if (planted.length === 0) quests.push('Plow some dirt and plant a crop');
+  if (planted.length > 0 && planted.length < 5) quests.push('Expand your farm — plant at least 5 crops');
+  quests.push('Talk to each NPC and learn their personality');
+  quests.push('Find and collect a wild biomorph from a tree');
+  quests.push('Mutate your favorite biomorph and see what changes');
+  // Pick a random quest
+  const quest = quests[Math.floor(Math.random() * Math.min(3, quests.length))];
+  showMessage([`Quest: ${quest}`, `(type "quest" again for a different one)`], 5);
+}
+
 function cmdAI(arg, parts) {
   const llm = getLLMSettings();
   const sub = (parts[1] || '').toLowerCase();
@@ -2483,6 +2500,10 @@ const COMMANDS = {
   pet: cmdPet,
   photo: cmdPhoto,
   farmname: cmdFarmName,
+  quest: cmdQuest,
+  xyzzy: () => showMessage('A hollow voice says: "Plugh."', 3),
+  plugh: () => showMessage('A hollow voice says: "Xyzzy."', 3),
+  hello: () => showMessage('Hello, farmer! The biomorphs wave their branches at you.', 2),
 };
 
 const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level'];
