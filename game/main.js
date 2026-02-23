@@ -2726,38 +2726,109 @@ function cmdDemolish(arg) {
 
 function cmdClearPlants(arg) {
   const all = (arg || '').toLowerCase() === 'all';
-  let count = 0;
-  // Clear player crops
-  for (let i = planted.length - 1; i >= 0; i--) {
-    const p = planted[i];
+
+  // Collect all clearable plants with their locations
+  const targets = [];
+  for (const p of planted) {
     if (!all && !gameState.creativeMode && !isPlayerProperty(p.tileCol, p.tileRow)) continue;
-    planted.splice(i, 1);
-    count++;
+    targets.push({ col: p.tileCol, row: p.tileRow, src: 'player' });
   }
-  // In creative or "all" mode, also clear NPC crops
   if (all || gameState.creativeMode) {
     for (const ns of npcStates) {
-      count += ns.planted.length;
-      ns.planted = [];
+      for (const p of ns.planted) {
+        targets.push({ col: p.tileCol, row: p.tileRow, src: ns.id });
+      }
     }
   }
-  showMessage(count > 0 ? `Cleared ${count} plant${count !== 1 ? 's' : ''}.` : 'No plants to clear.', 3);
+
+  if (targets.length === 0) { showMessage('No plants to clear.', 3); return; }
+
+  // Sort by distance from player for efficient pathing
+  const pCol = Math.floor(player.x / TILE_SIZE);
+  const pRow = Math.floor(player.y / TILE_SIZE);
+  targets.sort((a, b) => (Math.abs(a.col - pCol) + Math.abs(a.row - pRow)) - (Math.abs(b.col - pCol) + Math.abs(b.row - pRow)));
+
+  const total = targets.length;
+  let cleared = 0;
+
+  function removePlantAt(col, row) {
+    // Remove from player planted
+    const pi = planted.findIndex(p => p.tileCol === col && p.tileRow === row);
+    if (pi >= 0) { planted.splice(pi, 1); return; }
+    // Remove from NPC planted
+    for (const ns of npcStates) {
+      const ni = ns.planted.findIndex(p => p.tileCol === col && p.tileRow === row);
+      if (ni >= 0) { ns.planted.splice(ni, 1); return; }
+    }
+  }
+
+  function clearNext() {
+    if (targets.length === 0) {
+      showMessage(`Cleared ${cleared} plant${cleared !== 1 ? 's' : ''}!`, 3);
+      return;
+    }
+    const t = targets.shift();
+    const doRemove = () => {
+      removePlantAt(t.col, t.row);
+      cleared++;
+      showMessage(`Clearing... ${cleared}/${total}`, 0.8);
+      clearNext();
+    };
+    if (!walkToAndFace(t.col, t.row, doRemove)) {
+      // Can't reach — remove anyway and continue
+      doRemove();
+    }
+  }
+
+  showMessage(`Clearing ${total} plants...`, 2);
+  clearNext();
 }
 
 function cmdClearTrees(arg) {
   const all = (arg || '').toLowerCase() === 'all';
-  let count = 0;
+
+  // Collect all clearable trees
+  const targets = [];
   for (let r = 1; r < ROWS - 1; r++) {
     for (let c = 1; c < COLS - 1; c++) {
       if (world[r][c] !== TILE.TREE) continue;
       if (!all && !gameState.creativeMode && !isPlayerProperty(c, r)) continue;
-      world[r][c] = TILE.GRASS;
-      // Remove wild organism if present
-      if (wilds.has(`${c},${r}`)) wilds.delete(`${c},${r}`);
-      count++;
+      targets.push({ col: c, row: r });
     }
   }
-  showMessage(count > 0 ? `Cleared ${count} tree${count !== 1 ? 's' : ''}.` : 'No trees to clear.', 3);
+
+  if (targets.length === 0) { showMessage('No trees to clear.', 3); return; }
+
+  // Sort by distance from player
+  const pCol = Math.floor(player.x / TILE_SIZE);
+  const pRow = Math.floor(player.y / TILE_SIZE);
+  targets.sort((a, b) => (Math.abs(a.col - pCol) + Math.abs(a.row - pRow)) - (Math.abs(b.col - pCol) + Math.abs(b.row - pRow)));
+
+  const total = targets.length;
+  let cleared = 0;
+
+  function clearNext() {
+    if (targets.length === 0) {
+      showMessage(`Cleared ${cleared} tree${cleared !== 1 ? 's' : ''}!`, 3);
+      return;
+    }
+    const t = targets.shift();
+    const doRemove = () => {
+      if (world[t.row][t.col] === TILE.TREE) {
+        world[t.row][t.col] = TILE.GRASS;
+        if (wilds.has(`${t.col},${t.row}`)) wilds.delete(`${t.col},${t.row}`);
+        cleared++;
+      }
+      showMessage(`Clearing trees... ${cleared}/${total}`, 0.8);
+      clearNext();
+    };
+    if (!walkToAndFace(t.col, t.row, doRemove)) {
+      doRemove();
+    }
+  }
+
+  showMessage(`Clearing ${total} trees...`, 2);
+  clearNext();
 }
 
 function cmdDestroy(arg) {
