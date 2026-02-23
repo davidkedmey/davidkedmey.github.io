@@ -550,7 +550,7 @@ function handleWorldAction() {
       // Second tile in same direction
       const dir = { up: [0,-1], down: [0,1], left: [-1,0], right: [1,0] }[player.facing];
       const c2 = ft0.col + dir[0], r2 = ft0.row + dir[1];
-      if (c2 >= 0 && c2 < COLS && r2 >= 0 && r2 < ROWS && tileAt(world, c2, r2) === TILE.GRASS) {
+      if (c2 >= 0 && c2 < world[0].length && r2 >= 0 && r2 < world.length && tileAt(world, c2, r2) === TILE.GRASS) {
         if (isPlayerProperty(c2, r2)) world[r2][c2] = TILE.DIRT;
       }
       if (!useTool(selected)) {
@@ -2566,7 +2566,7 @@ function findNearestTile(col, row, predicate, maxRadius = 10) {
       for (let dr = -r; dr <= r; dr++) {
         if (Math.abs(dc) !== r && Math.abs(dr) !== r) continue; // only check perimeter
         const c = col + dc, rr = row + dr;
-        if (c < 0 || c >= COLS || rr < 0 || rr >= ROWS) continue;
+        if (c < 0 || c >= world[0].length || rr < 0 || rr >= world.length) continue;
         if (predicate(c, rr)) return { col: c, row: rr };
       }
     }
@@ -2584,7 +2584,7 @@ function walkToAndFace(targetCol, targetRow, callback) {
   ];
   for (const d of dirs) {
     const sc = targetCol + d.dc, sr = targetRow + d.dr;
-    if (sc < 0 || sc >= COLS || sr < 0 || sr >= ROWS) continue;
+    if (sc < 0 || sc >= world[0].length || sr < 0 || sr >= world.length) continue;
     const tile = tileAt(world, sc, sr);
     if (isSolid(tile)) continue;
     // Found a walkable adjacent tile
@@ -2634,7 +2634,8 @@ function cmdBuild(arg) {
   const savedTiles = [];
   for (const off of tiles) {
     const c = baseCol + off.dc, r = baseRow + off.dr;
-    if (c < 0 || c >= COLS || r < 0 || r >= ROWS) {
+    const worldCols = world[0].length, worldRows = world.length;
+    if (c < 0 || c >= worldCols || r < 0 || r >= worldRows) {
       showMessage('Too close to the edge.');
       return;
     }
@@ -2790,8 +2791,8 @@ function cmdClearTrees(arg) {
 
   // Collect all clearable trees
   const targets = [];
-  for (let r = 1; r < ROWS - 1; r++) {
-    for (let c = 1; c < COLS - 1; c++) {
+  for (let r = 1; r < world.length - 1; r++) {
+    for (let c = 1; c < world[0].length - 1; c++) {
       if (world[r][c] !== TILE.TREE) continue;
       if (!all && !gameState.creativeMode && !isPlayerProperty(c, r)) continue;
       targets.push({ col: c, row: r });
@@ -2864,7 +2865,7 @@ function cmdMoveStructure(arg) {
   // Validate new location
   for (const off of tiles) {
     const c = newCol + off.dc, r = newRow + off.dr;
-    if (c < 0 || c >= COLS || r < 0 || r >= ROWS) { showMessage('Too close to the edge.'); return; }
+    if (c < 0 || c >= world[0].length || r < 0 || r >= world.length) { showMessage('Too close to the edge.'); return; }
     const existing = tileAt(world, c, r);
     if (existing !== TILE.GRASS && existing !== TILE.DIRT) {
       // Allow if it's part of the structure's own footprint
@@ -2907,7 +2908,7 @@ function cmdMoveTo(arg) {
   const col = parseInt(parts[0]);
   const row = parseInt(parts[1]);
   if (isNaN(col) || isNaN(row)) { showMessage('Usage: moveto <col> <row>'); return; }
-  if (col < 0 || col >= COLS || row < 0 || row >= ROWS) { showMessage('Out of bounds.'); return; }
+  if (col < 0 || col >= world[0].length || row < 0 || row >= world.length) { showMessage('Out of bounds.'); return; }
   const x = col * TILE_SIZE + TILE_SIZE / 2;
   const y = row * TILE_SIZE + TILE_SIZE / 2;
   gameState.walkTarget = { x, y, label: 'moveto' };
