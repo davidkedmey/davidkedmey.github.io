@@ -2813,12 +2813,22 @@ function gameLoop(timestamp) {
   if (input.justPressed('p') || input.justPressed('P')) {
     gameState.paused = !gameState.paused;
   }
-  if (!gameState.overlay && gameState.followNpcIdx < 0 && !actionRunner.isRunning && input.justPressed('Escape')) {
+  if (!gameState.overlay && !gameState.commandBar.active && gameState.followNpcIdx < 0 && !actionRunner.isRunning && input.justPressed('Escape')) {
     gameState.paused = !gameState.paused;
   }
 
   // When paused, skip all updates but still render
   if (gameState.paused) {
+    // Still allow command bar Escape/Enter while paused
+    if (gameState.commandBar.active) {
+      input.drainCharBuffer(); // discard typed chars while paused
+      if (input.justPressed('Enter') || input.justPressed('Escape')) {
+        gameState.commandBar.active = false;
+        gameState.commandBar.text = '';
+        gameState.commandBar.suggestion = false;
+        input.setTextMode(false);
+      }
+    }
     gameState.tutorialState = tutorialState;
     gameState.dawkinsState = dawkinsState;
     gameState.audioSettings = getAudioSettings();
