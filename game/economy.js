@@ -18,6 +18,7 @@ const VIGOR_FACTOR = { 1: 0.9, 2: 1.0, 3: 1.15 };
 
 // Unified sell price — dispatches on item.kind
 export function sellPrice(item) {
+  if (!item) return 0;
   if (item.kind === 'material') return materialSellPrice(item);
   if (item.kind === 'tool') return toolSellPrice(item);
   if (item.kind === 'product') return productSellPrice(item);

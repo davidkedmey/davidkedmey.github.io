@@ -5,7 +5,7 @@ import { createPlayer, updatePlayer, facingTile } from './player.js';
 import { createInput } from './input.js';
 import { render, updateCamera, snapCamera, CANVAS_W, CANVAS_H } from './renderer.js';
 import { createSeed, createOrganism, randomColorGenes, tickGrowth, harvest, spawnOffspring } from './organisms.js';
-import { randomInteresting } from '../shared/genotype.js';
+import { randomInteresting, mutate as mutateGenes } from '../shared/genotype.js';
 import { generateName } from './naming.js';
 import { sellPrice, buyPrice, generateShopStock } from './economy.js';
 import { createBreedingLab, labSelectParent, labSelectOffspring, labConfirm, labReset, breed } from './breeding.js';
@@ -366,8 +366,8 @@ function startLevel(levelName) {
   planted.length = 0;
   wilds = initWildBiomorphs(world);
   exhibits = initExhibits();
-  player.x = 15 * TILE_SIZE;
-  player.y = 15 * TILE_SIZE;
+  player.x = 15 * TILE_SIZE + TILE_SIZE / 2;
+  player.y = 15 * TILE_SIZE + TILE_SIZE / 2;
   player.inventory = [];
   for (let i = 0; i < 3; i++) player.inventory.push(createSeed(1));
   player.wallet = config.creativeMode ? 9999 : 0;
@@ -1687,8 +1687,18 @@ function cmdPeek(arg) {
 }
 
 function cmdAppraise(arg) {
+  // "appraise all" / "appraise all my stuff" / "appraise everything" → show all items
+  if (arg && /^all|^everything/i.test(arg.trim())) {
+    if (player.inventory.length === 0) { showMessage('Inventory is empty.'); return; }
+    const lines = player.inventory.map((item, i) => {
+      const name = item.nickname || item.kind || 'item';
+      try { return `[${i + 1}] ${name}: ~${sellPrice(item)}g`; } catch (e) { return `[${i + 1}] ${name}: ???`; }
+    });
+    showMessage(lines, 5);
+    return;
+  }
   const idx = arg ? parseInt(arg) - 1 : player.selectedSlot;
-  if (idx < 0 || idx >= player.inventory.length) { showMessage('No item in that slot.'); return; }
+  if (isNaN(idx) || idx < 0 || idx >= player.inventory.length) { showMessage('No item in that slot.'); return; }
   const item = player.inventory[idx];
   if (item.kind !== 'organism') {
     showMessage(`Slot ${idx + 1}: ${item.kind} — ~${sellPrice(item)}g`, 3);
@@ -1728,8 +1738,29 @@ function cmdBest() {
 
 function cmdSell(arg) {
   if (player.inventory.length === 0) { showMessage('Inventory is empty.'); return; }
+  // Natural language shortcuts
+  if (arg) {
+    const lower = arg.toLowerCase().trim();
+    if (/^all|^everything/.test(lower)) { cmdSellAll(); return; }
+    if (/^worst|^cheapest|^lowest/.test(lower)) {
+      let worstIdx = 0, worstPrice = Infinity;
+      player.inventory.forEach((item, i) => {
+        const p = sellPrice(item);
+        if (p < worstPrice) { worstPrice = p; worstIdx = i; }
+      });
+      arg = String(worstIdx + 1);
+    }
+    if (/^best|^most valuable|^highest/.test(lower)) {
+      let bestIdx = 0, bestPrice = 0;
+      player.inventory.forEach((item, i) => {
+        const p = sellPrice(item);
+        if (p > bestPrice) { bestPrice = p; bestIdx = i; }
+      });
+      arg = String(bestIdx + 1);
+    }
+  }
   const slotIdx = arg ? parseInt(arg) - 1 : player.selectedSlot;
-  if (slotIdx < 0 || slotIdx >= player.inventory.length) {
+  if (isNaN(slotIdx) || slotIdx < 0 || slotIdx >= player.inventory.length) {
     showMessage(`Invalid slot. You have ${player.inventory.length} items.`);
     return;
   }
@@ -2048,10 +2079,25 @@ function cmdTalk(arg) {
 
 function cmdName(arg) {
   if (!arg) { showMessage('Usage: name <nickname>'); return; }
-  const item = player.inventory[player.selectedSlot];
+  // Parse: "name 2 Steve" → slot 2, name "Steve"; "name Steve" → current slot, name "Steve"
+  // Also strip filler like "this one", "my biomorph", "it", "him", "her"
+  let parts = arg.split(/\s+/);
+  let targetSlot = player.selectedSlot;
+  // If first token is a number, use it as slot
+  const maybeSlot = parseInt(parts[0]);
+  if (!isNaN(maybeSlot) && maybeSlot >= 1 && maybeSlot <= player.inventory.length) {
+    targetSlot = maybeSlot - 1;
+    parts = parts.slice(1);
+  }
+  // Strip common filler phrases
+  let name = parts.join(' ')
+    .replace(/^(this one|that one|my biomorph|my first biomorph|my specimen|it|him|her|this|that)\s*/i, '')
+    .trim();
+  if (!name) { showMessage('Usage: name <nickname>'); return; }
+  const item = player.inventory[targetSlot];
   if (!item || item.kind !== 'organism') { showMessage('Select an organism first.'); return; }
-  item.nickname = arg.slice(0, 16);
-  showMessage(`Named: "${item.nickname}"`, 2);
+  item.nickname = name.slice(0, 16);
+  showMessage(`Named slot ${targetSlot + 1}: "${item.nickname}"`, 2);
 }
 
 function cmdCompare(arg, parts) {
@@ -2071,34 +2117,222 @@ function cmdCompare(arg, parts) {
   ], 5);
 }
 
-function cmdDance() {
-  gameState.playerSpin = 2;
-  showMessage('You dance!', 2);
-}
+// ── Emote System ──
+const EMOTES = {
+  dance:   { msg: 'You dance!', spin: 2, npcReact: n => `${n} claps along!` },
+  wave:    { msg: 'You wave!', npcReact: n => `${n} waves back!` },
+  yell:    { msg: 'AAAHH!', startleNPCs: true, npcReact: n => `${n} jumps!` },
+  sit:     { msg: 'You sit down and rest.', duration: 3, npcReact: n => `${n} sits nearby.` },
+  sing:    { msg: '♪ La la la... ♪', duration: 2, npcReact: n => `${n} hums along!` },
+  think:   { msg: 'You ponder the mysteries of evolution...', duration: 2, npcReact: n => `${n}: "What are you thinking about?"` },
+  sleep:   { msg: 'Zzz...', duration: 4, skipTime: true, npcReact: n => `${n} keeps watch while you sleep.` },
+  cheer:   { msg: 'Woohoo!', spin: 1, npcReact: n => `${n} cheers with you!` },
+  bow:     { msg: 'You take a bow.', npcReact: n => `${n} applauds!` },
+  flex:    { msg: 'You flex your muscles!', npcReact: n => `${n}: "Impressive... I guess."` },
+  whistle: { msg: '♫ Phweeee!', startleNPCs: true, npcReact: n => `${n} looks over curiously.` },
+  laugh:   { msg: 'Hahaha!', npcReact: n => `${n} laughs too!` },
+};
 
-function cmdWave() {
+function cmdEmote(arg) {
+  const name = (arg || '').toLowerCase().trim();
+  if (!name || !EMOTES[name]) {
+    const list = Object.keys(EMOTES).join(', ');
+    showMessage(`Emotes: ${list}`, 4);
+    return;
+  }
+  const emote = EMOTES[name];
+  showMessage(emote.msg, emote.duration || 2);
+  if (emote.spin) gameState.playerSpin = emote.spin;
+  if (emote.skipTime) { for (let i = 0; i < 3; i++) gameState.day++; }
+
+  // Startle nearby NPCs (yell, whistle)
+  if (emote.startleNPCs) {
+    for (const ns of npcStates) {
+      const dist = Math.hypot(ns.x - player.x, ns.y - player.y);
+      if (dist < TILE_SIZE * 6) {
+        const dx = player.x - ns.x, dy = player.y - ns.y;
+        if (Math.abs(dx) > Math.abs(dy)) ns.facing = dx > 0 ? 'right' : 'left';
+        else ns.facing = dy > 0 ? 'down' : 'up';
+        ns.moving = false;
+        ns.waitTimer = 2;
+      }
+    }
+  }
+
+  // Nearby NPC reaction
   const nearby = nearbyNPC(player.x, player.y, npcStates);
-  showMessage('You wave!', 1.5);
-  if (nearby) {
+  if (nearby && emote.npcReact) {
     setTimeout(() => {
-      showMessage(`${nearby.npc.name} waves back!`, 2);
+      showMessage(emote.npcReact(nearby.npc.name), 2.5);
     }, 1500);
   }
 }
 
-function cmdYell() {
-  showMessage('AAAHH!', 2);
-  // Nearby NPCs face toward player and pause
-  for (const ns of npcStates) {
-    const dist = Math.hypot(ns.x - player.x, ns.y - player.y);
-    if (dist < TILE_SIZE * 6) {
-      const dx = player.x - ns.x, dy = player.y - ns.y;
-      if (Math.abs(dx) > Math.abs(dy)) ns.facing = dx > 0 ? 'right' : 'left';
-      else ns.facing = dy > 0 ? 'down' : 'up';
-      ns.moving = false;
-      ns.waitTimer = 2;
+function cmdDance() { cmdEmote('dance'); }
+function cmdWave() { cmdEmote('wave'); }
+function cmdYell() { cmdEmote('yell'); }
+
+// ── Wishlist-Driven Commands ──
+
+function cmdMutate(arg) {
+  const idx = arg ? parseInt(arg) - 1 : player.selectedSlot;
+  if (isNaN(idx) || idx < 0 || idx >= player.inventory.length) { showMessage('No item in that slot.'); return; }
+  const item = player.inventory[idx];
+  if (item.kind !== 'organism') { showMessage('Can only mutate organisms.'); return; }
+  const oldGenes = [...item.genes];
+  item.genes = mutateGenes(item.genes, item.mode, 2); // intensity 2 for noticeable change
+  item.sellPrice = null; // invalidate cached price
+  const changed = item.genes.reduce((n, g, i) => n + (g !== oldGenes[i] ? 1 : 0), 0);
+  showMessage([`Mutated ${item.nickname || 'organism'}!`, `${changed} gene${changed !== 1 ? 's' : ''} changed.`], 3);
+}
+
+function cmdRelease(arg) {
+  if (player.inventory.length === 0) { showMessage('Inventory is empty.'); return; }
+  const idx = arg ? parseInt(arg) - 1 : player.selectedSlot;
+  if (isNaN(idx) || idx < 0 || idx >= player.inventory.length) { showMessage('Invalid slot.'); return; }
+  const item = player.inventory[idx];
+  if (item.kind !== 'organism') { showMessage('Can only release organisms.'); return; }
+  // Place it as a wild biomorph on the nearest grass tile
+  const { col, row } = facingTile(player);
+  const name = item.nickname || 'biomorph';
+  player.inventory.splice(idx, 1);
+  if (player.selectedSlot >= player.inventory.length) player.selectedSlot = Math.max(0, player.inventory.length - 1);
+  // Try to place on facing tile or nearby
+  if (tileAt(world, col, row) === TILE.GRASS) {
+    world[row][col] = TILE.TREE;
+    item.stage = 'mature';
+    item.growthProgress = item.matureDays;
+    wilds.set(`${col},${row}`, item);
+    showMessage(`Released ${name} into the wild! It takes root nearby.`, 3);
+  } else {
+    showMessage(`Released ${name}. It wanders off into the forest.`, 3);
+  }
+}
+
+function cmdCollect() {
+  const { col, row } = facingTile(player);
+  const wild = getWildOrganism(wilds, col, row);
+  if (!wild) { showMessage('No wild biomorph here. Face a tree and try again.'); return; }
+  if (player.inventory.length >= 9) { showMessage('Inventory full! Sell or release something first.'); return; }
+  wild.nickname = wild.nickname || generateName();
+  player.inventory.push(wild);
+  removeWildOrganism(wilds, col, row);
+  world[row][col] = TILE.GRASS;
+  showMessage(`Collected ${wild.nickname}! (slot ${player.inventory.length})`, 2);
+}
+
+function cmdWater() {
+  // Boost growth of all planted crops
+  if (planted.length === 0) { showMessage('Nothing planted to water.'); return; }
+  let boosted = 0;
+  for (const p of planted) {
+    if (p.stage !== 'mature') {
+      p.growthProgress = Math.min(p.growthProgress + 1, p.matureDays);
+      boosted++;
     }
   }
+  if (boosted === 0) showMessage('All crops are already mature!', 2);
+  else showMessage(`Watered ${boosted} crop${boosted !== 1 ? 's' : ''}! Growth boosted.`, 2);
+}
+
+function cmdPet() {
+  // Pet the nearest planted biomorph or wild tree you're facing
+  const { col, row } = facingTile(player);
+  const wild = getWildOrganism(wilds, col, row);
+  if (wild) {
+    const name = wild.nickname || 'the wild biomorph';
+    const reactions = ['purrs gently', 'sways happily', 'glows a little brighter', 'rustles its branches contentedly', 'seems to smile'];
+    const reaction = reactions[Math.floor(Math.random() * reactions.length)];
+    showMessage(`You pet ${name}. It ${reaction}.`, 3);
+    return;
+  }
+  // Check planted
+  for (const p of planted) {
+    const pc = Math.floor(p.x / TILE_SIZE);
+    const pr = Math.floor(p.y / TILE_SIZE);
+    if (pc === col && pr === row) {
+      const name = p.nickname || 'your crop';
+      const reactions = ['wiggles happily', 'grows a tiny bit taller', 'seems pleased', 'sparkles for a moment'];
+      const reaction = reactions[Math.floor(Math.random() * reactions.length)];
+      showMessage(`You pet ${name}. It ${reaction}.`, 3);
+      return;
+    }
+  }
+  showMessage('Nothing here to pet. Face a tree or planted biomorph.', 2);
+}
+
+function cmdPhoto() {
+  const canvas = document.querySelector('canvas');
+  if (!canvas) { showMessage('No canvas found.'); return; }
+  try {
+    const link = document.createElement('a');
+    link.download = `biomorph-farm-day${gameState.day}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    showMessage(`Photo saved! (Day ${gameState.day})`, 2);
+  } catch (e) {
+    showMessage('Could not take photo.', 2);
+  }
+}
+
+function cmdFarmName(arg) {
+  if (!arg) {
+    showMessage(`Farm name: "${gameState.farmName || 'Unnamed Farm'}"`, 2);
+    return;
+  }
+  gameState.farmName = arg.slice(0, 24);
+  showMessage(`Farm renamed to "${gameState.farmName}"!`, 2);
+}
+
+function cmdSelect(arg) {
+  const slot = parseInt(arg) - 1;
+  if (isNaN(slot) || slot < 0 || slot >= player.inventory.length) {
+    showMessage(`Invalid slot. You have ${player.inventory.length} items (1-${player.inventory.length}).`);
+    return;
+  }
+  player.selectedSlot = slot;
+  const item = player.inventory[slot];
+  const label = item.nickname || item.kind || 'item';
+  showMessage(`Selected slot ${slot + 1}: ${label}`, 1.5);
+}
+
+function cmdSellAll() {
+  if (player.inventory.length === 0) { showMessage('Inventory is empty.'); return; }
+  let total = 0;
+  let count = 0;
+  while (player.inventory.length > 0) {
+    const item = player.inventory[0];
+    let price = 0;
+    try { price = sellPrice(item); } catch (e) { price = 1; }
+    if (item.kind === 'organism') {
+      const isNew = recordSale(collection, item);
+      const discovery = checkAndRegister(registry, item, 'player', gameState.day);
+      if (discovery.isNew) {
+        collection.notifications.push(`NEW DISCOVERY! ${RARITY_LABELS[discovery.rarity]} species found!`);
+      }
+      if (isNew) price = Math.floor(price * 1.5);
+    }
+    player.wallet += price;
+    total += price;
+    count++;
+    player.inventory.splice(0, 1);
+  }
+  player.selectedSlot = 0;
+  showMessage(`Sold ${count} items for ${total}g! (${player.wallet}g total)`, 3);
+}
+
+function cmdStatus() {
+  const inv = player.inventory;
+  const planted = window.__GAME_STATE__?.planted?.length || 0;
+  const lines = [
+    `Day ${gameState.day} | ${player.wallet}g`,
+    `Inventory: ${inv.length} items | Planted: ${planted} plots`,
+  ];
+  if (inv.length > 0) {
+    const selected = inv[player.selectedSlot];
+    lines.push(`Selected: [${player.selectedSlot + 1}] ${selected?.nickname || selected?.kind || 'item'}`);
+  }
+  showMessage(lines, 4);
 }
 
 function cmdAI(arg, parts) {
@@ -2213,9 +2447,13 @@ const COMMANDS = {
   talk: cmdTalk,
   name: cmdName,
   compare: cmdCompare,
-  dance: cmdDance,
-  wave: cmdWave,
-  yell: cmdYell,
+  emote: cmdEmote,
+  dance: cmdDance, wave: cmdWave, yell: cmdYell,
+  sit: () => cmdEmote('sit'), sing: () => cmdEmote('sing'),
+  think: () => cmdEmote('think'), sleep: () => cmdEmote('sleep'),
+  cheer: () => cmdEmote('cheer'), bow: () => cmdEmote('bow'),
+  flex: () => cmdEmote('flex'), whistle: () => cmdEmote('whistle'),
+  laugh: () => cmdEmote('laugh'),
   gallery: cmdGallery,
   creative: cmdCreative,
   circle: cmdMove, move: cmdMove,
@@ -2224,6 +2462,16 @@ const COMMANDS = {
   garden: cmdGarden,
   zoom: cmdZoom,
   level: cmdLevel,
+  select: cmdSelect,
+  sellall: cmdSellAll,
+  status: cmdStatus,
+  mutate: cmdMutate,
+  release: cmdRelease,
+  collect: cmdCollect,
+  water: cmdWater,
+  pet: cmdPet,
+  photo: cmdPhoto,
+  farmname: cmdFarmName,
 };
 
 const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level'];
