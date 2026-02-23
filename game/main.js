@@ -21,6 +21,7 @@ import { aiDayTick, updateAITasks, getNarration, precomputeSpectatorAction } fro
 import { loadDawkinsDialogue, createDawkinsState, canStartVisit, startVisit, advanceLine, selectChoice, getCurrentLine, completeVisit } from './dawkins.js';
 import { loadAudioSettings, getAudioSettings, initOnInteraction, toggleMusic, toggleVoice, toggleAutoFollow, startMusic, stopMusic, setMusicMood, speak, stopSpeech, resetLastSpoken } from './audio.js';
 import { loadLLMSettings, getLLMSettings, setLLMSetting, interpretCommand, buildGameContext, addWish, getWishlist, clearWishlist, getConversationState, clearConversation, captureScreenshot } from './llm.js';
+import { parseActions, createActionRunner } from './actions.js';
 import { initExhibits, exhibitBreederURL } from './exhibits.js';
 import { loadBreederGallery, loadAllImportable, breederToOrganism, galleryImportCost } from './gallery-bridge.js';
 import { createDiscoveryRegistry, checkAndRegister, seedGenesisSpecimens, serializeRegistry, deserializeRegistry, RARITY_LABELS, RARITY_COLORS } from './discovery.js';
@@ -2447,6 +2448,17 @@ function cmdCreative() {
   }
 }
 
+function cmdMoveTo(arg) {
+  const parts = arg.split(/\s+/);
+  const col = parseInt(parts[0]);
+  const row = parseInt(parts[1]);
+  if (isNaN(col) || isNaN(row)) { showMessage('Usage: moveto <col> <row>'); return; }
+  if (col < 0 || col >= COLS || row < 0 || row >= ROWS) { showMessage('Out of bounds.'); return; }
+  const x = col * TILE_SIZE + TILE_SIZE / 2;
+  const y = row * TILE_SIZE + TILE_SIZE / 2;
+  gameState.walkTarget = { x, y, label: 'moveto' };
+}
+
 const COMMANDS = {
   follow: cmdFollow, f: cmdFollow,
   stop: cmdStop, unfollow: cmdStop,
@@ -2484,7 +2496,7 @@ const COMMANDS = {
   laugh: () => cmdEmote('laugh'),
   gallery: cmdGallery,
   creative: cmdCreative,
-  circle: cmdMove, move: cmdMove,
+  circle: cmdMove, move: cmdMove, moveto: cmdMoveTo,
   sell: cmdSell,
   breed: cmdBreed,
   garden: cmdGarden,
@@ -2506,7 +2518,7 @@ const COMMANDS = {
   hello: () => showMessage('Hello, farmer! The biomorphs wave their branches at you.', 2),
 };
 
-const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level'];
+const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level', 'moveto'];
 
 function executeCommand(raw) {
   const rawParts = raw.split(/\s+/);
@@ -2534,14 +2546,14 @@ function executeCommand(raw) {
   if (llm.enabled && llm.apiKey) {
     gameState.aiThinking = true;
     showMessage('Thinking...', 15);
-    const ctx = buildGameContext(gameState, player, npcStates, planted, collection);
+    const ctx = buildGameContext(gameState, player, npcStates, planted, collection, world, TILE_SIZE);
 
     // If AI requested feedback, capture screenshot and include it
     const canvas = document.querySelector('canvas');
     const screenshot = gameState.aiFeedbackRequested ? captureScreenshot(canvas) : null;
     gameState.aiFeedbackRequested = false;
 
-    interpretCommand(raw, ctx, screenshot).then(result => {
+    interpretCommand(raw, ctx, screenshot).then(async result => {
       gameState.aiThinking = false;
       if (!result) {
         showMessage(`Couldn't map "${raw}" \u2014 try /help`, 3);
@@ -2566,13 +2578,49 @@ function executeCommand(raw) {
         if (wish) addWish(raw, wish);
       }
 
+      // Parse into structured actions
+      const parsed = parseActions(command);
+
+      // Multi-step: more than one DO: action
+      if (parsed.actions.length > 1 || (parsed.actions.length === 1 && parsed.actions[0].type === 'do')) {
+        const doActions = parsed.actions.filter(a => a.type === 'do');
+        if (doActions.length > 1) {
+          // Multi-step execution via action runner
+          const leftover = await actionRunner.run(parsed.actions, parsed.say);
+          if (leftover) {
+            // Handle trailing ASK/SUGGEST from multi-step
+            if (leftover.type === 'ask') {
+              showMessage(leftover.content, 8);
+              setTimeout(() => {
+                gameState.commandBar.active = true;
+                gameState.commandBar.text = '';
+                gameState.commandBar.suggestion = false;
+                input.setTextMode(true);
+              }, 300);
+            } else if (leftover.type === 'suggest') {
+              gameState.message = null;
+              gameState.commandBar.active = true;
+              gameState.commandBar.text = leftover.content;
+              gameState.commandBar.suggestion = true;
+              input.setTextMode(true);
+            }
+          }
+          return;
+        }
+      }
+
+      // Single action — existing dispatch logic
+      // Extract the command content from parsed result
+      const singleContent = parsed.actions.length === 1 && parsed.actions[0].type === 'do'
+        ? parsed.actions[0].content : command;
+
       // Handle response types
-      if (command.startsWith('WISH:')) {
-        const wish = command.slice(5).trim();
+      if (singleContent.startsWith('WISH:')) {
+        const wish = singleContent.slice(5).trim();
         addWish(raw, wish);
         showMessage([wish, '(saved to /ai wishlist)'], 6);
-      } else if (command.startsWith('ASK:')) {
-        const question = command.slice(4).trim();
+      } else if (singleContent.startsWith('ASK:')) {
+        const question = singleContent.slice(4).trim();
         showMessage(question, 8);
         // Re-open command bar for the answer
         setTimeout(() => {
@@ -2581,19 +2629,25 @@ function executeCommand(raw) {
           gameState.commandBar.suggestion = false;
           input.setTextMode(true);
         }, 300);
-      } else if (command.startsWith('SAY:')) {
-        showMessage(command.slice(4).trim(), 5);
-      } else if (command.startsWith('SUGGEST:')) {
-        const suggested = command.slice(8).trim();
+      } else if (singleContent.startsWith('SAY:')) {
+        showMessage(singleContent.slice(4).trim(), 5);
+      } else if (singleContent.startsWith('SUGGEST:')) {
+        const suggested = singleContent.slice(8).trim();
         gameState.message = null;
         gameState.commandBar.active = true;
         gameState.commandBar.text = suggested;
         gameState.commandBar.suggestion = true;
         input.setTextMode(true);
       } else {
-        showMessage([`> ${command}`, '(AI interpreted)'], 2);
+        // Single DO: or plain command
+        const execCmd = parsed.actions[0]?.type === 'do' ? parsed.actions[0].content : singleContent;
+        showMessage([`> ${execCmd}`, '(AI interpreted)'], 2);
         setTimeout(() => {
-          executeCommand(command);
+          executeCommand(execCmd);
+          // Show SAY if present
+          if (parsed.say) {
+            setTimeout(() => showMessage(parsed.say, 5), 800);
+          }
           // If AI wants feedback, schedule it after the command executes
           if (wantsFeedback) {
             setTimeout(() => {
@@ -2615,6 +2669,10 @@ function executeCommand(raw) {
 
   showMessage(`Unknown: "${cmd}" \u2014 type /help`);
 }
+
+// ── Action Runner (multi-step AI commands) ──
+
+const actionRunner = createActionRunner(executeCommand, gameState, player, showMessage);
 
 // ── Game Loop ──
 
@@ -2746,11 +2804,16 @@ function gameLoop(timestamp) {
 
   // ── Playing phase ──
 
+  // Cancel action runner on Escape (before pause toggle consumes it)
+  if (actionRunner.isRunning && input.justPressed('Escape')) {
+    actionRunner.cancel();
+  }
+
   // Pause toggle: P key always, Escape when no overlay and not following
   if (input.justPressed('p') || input.justPressed('P')) {
     gameState.paused = !gameState.paused;
   }
-  if (!gameState.overlay && gameState.followNpcIdx < 0 && input.justPressed('Escape')) {
+  if (!gameState.overlay && gameState.followNpcIdx < 0 && !actionRunner.isRunning && input.justPressed('Escape')) {
     gameState.paused = !gameState.paused;
   }
 

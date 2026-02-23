@@ -71,7 +71,7 @@ export function clearConversation() {
 
 // ── Game Context ──
 
-export function buildGameContext(gameState, player, npcStates, planted, collection) {
+export function buildGameContext(gameState, player, npcStates, planted, collection, world, tileSize) {
   const inv = player.inventory;
   const invLines = inv.slice(0, 9).map((item, i) => {
     if (item.kind === 'organism') {
@@ -89,13 +89,41 @@ export function buildGameContext(gameState, player, npcStates, planted, collecti
     return `${ns.id} ${task} ${ns.wallet}g`;
   }).join(', ');
 
+  // Spatial context: player position and nearby tiles
+  const ts = tileSize || 48;
+  const pCol = Math.floor(player.x / ts);
+  const pRow = Math.floor(player.y / ts);
+  const facing = player.facing || 'down';
+
+  // Tile type names for spatial context
+  const TILE_NAMES = { 0: 'grass', 1: 'dirt', 2: 'water', 3: 'wall', 4: 'floor', 5: 'planted', 6: 'door' };
+  let nearbyDesc = '';
+  if (world) {
+    const tiles = [];
+    for (let dr = -2; dr <= 2; dr++) {
+      for (let dc = -2; dc <= 2; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const r = pRow + dr, c = pCol + dc;
+        if (r >= 0 && r < world.length && c >= 0 && c < world[0].length) {
+          const t = world[r][c];
+          const name = TILE_NAMES[t] || `tile${t}`;
+          if (name !== 'grass' && name !== 'wall' && name !== 'floor') {
+            tiles.push(`${name}@(${c},${r})`);
+          }
+        }
+      }
+    }
+    if (tiles.length > 0) nearbyDesc = `\nNearby: ${tiles.join(', ')}`;
+  }
+
   const ctx = [
     `Day ${gameState.day} | ${player.wallet}g | Inventory: ${inv.length} items`,
     invLines.length > 0 ? invLines.join('  ') : '(empty)',
+    `Position: col ${pCol}, row ${pRow}, facing ${facing}`,
     `Planted: ${planted.length} plots`,
     `NPCs: ${npcLines}`,
     `Mode: ${gameState.sandboxMode ? 'sandbox' : gameState.creativeMode ? 'creative' : 'survival'}`,
-  ].join('\n');
+  ].join('\n') + nearbyDesc;
   conversationContext = ctx;
   return ctx;
 }
@@ -124,6 +152,7 @@ Movement & Navigation:
   stop                  — stop following
   move <dir> [n]        — walk n tiles (left/right/up/down/north/south/east/west)
   move <pattern> [size] — walk a pattern (circle/zigzag)
+  moveto <col> <row>    — walk to exact tile coordinates (for spatial building)
 
 Inventory & Economy:
   inventory             — list your items (alias: inv)
@@ -185,11 +214,29 @@ OTHER SYNTAX NOTES:
 - "zoom out" means a SMALLER number like "zoom 50". "zoom in" means bigger like "zoom 150".
 
 RESPONSE FORMAT — pick exactly one:
-  command              — execute directly, e.g. "warp shop" or "breed 1 2"
+  command              — single command, e.g. "warp shop" or "breed 1 2"
+  DO:/SAY: lines       — multi-step sequence (see MULTI-STEP above)
   SAY: ...             — conversational reply (for questions, banter, advice, lore)
   ASK: ...             — need more info before acting
   SUGGEST: ...         — uncertain mapping, let player confirm
   NONE                 — only for pure gibberish
+
+MULTI-STEP: For compound requests, use multiple DO: lines:
+DO: breed 1 2
+DO: name $last Ziggy Jr
+DO: warp home
+DO: plant $last
+SAY: Done! Bred Ziggy Jr and planted them at home.
+
+$last = the slot number of the last item created (from breed, collect, harvest).
+Single commands still work fine without DO: prefix.
+Always end multi-step sequences with SAY: summarizing what happened.
+For spatial building, use moveto to position before each action:
+DO: moveto 10 5
+DO: plow
+DO: moveto 11 5
+DO: plow
+SAY: Plowed a 2-tile row!
 
 CREATIVE MAPPING — be generous with interpretation:
 - "build me a castle" → garden square 8 (biggest structure possible)
@@ -270,7 +317,7 @@ export async function interpretCommand(rawInput, context, screenshotDataUrl) {
       body: JSON.stringify({
         model,
         messages,
-        max_tokens: 200,
+        max_tokens: 500,
         temperature: 0.3,
       }),
     });

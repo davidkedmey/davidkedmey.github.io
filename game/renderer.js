@@ -287,6 +287,21 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
     }
     drawMessage(ctx, lines);
   }
+
+  // Action runner step counter
+  if (gs.actionRunner) {
+    const { step, total, label } = gs.actionRunner;
+    const text = `[${step}/${total}] ${label}`;
+    ctx.font = 'bold 12px monospace';
+    const tw = ctx.measureText(text).width;
+    const px = CANVAS_W - tw - 16;
+    const py = HUD_Y - 24;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.fillRect(px - 6, py - 12, tw + 12, 18);
+    ctx.fillStyle = '#8f8';
+    ctx.textAlign = 'left';
+    ctx.fillText(text, px, py);
+  }
 }
 
 // ── Intro ──
