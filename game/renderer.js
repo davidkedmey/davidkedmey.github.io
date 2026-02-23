@@ -12,6 +12,7 @@ import { PROPERTIES, getOwner } from './property.js';
 import { getTaskLabel } from './ai.js';
 import { RARITY_COLORS, RARITY_LABELS, getLeaderboardRanked, getRarityBreakdown, getMorphospaceData } from './discovery.js';
 import { galleryImportCost } from './gallery-bridge.js';
+import { getLLMSettings } from './llm.js';
 
 export const CANVAS_W = 960;
 export const CANVAS_H = 768;
@@ -87,6 +88,25 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
     drawPropertyBorders(ctx, cx, cy);
     drawBuildings(ctx, collection, cx, cy, gs.dawkinsState);
     drawZoneSigns(ctx, cx, cy);
+  }
+
+  // Structure name labels (player-built structures)
+  if (gs.structures && gs.structures.length > 0 && !gs.sandboxMode) {
+    ctx.font = 'bold 9px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    for (const s of gs.structures) {
+      const sx = (s.col + s.w / 2) * TILE_SIZE - cx;
+      const sy = s.row * TILE_SIZE - cy - 4;
+      if (sx < -100 || sx > CANVAS_W + 100 || sy < -30 || sy > VIEW_H + 30) continue;
+      const tw = ctx.measureText(s.name).width;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(sx - tw / 2 - 3, sy - 10, tw + 6, 14);
+      ctx.fillStyle = '#ddc';
+      ctx.fillText(s.name, sx, sy);
+    }
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
   }
 
   // World exhibits (curated permanent specimens — skip in sandbox)
@@ -266,6 +286,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
   if (gs.overlay === 'gallery') drawGalleryOverlay(ctx, gs);
   if (gs.overlay === 'help') drawHelpOverlay(ctx);
   if (gs.overlay === 'codex') drawCodexOverlay(ctx, gs, registry);
+  if (gs.overlay === 'llm-settings') drawLLMSettingsOverlay(ctx, gs);
 
   // Spectator banner (skip in sandbox)
   if (gs.spectator && !gs.sandboxMode) drawSpectatorBanner(ctx, gs);
@@ -2589,6 +2610,7 @@ function drawHelpOverlay(ctx) {
     ['F', 'Auto-follow toggle'],
     ['Right-drag', 'Pan camera'],
     ['C', 'Open Codex'],
+    ['L', 'AI Settings'],
   ];
 
   const col1 = px + 20;
@@ -2643,6 +2665,7 @@ function drawHelpOverlay(ctx) {
     ['/ai', 'AI settings & status'],
     ['/ai on|off', 'Enable/disable AI'],
     ['/ai key <key>', 'Set API key'],
+    ['/settings', 'Open AI settings panel'],
   ];
 
   const col3 = px + 330;
@@ -2997,6 +3020,84 @@ function drawPanel(ctx, x, y, w, h, title) {
   ctx.fillStyle = '#fff'; ctx.font = 'bold 15px monospace';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(title, x+w/2, y+17);
+}
+
+// ── LLM Settings Overlay ──
+
+function drawLLMSettingsOverlay(ctx, gs) {
+  overlayBg(ctx);
+  const pw = 520, ph = 300;
+  const px = (CANVAS_W - pw) / 2, py = (CANVAS_H - ph) / 2;
+  drawPanel(ctx, px, py, pw, ph, 'AI Settings');
+
+  const llm = getLLMSettings();
+  const fields = [
+    { label: 'Enabled', value: llm.enabled ? 'ON' : 'OFF' },
+    { label: 'API Key', value: llm.apiKey ? 'sk-...' + llm.apiKey.slice(-4) : '(not set)' },
+    { label: 'Model', value: llm.model || '(default)' },
+    { label: 'Base URL', value: llm.baseUrl || '(default)' },
+  ];
+
+  const rowH = 44;
+  const startY = py + 50;
+  const labelX = px + 30;
+  const valueX = px + 150;
+  const fieldW = pw - 170;
+
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < fields.length; i++) {
+    const ry = startY + i * rowH;
+    const selected = gs.llmSettingsField === i;
+
+    // Row highlight
+    if (selected) {
+      ctx.fillStyle = 'rgba(255,255,255,0.07)';
+      ctx.fillRect(px + 8, ry, pw - 16, rowH - 4);
+    }
+
+    // Label
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = selected ? '#8ab4f8' : '#888';
+    ctx.fillText(fields[i].label, labelX, ry + rowH / 2);
+
+    // Value / edit field
+    if (gs.llmSettingsEditing && selected && i >= 1) {
+      // Editing: draw text input box
+      ctx.fillStyle = '#1a1a3a';
+      ctx.fillRect(valueX, ry + 6, fieldW, rowH - 16);
+      ctx.strokeStyle = '#8ab4f8';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(valueX, ry + 6, fieldW, rowH - 16);
+      // Text with cursor
+      ctx.font = '12px monospace';
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'left';
+      const displayText = i === 1 ? '\u2022'.repeat(Math.min(gs.llmSettingsText.length, 40)) : gs.llmSettingsText;
+      const cursorBlink = Math.floor(Date.now() / 500) % 2 === 0;
+      ctx.fillText(displayText + (cursorBlink ? '\u2588' : ''), valueX + 6, ry + rowH / 2);
+    } else {
+      ctx.font = '12px monospace';
+      ctx.textAlign = 'left';
+      if (i === 0) {
+        ctx.fillStyle = llm.enabled ? '#7c7' : '#f88';
+      } else {
+        ctx.fillStyle = selected ? '#ddd' : '#aaa';
+      }
+      ctx.fillText(fields[i].value, valueX, ry + rowH / 2);
+    }
+  }
+
+  // Footer
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#666';
+  const footerY = py + ph - 18;
+  if (gs.llmSettingsEditing) {
+    ctx.fillText('[Enter] save  [Esc] cancel', px + pw / 2, footerY);
+  } else {
+    ctx.fillText('[↑↓] select  [Space] toggle  [Enter] edit  [Esc] close', px + pw / 2, footerY);
+  }
 }
 
 function drawInvGrid(ctx, inv, selectedSlot, x, y, highlightIdx, hlColor) {

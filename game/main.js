@@ -1,6 +1,6 @@
 // Entry point: init, RAF game loop, day cycle
 
-import { createWorld, createSandboxWorld, TILE, tileAt, isSolid, TILE_SIZE, COLS, ROWS, nearbyBuilding, BUILDINGS, buildingDoorPos } from './world.js';
+import { createWorld, createSandboxWorld, TILE, tileAt, isSolid, TILE_SIZE, COLS, ROWS, nearbyBuilding, BUILDINGS, buildingDoorPos, STRUCTURE_TEMPLATES, parseStructureTiles } from './world.js';
 import { createPlayer, updatePlayer, facingTile } from './player.js';
 import { createInput } from './input.js';
 import { render, updateCamera, snapCamera, CANVAS_W, CANVAS_H } from './renderer.js';
@@ -199,6 +199,8 @@ const gameState = {
   aiFeedbackRequested: false,
   // Creative mode
   creativeMode: false,
+  // Player-built structures
+  structures: [],
   // Gallery overlay
   galleryCursor: 0,
   galleryScroll: 0,
@@ -219,6 +221,10 @@ const gameState = {
   sandboxPaletteIdx: 0,  // current index in palette
   sandboxUndoStack: [],  // for undo
   sandboxZoom: 1.0,      // zoom level — snap to ZOOM_PRESETS values
+  // LLM settings overlay
+  llmSettingsField: 0,       // 0=enabled, 1=apiKey, 2=model, 3=baseUrl
+  llmSettingsEditing: false, // true when typing into a field
+  llmSettingsText: '',       // text buffer for editing field
 };
 
 // Default inventory
@@ -303,6 +309,7 @@ function applySave(save) {
   }
   gameState.creativeMode = save.creativeMode || false;
   gameState.level = save.level || 'adventure';
+  gameState.structures = save.structures || [];
   showMessage('Game loaded!');
 }
 
@@ -2044,11 +2051,58 @@ function cmdMove(arg) {
 function cmdPlant(arg) {
   const slotIdx = arg ? parseInt(arg) - 1 : null;
   if (slotIdx != null && slotIdx >= 0) player.selectedSlot = slotIdx;
-  doPlant(slotIdx != null && slotIdx >= 0 ? slotIdx : null);
+  const effectiveSlot = slotIdx != null && slotIdx >= 0 ? slotIdx : null;
+  // Try direct plant first
+  const result = doPlant(effectiveSlot);
+  if (result !== false) return;
+  // Smart auto-seek: find nearest empty dirt tile
+  const pCol = Math.floor(player.x / TILE_SIZE);
+  const pRow = Math.floor(player.y / TILE_SIZE);
+  const target = findNearestTile(pCol, pRow, (c, r) => {
+    const t = tileAt(world, c, r);
+    const validTile = gameState.creativeMode ? (t === TILE.DIRT || t === TILE.GRASS) : (t === TILE.DIRT);
+    if (!validTile) return false;
+    if (!gameState.creativeMode && !isPlayerProperty(c, r)) return false;
+    if (planted.find(o => o.tileCol === c && o.tileRow === r)) return false;
+    return true;
+  });
+  if (!target) { showMessage('No empty dirt nearby.'); return; }
+  if (walkToAndFace(target.col, target.row, () => doPlant(effectiveSlot))) {
+    showMessage('Walking to plant...', 1.5);
+  }
 }
 
-function cmdHarvest() { doHarvest(); }
-function cmdPlow() { doPlow(); }
+function cmdHarvest() {
+  const result = doHarvest();
+  if (result !== false) return;
+  // Smart auto-seek: find nearest mature crop
+  const pCol = Math.floor(player.x / TILE_SIZE);
+  const pRow = Math.floor(player.y / TILE_SIZE);
+  const target = findNearestTile(pCol, pRow, (c, r) => {
+    return planted.some(o => o.tileCol === c && o.tileRow === r && o.stage === 'mature');
+  });
+  if (!target) { showMessage('No mature crops nearby.'); return; }
+  if (walkToAndFace(target.col, target.row, () => doHarvest())) {
+    showMessage('Walking to harvest...', 1.5);
+  }
+}
+
+function cmdPlow() {
+  const result = doPlow();
+  if (result !== false) return;
+  // Smart auto-seek: find nearest grass on player property
+  const pCol = Math.floor(player.x / TILE_SIZE);
+  const pRow = Math.floor(player.y / TILE_SIZE);
+  const target = findNearestTile(pCol, pRow, (c, r) => {
+    if (tileAt(world, c, r) !== TILE.GRASS) return false;
+    if (!gameState.creativeMode && !isPlayerProperty(c, r)) return false;
+    return true;
+  });
+  if (!target) { showMessage('No grass nearby to plow.'); return; }
+  if (walkToAndFace(target.col, target.row, () => doPlow())) {
+    showMessage('Walking to plow...', 1.5);
+  }
+}
 
 function cmdTrade(arg) {
   if (!arg) { showMessage('Usage: trade <npc name>'); return; }
@@ -2427,6 +2481,60 @@ function cmdAI(arg, parts) {
   showMessage('Usage: /ai [on|off|key|model|url|clear|wishlist|reset]');
 }
 
+function cmdLLMSettings() {
+  gameState.overlay = gameState.overlay === 'llm-settings' ? null : 'llm-settings';
+  gameState.llmSettingsField = 0;
+  gameState.llmSettingsEditing = false;
+}
+
+const LLM_FIELD_KEYS = ['enabled', 'apiKey', 'model', 'baseUrl'];
+
+function handleLLMSettingsInput() {
+  const gs = gameState;
+  if (gs.llmSettingsEditing) {
+    // Drain character buffer into text
+    const chars = input.drainCharBuffer();
+    for (const ch of chars) {
+      if (ch === '\b') {
+        gs.llmSettingsText = gs.llmSettingsText.slice(0, -1);
+      } else {
+        gs.llmSettingsText += ch;
+      }
+    }
+    if (input.justPressed('Enter')) {
+      // Save the edited value
+      const key = LLM_FIELD_KEYS[gs.llmSettingsField];
+      setLLMSetting(key, gs.llmSettingsText);
+      gs.llmSettingsEditing = false;
+      input.setTextMode(false);
+    } else if (input.justPressed('Escape')) {
+      gs.llmSettingsEditing = false;
+      input.setTextMode(false);
+    }
+    return;
+  }
+  // Not editing — navigation
+  if (input.justPressed('ArrowUp')) {
+    gs.llmSettingsField = (gs.llmSettingsField - 1 + 4) % 4;
+  }
+  if (input.justPressed('ArrowDown')) {
+    gs.llmSettingsField = (gs.llmSettingsField + 1) % 4;
+  }
+  if (input.justPressed(' ') && gs.llmSettingsField === 0) {
+    const llm = getLLMSettings();
+    setLLMSetting('enabled', !llm.enabled);
+  }
+  if (input.justPressed('Enter') && gs.llmSettingsField >= 1) {
+    const key = LLM_FIELD_KEYS[gs.llmSettingsField];
+    gs.llmSettingsText = getLLMSettings()[key] || '';
+    gs.llmSettingsEditing = true;
+    input.setTextMode(true);
+  }
+  if (input.justPressed('Escape')) {
+    gs.overlay = null;
+  }
+}
+
 function cmdGallery() {
   const items = loadAllImportable();
   if (items.length === 0) {
@@ -2446,6 +2554,230 @@ function cmdCreative() {
   } else {
     showMessage('Creative mode OFF — back to survival', 3);
   }
+}
+
+// ── Smart Auto-Seek Helpers ──
+
+function findNearestTile(col, row, predicate, maxRadius = 10) {
+  // Spiral outward search from (col, row)
+  for (let r = 1; r <= maxRadius; r++) {
+    for (let dc = -r; dc <= r; dc++) {
+      for (let dr = -r; dr <= r; dr++) {
+        if (Math.abs(dc) !== r && Math.abs(dr) !== r) continue; // only check perimeter
+        const c = col + dc, rr = row + dr;
+        if (c < 0 || c >= COLS || rr < 0 || rr >= ROWS) continue;
+        if (predicate(c, rr)) return { col: c, row: rr };
+      }
+    }
+  }
+  return null;
+}
+
+function walkToAndFace(targetCol, targetRow, callback) {
+  // Find an adjacent walkable tile to stand on, then face the target and call callback
+  const dirs = [
+    { dc: 0, dr: 1, facing: 'up' },    // stand below, face up
+    { dc: 0, dr: -1, facing: 'down' },  // stand above, face down
+    { dc: -1, dr: 0, facing: 'right' }, // stand left, face right
+    { dc: 1, dr: 0, facing: 'left' },   // stand right, face left
+  ];
+  for (const d of dirs) {
+    const sc = targetCol + d.dc, sr = targetRow + d.dr;
+    if (sc < 0 || sc >= COLS || sr < 0 || sr >= ROWS) continue;
+    const tile = tileAt(world, sc, sr);
+    if (isSolid(tile)) continue;
+    // Found a walkable adjacent tile
+    const x = sc * TILE_SIZE + TILE_SIZE / 2;
+    const y = sr * TILE_SIZE + TILE_SIZE / 2;
+    gameState.walkTarget = {
+      x, y, label: 'auto',
+      onArrive: () => {
+        player.facing = d.facing;
+        callback();
+      },
+    };
+    return true;
+  }
+  return false;
+}
+
+// ── Build / Demolish / Clear Commands ──
+
+let structureIdCounter = 1;
+
+function cmdBuild(arg) {
+  if (!arg) { showMessage('Usage: build <type> [name]'); return; }
+  const parts = arg.split(/\s+/);
+  const type = parts[0].toLowerCase();
+  const name = parts.slice(1).join(' ') || STRUCTURE_TEMPLATES[type]?.label || type;
+
+  const tmpl = STRUCTURE_TEMPLATES[type];
+  if (!tmpl) {
+    const types = Object.keys(STRUCTURE_TEMPLATES).join(', ');
+    showMessage(`Unknown type. Available: ${types}`);
+    return;
+  }
+
+  // Cost: free in creative, 100g + 10g/tile in adventure
+  const tiles = parseStructureTiles(type);
+  const cost = gameState.creativeMode ? 0 : 100 + tiles.length * 10;
+  if (!gameState.creativeMode && player.wallet < cost) {
+    showMessage(`Not enough gold. Need ${cost}g.`);
+    return;
+  }
+
+  // Place at facing direction
+  const ft = facingTile(player);
+  const baseCol = ft.col, baseRow = ft.row;
+
+  // Validate all tiles
+  const savedTiles = [];
+  for (const off of tiles) {
+    const c = baseCol + off.dc, r = baseRow + off.dr;
+    if (c < 0 || c >= COLS || r < 0 || r >= ROWS) {
+      showMessage('Too close to the edge.');
+      return;
+    }
+    const existing = tileAt(world, c, r);
+    if (existing !== TILE.GRASS && existing !== TILE.DIRT) {
+      showMessage('Can only build on grass or dirt tiles.');
+      return;
+    }
+    if (!gameState.creativeMode && !isPlayerProperty(c, r)) {
+      showMessage("Can't build on someone else's property!");
+      return;
+    }
+    // Check no planted organisms here
+    if (planted.find(o => o.tileCol === c && o.tileRow === r)) {
+      showMessage('Clear planted organisms first.');
+      return;
+    }
+    savedTiles.push({ col: c, row: r, was: existing });
+  }
+
+  // Place tiles
+  for (const off of tiles) {
+    world[baseRow + off.dr][baseCol + off.dc] = off.tile;
+  }
+
+  if (!gameState.creativeMode) player.wallet -= cost;
+
+  const structure = {
+    id: structureIdCounter++,
+    name: name.slice(0, 24),
+    type,
+    col: baseCol,
+    row: baseRow,
+    w: tmpl.w,
+    h: tmpl.h,
+    savedTiles,
+  };
+  gameState.structures.push(structure);
+
+  const costStr = cost > 0 ? ` (-${cost}g)` : '';
+  showMessage(`Built ${structure.name}!${costStr}`, 3);
+}
+
+function cmdDemolish(arg) {
+  const target = (arg || '').toLowerCase().trim();
+  if (!target) { showMessage('Usage: demolish <name|nearest>'); return; }
+  if (gameState.structures.length === 0) { showMessage('No structures to demolish.'); return; }
+
+  let structure;
+  if (target === 'nearest') {
+    const pCol = Math.floor(player.x / TILE_SIZE);
+    const pRow = Math.floor(player.y / TILE_SIZE);
+    let bestDist = Infinity;
+    for (const s of gameState.structures) {
+      const d = Math.abs(s.col - pCol) + Math.abs(s.row - pRow);
+      if (d < bestDist) { bestDist = d; structure = s; }
+    }
+  } else {
+    structure = gameState.structures.find(s => s.name.toLowerCase() === target);
+  }
+
+  if (!structure) { showMessage(`No structure named "${arg}".`); return; }
+
+  const doDemo = () => {
+    // Restore original tiles
+    for (const st of structure.savedTiles) {
+      world[st.row][st.col] = st.was;
+    }
+    gameState.structures.splice(gameState.structures.indexOf(structure), 1);
+    showMessage(`Demolished ${structure.name}.`, 3);
+  };
+
+  // Walk to structure first — find a walkable tile adjacent to the structure
+  const pCol = Math.floor(player.x / TILE_SIZE);
+  const pRow2 = Math.floor(player.y / TILE_SIZE);
+  const nearEnough = pCol >= structure.col - 2 && pCol <= structure.col + structure.w + 1 &&
+                     pRow2 >= structure.row - 2 && pRow2 <= structure.row + structure.h + 1;
+  if (nearEnough) {
+    doDemo();
+  } else {
+    // Target: one tile below the door gap
+    const doorCol = structure.col + Math.floor(structure.w / 2);
+    const belowRow = structure.row + structure.h; // first row below structure
+    const tx = doorCol * TILE_SIZE + TILE_SIZE / 2;
+    const ty = belowRow * TILE_SIZE + TILE_SIZE / 2;
+    gameState.walkTarget = { x: tx, y: ty, label: structure.name, onArrive: doDemo };
+    showMessage(`Walking to ${structure.name}...`, 1.5);
+  }
+}
+
+function cmdClearPlants(arg) {
+  const all = (arg || '').toLowerCase() === 'all';
+  let count = 0;
+  for (let i = planted.length - 1; i >= 0; i--) {
+    const p = planted[i];
+    // In non-creative, only remove player crops on player property
+    if (!all && !gameState.creativeMode && !isPlayerProperty(p.tileCol, p.tileRow)) continue;
+    planted.splice(i, 1);
+    count++;
+  }
+  showMessage(count > 0 ? `Cleared ${count} plant${count !== 1 ? 's' : ''}.` : 'No plants to clear.', 3);
+}
+
+function cmdClearTrees(arg) {
+  const all = (arg || '').toLowerCase() === 'all';
+  let count = 0;
+  for (let r = 1; r < ROWS - 1; r++) {
+    for (let c = 1; c < COLS - 1; c++) {
+      if (world[r][c] !== TILE.TREE) continue;
+      if (!all && !gameState.creativeMode && !isPlayerProperty(c, r)) continue;
+      world[r][c] = TILE.GRASS;
+      // Remove wild organism if present
+      if (wilds.has(`${c},${r}`)) wilds.delete(`${c},${r}`);
+      count++;
+    }
+  }
+  showMessage(count > 0 ? `Cleared ${count} tree${count !== 1 ? 's' : ''}.` : 'No trees to clear.', 3);
+}
+
+function cmdDestroy(arg) {
+  if (!arg) { showMessage('Usage: destroy <plants|trees|name>'); return; }
+  const target = arg.toLowerCase().trim();
+  if (target === 'plants' || target === 'crops') { cmdClearPlants('all'); return; }
+  if (target === 'trees') { cmdClearTrees('all'); return; }
+  if (target === 'all' || target === 'everything') {
+    cmdClearPlants('all');
+    cmdClearTrees('all');
+    return;
+  }
+  // Try demolish by name
+  cmdDemolish(arg);
+}
+
+function cmdStructures() {
+  if (gameState.structures.length === 0) {
+    showMessage('No structures built yet.', 2);
+    return;
+  }
+  const lines = gameState.structures.map(s =>
+    `${s.name} (${s.type}) at (${s.col},${s.row})`
+  );
+  lines.unshift(`Structures (${gameState.structures.length}):`);
+  showMessage(lines, 6);
 }
 
 function cmdMoveTo(arg) {
@@ -2513,12 +2845,19 @@ const COMMANDS = {
   photo: cmdPhoto,
   farmname: cmdFarmName,
   quest: cmdQuest,
+  settings: cmdLLMSettings,
+  build: cmdBuild,
+  demolish: cmdDemolish,
+  clearplants: cmdClearPlants,
+  cleartrees: cmdClearTrees,
+  destroy: cmdDestroy,
+  structures: cmdStructures,
   xyzzy: () => showMessage('A hollow voice says: "Plugh."', 3),
   plugh: () => showMessage('A hollow voice says: "Xyzzy."', 3),
   hello: () => showMessage('Hello, farmer! The biomorphs wave their branches at you.', 2),
 };
 
-const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level', 'moveto'];
+const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'settings', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level', 'moveto'];
 
 function executeCommand(raw) {
   const rawParts = raw.split(/\s+/);
@@ -2987,6 +3326,15 @@ function gameLoop(timestamp) {
   if (input.justPressed('h') || input.justPressed('H')) {
     gameState.overlay = gameState.overlay === 'help' ? null : 'help';
   }
+  if (input.justPressed('l') || input.justPressed('L')) {
+    if (gameState.overlay === 'llm-settings') {
+      gameState.overlay = null;
+    } else if (!gameState.overlay) {
+      gameState.overlay = 'llm-settings';
+      gameState.llmSettingsField = 0;
+      gameState.llmSettingsEditing = false;
+    }
+  }
   if (!gameState.sandboxMode && (input.justPressed('c') || input.justPressed('C'))) {
     if (gameState.overlay === 'codex') {
       gameState.overlay = null;
@@ -3055,6 +3403,7 @@ function gameLoop(timestamp) {
   else if (gameState.overlay === 'examine') handleExamineInput();
   else if (gameState.overlay === 'gallery') handleGalleryInput();
   else if (gameState.overlay === 'codex') handleCodexInput();
+  else if (gameState.overlay === 'llm-settings') handleLLMSettingsInput();
   else {
     // Arrow keys reset camera pan and cancel auto-walk
     if (input.ArrowLeft || input.ArrowRight || input.ArrowUp || input.ArrowDown) {
@@ -3247,10 +3596,7 @@ function gameLoop(timestamp) {
     const shopModes = gameState.creativeMode ? [1,2,3,4,5] : collection.unlockedModes;
     gameState.shopStock = generateShopStock(shopModes);
     // Wild forest spreading
-    const newTrees = wildDayTick(wilds, world);
-    if (newTrees > 0) {
-      showMessage(`The forest grew... (+${newTrees} tree${newTrees > 1 ? 's' : ''})`, 2);
-    }
+    wildDayTick(wilds, world);
   }
   } // end: !sandboxMode
 

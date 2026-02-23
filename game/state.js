@@ -34,6 +34,7 @@ export function saveGame(gameState, player, world, planted, inventory, collectio
     tutorialState: tutState ? { active: tutState.active, stepIdx: tutState.stepIdx, completed: tutState.completed } : null,
     dawkinsCompletedVisits: dState ? dState.completedVisits : 0,
     registry: registry ? serializeRegistry(registry) : null,
+    structures: gameState.structures || [],
     savedAt: Date.now(),
   };
   try {
@@ -201,6 +202,9 @@ export function loadGame() {
     data.exhibits = data.exhibits ? deserializeExhibits(data.exhibits) : null;
     // Deserialize registry
     data.registry = data.registry ? deserializeRegistry(data.registry) : null;
+
+    // Structures (backward compat)
+    data.structures = data.structures || [];
 
     return data;
   } catch (e) {

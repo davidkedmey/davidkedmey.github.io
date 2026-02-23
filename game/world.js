@@ -204,6 +204,41 @@ export function createSandboxWorld(cols, rows) {
   return grid;
 }
 
+// ── Structure Templates ──
+// Templates for player-buildable structures. Each defines dimensions and tile type.
+// Tiles generated procedurally: outer walls = BUILDING (or FENCE for pen/wall),
+// one door gap at bottom-center, interior untouched.
+export const STRUCTURE_TEMPLATES = {
+  shed:    { w: 2, h: 2, tile: 'building', label: 'Shed' },
+  cottage: { w: 3, h: 3, tile: 'building', label: 'Cottage' },
+  barn:    { w: 4, h: 3, tile: 'building', label: 'Barn' },
+  tower:   { w: 1, h: 3, tile: 'building', label: 'Tower' },
+  pen:     { w: 4, h: 4, tile: 'fence',    label: 'Pen' },
+  wall:    { w: 5, h: 1, tile: 'fence',    label: 'Wall' },
+};
+
+// Returns [{dc, dr, tile}] offset array for a structure template.
+// Outer walls use the template's tile type, with a door gap at bottom-center.
+// Interior tiles are left untouched (not included in the array).
+export function parseStructureTiles(templateName) {
+  const tmpl = STRUCTURE_TEMPLATES[templateName];
+  if (!tmpl) return null;
+  const tileType = tmpl.tile === 'fence' ? TILE.FENCE : TILE.BUILDING;
+  const offsets = [];
+  const doorCol = Math.floor(tmpl.w / 2); // bottom-center door gap
+
+  for (let dr = 0; dr < tmpl.h; dr++) {
+    for (let dc = 0; dc < tmpl.w; dc++) {
+      const isEdge = dr === 0 || dr === tmpl.h - 1 || dc === 0 || dc === tmpl.w - 1;
+      if (!isEdge) continue; // skip interior
+      // Door gap at bottom-center
+      if (dr === tmpl.h - 1 && dc === doorCol) continue;
+      offsets.push({ dc, dr, tile: tileType });
+    }
+  }
+  return offsets;
+}
+
 export function isSolid(tile) {
   return tile === TILE.WATER || tile === TILE.BUILDING || tile === TILE.TREE || tile === TILE.FENCE;
 }

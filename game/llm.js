@@ -116,6 +116,8 @@ export function buildGameContext(gameState, player, npcStates, planted, collecti
     if (tiles.length > 0) nearbyDesc = `\nNearby: ${tiles.join(', ')}`;
   }
 
+  const structLines = (gameState.structures || []).map(s => `${s.name}(${s.type})@(${s.col},${s.row})`).join(', ');
+
   const ctx = [
     `Day ${gameState.day} | ${player.wallet}g | Inventory: ${inv.length} items`,
     invLines.length > 0 ? invLines.join('  ') : '(empty)',
@@ -123,7 +125,8 @@ export function buildGameContext(gameState, player, npcStates, planted, collecti
     `Planted: ${planted.length} plots`,
     `NPCs: ${npcLines}`,
     `Mode: ${gameState.sandboxMode ? 'sandbox' : gameState.creativeMode ? 'creative' : 'survival'}`,
-  ].join('\n') + nearbyDesc;
+    structLines ? `Structures: ${structLines}` : '',
+  ].filter(Boolean).join('\n') + nearbyDesc;
   conversationContext = ctx;
   return ctx;
 }
@@ -166,10 +169,18 @@ Inventory & Economy:
   status                — quick overview: day, gold, inventory count
 
 Farming:
-  plant [slot]          — plant a seed on the dirt tile you're facing
-  harvest               — harvest a mature plant you're facing
-  plow                  — plow grass into dirt for planting
+  plant [slot]          — plant a seed on the dirt tile you're facing (auto-walks to nearest dirt if needed)
+  harvest               — harvest a mature plant you're facing (auto-walks to nearest mature crop if needed)
+  plow                  — plow grass into dirt for planting (auto-walks to nearest grass if needed)
   garden <shape> [size] — auto-build a garden (circle/ring/line/row/column/grid/square/cross/spiral, size 1-8)
+
+Building & Destruction:
+  build <type> [name]   — build a structure (shed/cottage/barn/tower/pen/wall). Free in creative, costs gold otherwise.
+  demolish <name|nearest> — walk to and demolish a named structure, restoring original tiles
+  clearplants [all]     — remove all player crops (or all in creative). Instant, reports count.
+  cleartrees [all]      — remove trees on player property (or all in creative). TREE→GRASS.
+  destroy <target>      — meta: "plants"→clearplants, "trees"→cleartrees, "everything"→both, else→demolish by name
+  structures            — list all player-built structures
 
 Breeding:
   breed <slot1> <slot2> — crossbreed two organisms (e.g. "breed 1 2")
@@ -239,11 +250,17 @@ DO: plow
 SAY: Plowed a 2-tile row!
 
 CREATIVE MAPPING — be generous with interpretation:
-- "build me a castle" → garden square 8 (biggest structure possible)
+- "build me a barn called Storage" → build barn Storage
+- "build me a castle" → build barn Castle
+- "tear up all the plants" → clearplants all
+- "tear up everything" → DO: clearplants all\nDO: cleartrees all\nSAY: Cleared everything!
+- "what have I built?" → structures
+- "demolish the shed" → demolish shed
 - "evolve my creatures" → mutate (that's how evolution works here)
 - "make something beautiful" → garden spiral 5
 - "get stronger" → mutate
 - "explore" → look
+- "plant my best seed" → plant (auto-walks to dirt if needed)
 - Use SUGGEST: for uncertain mappings. Only return NONE for truly unrecognizable gibberish.
 
 PERSONALITY: You're a savvy farmhand who's been here a while. Give real tactical advice, not generic tips. Reference the player's actual inventory, wallet, and NPCs by name. Be brief and punchy — one or two sentences max for SAY responses. When in doubt, DO something rather than asking.
