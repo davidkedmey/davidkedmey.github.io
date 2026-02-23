@@ -19,8 +19,15 @@ export function parseActions(llmResponse) {
   const hasDoLines = lines.some(l => l.startsWith('DO:'));
 
   if (!hasDoLines) {
-    // Single command format — return as-is for backward compat
-    return { actions: [{ type: 'raw', content: llmResponse }], say: null };
+    // Single command format — strip trailing SAY:/ASK: the LLM sometimes appends
+    let cmd = llmResponse;
+    let say2 = null;
+    const sayMatch = cmd.match(/\s*\n?\s*SAY:\s*(.+)$/i);
+    if (sayMatch) {
+      say2 = sayMatch[1].trim();
+      cmd = cmd.slice(0, sayMatch.index).trim();
+    }
+    return { actions: [{ type: 'raw', content: cmd }], say: say2 };
   }
 
   for (const line of lines) {
