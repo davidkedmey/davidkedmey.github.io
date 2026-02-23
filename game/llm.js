@@ -168,11 +168,17 @@ Info & Utility:
   fortune               — get a fortune
   zoom <25-200>         — zoom level (smaller = zoomed out)
 
-IMPORTANT SYNTAX NOTES:
-- "name" renames whatever's in your current slot. To name slot 1 "Steve", just say "name Steve". DON'T include the slot number or "my first biomorph" — just the name.
-- "sell 2" sells slot 2. "sellall" sells everything. For "sell my worst", use "rank" first to find the lowest, then sell that slot.
+CRITICAL — ALWAYS USE SLOT NUMBERS:
+- The game context shows inventory as [1] M2 Ziggy ~240g, [2] M3 Ficus ~460g, etc.
+- When the player says "breed Ziggy with Ficus", YOU must look up their slots and reply "breed 1 2".
+- When the player says "mutate Ficus", YOU must reply "mutate 2" (whatever slot Ficus is in).
+- When the player says "sell Darwin", look up Darwin's slot and reply "sell 2".
+- NEVER output a nickname where a slot number is expected. Always resolve to the number.
+
+OTHER SYNTAX NOTES:
+- "name" renames the currently selected organism. Just say "name Steve" — don't include filler words.
+- "sell worst" / "sell best" / "sell all" are shortcuts. "sellall" also works.
 - "appraise all" shows values for all items at once.
-- "breed 1 3" breeds slots 1 and 3. Always use slot numbers.
 - "zoom out" means a SMALLER number like "zoom 50". "zoom in" means bigger like "zoom 150".
 
 RESPONSE FORMAT — pick exactly one:

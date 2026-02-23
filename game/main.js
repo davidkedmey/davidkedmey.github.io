@@ -1697,8 +1697,8 @@ function cmdAppraise(arg) {
     showMessage(lines, 5);
     return;
   }
-  const idx = arg ? parseInt(arg) - 1 : player.selectedSlot;
-  if (isNaN(idx) || idx < 0 || idx >= player.inventory.length) { showMessage('No item in that slot.'); return; }
+  const idx = arg ? resolveSlot(arg.trim()) : player.selectedSlot;
+  if (idx < 0 || idx >= player.inventory.length) { showMessage('No item in that slot.'); return; }
   const item = player.inventory[idx];
   if (item.kind !== 'organism') {
     showMessage(`Slot ${idx + 1}: ${item.kind} — ~${sellPrice(item)}g`, 3);
@@ -1741,8 +1741,8 @@ function cmdSell(arg) {
   // Natural language shortcuts
   if (arg) {
     const lower = arg.toLowerCase().trim();
-    if (/^all|^everything/.test(lower)) { cmdSellAll(); return; }
-    if (/^worst|^cheapest|^lowest/.test(lower)) {
+    if (/\b(?:all|everything)\b/.test(lower)) { cmdSellAll(); return; }
+    if (/\b(?:worst|cheapest|lowest)\b/.test(lower)) {
       let worstIdx = 0, worstPrice = Infinity;
       player.inventory.forEach((item, i) => {
         const p = sellPrice(item);
@@ -1750,7 +1750,7 @@ function cmdSell(arg) {
       });
       arg = String(worstIdx + 1);
     }
-    if (/^best|^most valuable|^highest/.test(lower)) {
+    if (/\b(?:best|most valuable|highest)\b/.test(lower)) {
       let bestIdx = 0, bestPrice = 0;
       player.inventory.forEach((item, i) => {
         const p = sellPrice(item);
@@ -1759,8 +1759,8 @@ function cmdSell(arg) {
       arg = String(bestIdx + 1);
     }
   }
-  const slotIdx = arg ? parseInt(arg) - 1 : player.selectedSlot;
-  if (isNaN(slotIdx) || slotIdx < 0 || slotIdx >= player.inventory.length) {
+  const slotIdx = arg ? resolveSlot(arg.trim()) : player.selectedSlot;
+  if (slotIdx < 0 || slotIdx >= player.inventory.length) {
     showMessage(`Invalid slot. You have ${player.inventory.length} items.`);
     return;
   }
@@ -1782,10 +1782,21 @@ function cmdSell(arg) {
   showMessage(`Sold for ${price}g! (${player.wallet}g total)`, 2);
 }
 
+// Resolve a slot argument: accepts a number (1-based) or a nickname
+function resolveSlot(token) {
+  if (!token) return -1;
+  const n = parseInt(token);
+  if (!isNaN(n)) return n - 1;
+  // Try nickname match (case-insensitive)
+  const lower = token.toLowerCase();
+  const idx = player.inventory.findIndex(it => it.nickname && it.nickname.toLowerCase() === lower);
+  return idx; // -1 if not found
+}
+
 function cmdBreed(arg) {
-  const parts = (arg || '').split(/\s+/).map(Number);
-  const s1 = (parts[0] || 0) - 1;
-  const s2 = (parts[1] || 0) - 1;
+  const parts = (arg || '').split(/\s+/);
+  const s1 = resolveSlot(parts[0]);
+  const s2 = resolveSlot(parts[1]);
   if (s1 < 0 || s2 < 0 || s1 === s2) {
     showMessage('Usage: breed <slot1> <slot2> (two different slots)');
     return;
@@ -2091,7 +2102,7 @@ function cmdName(arg) {
   }
   // Strip common filler phrases
   let name = parts.join(' ')
-    .replace(/^(this one|that one|my biomorph|my first biomorph|my specimen|it|him|her|this|that)\s*/i, '')
+    .replace(/^(this one|that one|my biomorph|my first biomorph|my specimen|my new|the new one|the new|the baby|the little|the|it|him|her|this|that)\s*/i, '')
     .trim();
   if (!name) { showMessage('Usage: name <nickname>'); return; }
   const item = player.inventory[targetSlot];
@@ -2175,8 +2186,8 @@ function cmdYell() { cmdEmote('yell'); }
 // ── Wishlist-Driven Commands ──
 
 function cmdMutate(arg) {
-  const idx = arg ? parseInt(arg) - 1 : player.selectedSlot;
-  if (isNaN(idx) || idx < 0 || idx >= player.inventory.length) { showMessage('No item in that slot.'); return; }
+  const idx = arg ? resolveSlot(arg.split(/\s+/)[0]) : player.selectedSlot;
+  if (idx < 0 || idx >= player.inventory.length) { showMessage('No item in that slot.'); return; }
   const item = player.inventory[idx];
   if (item.kind !== 'organism') { showMessage('Can only mutate organisms.'); return; }
   const oldGenes = [...item.genes];
@@ -3155,9 +3166,10 @@ function gameLoop(timestamp) {
     if (gameState.message.timer <= 0) gameState.message = null;
   }
 
-  // Notification queue (skip in sandbox)
+  // Notification queue (skip in sandbox, skip if muted)
   if (!gameState.sandboxMode && collection.notifications.length > 0 && !gameState.message) {
-    showMessage(collection.notifications.shift(), 3);
+    if (gameState.muteNotifications) collection.notifications.length = 0;
+    else showMessage(collection.notifications.shift(), 3);
   }
 
   // Auto-save
