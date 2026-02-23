@@ -22,7 +22,7 @@ export function parseActions(llmResponse) {
     // Single command format — strip trailing SAY:/ASK: the LLM sometimes appends
     let cmd = llmResponse;
     let say2 = null;
-    const sayMatch = cmd.match(/\s*\n?\s*SAY:\s*(.+)$/i);
+    const sayMatch = cmd.match(/\s*(?:\\n|\n)?\s*SAY:\s*(.+)$/i);
     if (sayMatch) {
       say2 = sayMatch[1].trim();
       cmd = cmd.slice(0, sayMatch.index).trim();

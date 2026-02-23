@@ -2613,9 +2613,8 @@ function cmdBuild(arg) {
 
   const tmpl = STRUCTURE_TEMPLATES[type];
   if (!tmpl) {
-    const types = Object.keys(STRUCTURE_TEMPLATES).join(', ');
-    showMessage(`Unknown type. Available: ${types}`);
-    return;
+    // Fall through to LLM for natural language like "build me a barn"
+    return false;
   }
 
   // Cost: free in creative, 100g + 10g/tile in adventure
@@ -2728,12 +2727,19 @@ function cmdDemolish(arg) {
 function cmdClearPlants(arg) {
   const all = (arg || '').toLowerCase() === 'all';
   let count = 0;
+  // Clear player crops
   for (let i = planted.length - 1; i >= 0; i--) {
     const p = planted[i];
-    // In non-creative, only remove player crops on player property
     if (!all && !gameState.creativeMode && !isPlayerProperty(p.tileCol, p.tileRow)) continue;
     planted.splice(i, 1);
     count++;
+  }
+  // In creative or "all" mode, also clear NPC crops
+  if (all || gameState.creativeMode) {
+    for (const ns of npcStates) {
+      count += ns.planted.length;
+      ns.planted = [];
+    }
   }
   showMessage(count > 0 ? `Cleared ${count} plant${count !== 1 ? 's' : ''}.` : 'No plants to clear.', 3);
 }
