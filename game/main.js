@@ -1448,7 +1448,7 @@ function autoWalkToTarget(dt) {
   const dx = wt.x - player.x;
   const dy = wt.y - player.y;
   const dist = Math.hypot(dx, dy);
-  if (dist < TILE_SIZE * 1.2) {
+  if (dist < TILE_SIZE * 0.75) {
     // Arrived — clear walkTarget BEFORE callback so callback can set a new one
     const cb = wt.onArrive;
     gameState.walkTarget = null;
@@ -2637,6 +2637,9 @@ function walkToAndFace(targetCol, targetRow, callback) {
     gameState.walkTarget = {
       x, y, label: 'auto',
       onArrive: () => {
+        // Snap to exact tile center so facingTile() returns the correct target
+        player.x = x;
+        player.y = y;
         player.facing = d.facing;
         callback();
       },
