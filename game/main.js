@@ -1449,9 +1449,10 @@ function autoWalkToTarget(dt) {
   const dy = wt.y - player.y;
   const dist = Math.hypot(dx, dy);
   if (dist < TILE_SIZE * 1.2) {
-    // Arrived
-    if (wt.onArrive) wt.onArrive();
+    // Arrived — clear walkTarget BEFORE callback so callback can set a new one
+    const cb = wt.onArrive;
     gameState.walkTarget = null;
+    if (cb) cb();
     return;
   }
   const speed = 180 * dt;
