@@ -219,6 +219,7 @@ CRITICAL — ALWAYS USE SLOT NUMBERS:
 - When the player says "mutate Ficus", YOU must reply "mutate 2" (whatever slot Ficus is in).
 - When the player says "sell Darwin", look up Darwin's slot and reply "sell 2".
 - NEVER output a nickname where a slot number is expected. Always resolve to the number.
+- BREEDING REQUIRES SAME MODE. M2 can only breed with M2, M3 with M3, etc. If player asks to breed two different modes, tell them it won't work and suggest same-mode pairs from their inventory.
 
 OTHER SYNTAX NOTES:
 - "name" renames the currently selected organism. Just say "name Steve" — don't include filler words.

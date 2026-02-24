@@ -2573,7 +2573,7 @@ function cmdCreative() {
 
 // ── Smart Auto-Seek Helpers ──
 
-function findNearestTile(col, row, predicate, maxRadius = 10) {
+function findNearestTile(col, row, predicate, maxRadius = 50) {
   // Spiral outward search from (col, row)
   for (let r = 1; r <= maxRadius; r++) {
     for (let dc = -r; dc <= r; dc++) {
@@ -2582,6 +2582,36 @@ function findNearestTile(col, row, predicate, maxRadius = 10) {
         const c = col + dc, rr = row + dr;
         if (c < 0 || c >= world[0].length || rr < 0 || rr >= world.length) continue;
         if (predicate(c, rr)) return { col: c, row: rr };
+      }
+    }
+  }
+  return null;
+}
+
+// Find a clear area big enough for a structure template
+function findBuildSite(type, startCol, startRow) {
+  const tmpl = STRUCTURE_TEMPLATES[type];
+  if (!tmpl) return null;
+  const tiles = parseStructureTiles(type);
+  const worldCols = world[0].length, worldRows = world.length;
+
+  // Spiral search for a valid anchor point
+  for (let r = 0; r <= 50; r++) {
+    for (let dc = -r; dc <= r; dc++) {
+      for (let dr = -r; dr <= r; dr++) {
+        if (r > 0 && Math.abs(dc) !== r && Math.abs(dr) !== r) continue;
+        const bc = startCol + dc, br = startRow + dr;
+        // Check all tiles of the structure fit
+        let valid = true;
+        for (const off of tiles) {
+          const c = bc + off.dc, rr = br + off.dr;
+          if (c < 1 || c >= worldCols - 1 || rr < 1 || rr >= worldRows - 1) { valid = false; break; }
+          const existing = tileAt(world, c, rr);
+          if (existing !== TILE.GRASS && existing !== TILE.DIRT) { valid = false; break; }
+          if (!gameState.creativeMode && !isPlayerProperty(c, rr)) { valid = false; break; }
+          if (planted.find(o => o.tileCol === c && o.tileRow === rr)) { valid = false; break; }
+        }
+        if (valid) return { col: bc, row: br };
       }
     }
   }
@@ -2600,7 +2630,7 @@ function walkToAndFace(targetCol, targetRow, callback) {
     const sc = targetCol + d.dc, sr = targetRow + d.dr;
     if (sc < 0 || sc >= world[0].length || sr < 0 || sr >= world.length) continue;
     const tile = tileAt(world, sc, sr);
-    if (isSolid(tile)) continue;
+    if (isSolid(tile) && !gameState.creativeMode) continue;
     // Found a walkable adjacent tile
     const x = sc * TILE_SIZE + TILE_SIZE / 2;
     const y = sr * TILE_SIZE + TILE_SIZE / 2;
@@ -2620,6 +2650,52 @@ function walkToAndFace(targetCol, targetRow, callback) {
 
 let structureIdCounter = 1;
 
+function doBuildAt(type, name, baseCol, baseRow) {
+  const tmpl = STRUCTURE_TEMPLATES[type];
+  const tiles = parseStructureTiles(type);
+  const cost = gameState.creativeMode ? 0 : 100 + tiles.length * 10;
+  if (!gameState.creativeMode && player.wallet < cost) {
+    showMessage(`Not enough gold. Need ${cost}g.`);
+    return false;
+  }
+  // Validate all tiles
+  const savedTiles = [];
+  for (const off of tiles) {
+    const c = baseCol + off.dc, r = baseRow + off.dr;
+    if (c < 1 || c >= world[0].length - 1 || r < 1 || r >= world.length - 1) {
+      showMessage('Too close to the edge.'); return false;
+    }
+    const existing = tileAt(world, c, r);
+    if (existing !== TILE.GRASS && existing !== TILE.DIRT) {
+      showMessage('Can only build on grass or dirt tiles.'); return false;
+    }
+    if (!gameState.creativeMode && !isPlayerProperty(c, r)) {
+      showMessage("Can't build on someone else's property!"); return false;
+    }
+    if (planted.find(o => o.tileCol === c && o.tileRow === r)) {
+      showMessage('Clear planted organisms first.'); return false;
+    }
+    savedTiles.push({ col: c, row: r, was: existing });
+  }
+  // Place tiles
+  for (const off of tiles) {
+    world[baseRow + off.dr][baseCol + off.dc] = off.tile;
+  }
+  if (!gameState.creativeMode) player.wallet -= cost;
+  const structure = {
+    id: structureIdCounter++,
+    name: (name || tmpl.label || type).slice(0, 24),
+    type,
+    col: baseCol, row: baseRow,
+    w: tmpl.w, h: tmpl.h,
+    savedTiles,
+  };
+  gameState.structures.push(structure);
+  const costStr = cost > 0 ? ` (-${cost}g)` : '';
+  showMessage(`Built ${structure.name}!${costStr}`, 3);
+  return true;
+}
+
 function cmdBuild(arg) {
   if (!arg) { showMessage('Usage: build <type> [name]'); return; }
   const parts = arg.split(/\s+/);
@@ -2632,65 +2708,23 @@ function cmdBuild(arg) {
     return false;
   }
 
-  // Cost: free in creative, 100g + 10g/tile in adventure
-  const tiles = parseStructureTiles(type);
-  const cost = gameState.creativeMode ? 0 : 100 + tiles.length * 10;
-  if (!gameState.creativeMode && player.wallet < cost) {
-    showMessage(`Not enough gold. Need ${cost}g.`);
-    return;
-  }
-
-  // Place at facing direction
+  // Try building at facing tile first
   const ft = facingTile(player);
-  const baseCol = ft.col, baseRow = ft.row;
+  if (doBuildAt(type, name, ft.col, ft.row)) return;
 
-  // Validate all tiles
-  const savedTiles = [];
-  for (const off of tiles) {
-    const c = baseCol + off.dc, r = baseRow + off.dr;
-    const worldCols = world[0].length, worldRows = world.length;
-    if (c < 0 || c >= worldCols || r < 0 || r >= worldRows) {
-      showMessage('Too close to the edge.');
-      return;
-    }
-    const existing = tileAt(world, c, r);
-    if (existing !== TILE.GRASS && existing !== TILE.DIRT) {
-      showMessage('Can only build on grass or dirt tiles.');
-      return;
-    }
-    if (!gameState.creativeMode && !isPlayerProperty(c, r)) {
-      showMessage("Can't build on someone else's property!");
-      return;
-    }
-    // Check no planted organisms here
-    if (planted.find(o => o.tileCol === c && o.tileRow === r)) {
-      showMessage('Clear planted organisms first.');
-      return;
-    }
-    savedTiles.push({ col: c, row: r, was: existing });
+  // Smart auto-seek: find nearest valid build site
+  const pCol = Math.floor(player.x / TILE_SIZE);
+  const pRow = Math.floor(player.y / TILE_SIZE);
+  const site = findBuildSite(type, pCol, pRow);
+  if (!site) { showMessage('No space to build nearby.'); return; }
+
+  // Walk to adjacent tile and build
+  if (walkToAndFace(site.col, site.row, () => doBuildAt(type, name, site.col, site.row))) {
+    showMessage(`Walking to build ${name}...`, 2);
+  } else {
+    // Can't walk there — try building directly (creative no-clip)
+    doBuildAt(type, name, site.col, site.row);
   }
-
-  // Place tiles
-  for (const off of tiles) {
-    world[baseRow + off.dr][baseCol + off.dc] = off.tile;
-  }
-
-  if (!gameState.creativeMode) player.wallet -= cost;
-
-  const structure = {
-    id: structureIdCounter++,
-    name: name.slice(0, 24),
-    type,
-    col: baseCol,
-    row: baseRow,
-    w: tmpl.w,
-    h: tmpl.h,
-    savedTiles,
-  };
-  gameState.structures.push(structure);
-
-  const costStr = cost > 0 ? ` (-${cost}g)` : '';
-  showMessage(`Built ${structure.name}!${costStr}`, 3);
 }
 
 function cmdDemolish(arg) {
