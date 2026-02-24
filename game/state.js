@@ -258,7 +258,7 @@ function rleDecode(runs, cols, rows) {
   return grid;
 }
 
-export function saveSandboxWorld(world, planted, player) {
+export function saveSandboxWorld(world, planted, player, gameState) {
   const cols = world[0].length;
   const rows = world.length;
   const data = {
@@ -305,6 +305,11 @@ export function saveSandboxWorld(world, planted, player) {
     }),
     playerX: player.x,
     playerY: player.y,
+    playerFacing: player.facing,
+    wallet: player.wallet,
+    inventory: player.inventory,
+    structures: (gameState && gameState.structures) || [],
+    creativeMode: (gameState && gameState.creativeMode) || false,
     savedAt: Date.now(),
   };
   try {
@@ -333,6 +338,9 @@ export function loadSandboxWorld() {
       }
       return org;
     });
+    data.structures = data.structures || [];
+    data.creativeMode = data.creativeMode || false;
+    data.inventory = data.inventory || [];
     return data;
   } catch (e) {
     console.warn('Sandbox load failed:', e);

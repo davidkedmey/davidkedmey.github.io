@@ -519,7 +519,7 @@ gameState.studyInfoPage = 0;
 
 function doSave() {
   if (gameState.sandboxMode) {
-    saveSandboxWorld(world, planted, player);
+    saveSandboxWorld(world, planted, player, gameState);
     return;
   }
   gameState.tutorialState = tutorialState;
@@ -3232,10 +3232,13 @@ function gameLoop(timestamp) {
             for (const row of save.world) world.push(row);
             player.x = save.playerX;
             player.y = save.playerY;
-            player.inventory = [];
-            player.wallet = 0;
+            player.facing = save.playerFacing || 'down';
+            player.inventory = save.inventory || [];
+            player.wallet = save.wallet || 0;
             planted.length = 0;
             planted.push(...save.planted);
+            gameState.structures = save.structures || [];
+            gameState.creativeMode = save.creativeMode !== false;
             npcStates.length = 0;
             showMessage('Sandbox loaded!');
           }
