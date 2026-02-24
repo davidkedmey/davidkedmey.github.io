@@ -3052,13 +3052,16 @@ function executeCommand(raw) {
   // Check for /ai subcommands first
   if (cmd === 'ai') { cmdAI(rawParts.slice(1).join(' '), rawParts.map(p => p.toLowerCase())); return; }
 
-  // Sandbox: reduced command set
-  if (gameState.sandboxMode && !SANDBOX_COMMANDS.includes(cmd)) {
+  // Sandbox: reduced command set (but allow LLM fallthrough)
+  const isSandboxCmd = !gameState.sandboxMode || SANDBOX_COMMANDS.includes(cmd);
+  const llmAvailable = getLLMSettings().enabled && getLLMSettings().apiKey;
+
+  if (gameState.sandboxMode && !SANDBOX_COMMANDS.includes(cmd) && !llmAvailable) {
     showMessage(`Unknown command — type /help`, 2);
     return;
   }
 
-  const handler = COMMANDS[cmd];
+  const handler = isSandboxCmd ? COMMANDS[cmd] : null;
   if (handler) {
     // Pass original-case arg for commands like /name, lowercase parts for others
     const result = handler(rawParts.slice(1).join(' '), rawParts.map(p => p.toLowerCase()));
