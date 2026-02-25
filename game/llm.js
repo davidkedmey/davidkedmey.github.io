@@ -325,9 +325,15 @@ Terrain Painting (creative only):
     Tiles: grass, dirt, path/stone, water/lake, tree/forest, fence, wall
     Shapes: circle/disc, ring, square/grid/fill, line/row, column, cross, spiral, dot
     Size: 1-20 (default 3)
-    Examples: "paint water circle 4" (lake), "paint path ring 5" (path around), "paint tree line 6" (tree row)
+    DIRECTION-TO-SHAPE (CRITICAL):
+      line/row = HORIZONTAL (east-west). "path going east/west" → paint path line
+      column   = VERTICAL (north-south). "path going north/south" → paint path column
+      "road going south" → paint path column 6 (NOT line!)
+      "river going east" → paint water line 8 (NOT column!)
+    Examples: "paint water circle 4" (lake), "paint path ring 5" (path around), "paint tree column 6" (tree column going N-S)
     Location: append "at <col>,<row>" or "near <landmark>" to paint at a specific location instead of player position.
     Examples: "paint water circle 4 at 120,125", "paint tree ring 5 near lake", "paint path ring 3 near Home"
+    SCALE SAFETY: For size > 8, use SUGGEST: to let the player confirm first. Large paints are destructive and overwrite existing terrain!
 
 Breeding:
   breed <slot1> <slot2> — crossbreed two organisms (e.g. "breed 1 2")
@@ -345,7 +351,7 @@ Creature Interaction:
   collect               — collect a wild biomorph from the tree you're facing
   pet                   — pet the biomorph/tree you're facing (they react!)
   water                 — water all planted crops (boosts growth)
-  spawn [n]             — (creative only) add n random seeds to inventory (default 1, max 9)
+  spawn [n]             — (creative only) add n random seeds to inventory (default 1, max 9). Seeds appear in inventory — player selects with number keys then plants. Note: plant auto-generates a seed in creative mode if inventory is empty, so spawn is optional before planting.
 
 Spatial Queries:
   query features        — list all detected terrain features (lakes, forests, paths, etc.)
@@ -361,7 +367,7 @@ Info & Utility:
   look                  — describe surroundings
   fortune               — get a fortune
   quest                 — get a random objective
-  zoom <25-200>         — zoom level (smaller = zoomed out)
+  zoom <25-200>         — zoom level as percentage (25=zoomed out, 100=normal, 200=zoomed in). Also: "zoom out"/"zoom in"/"zoom max"/"zoom min"
   xyzzy                 — easter egg (try it!)
   hello                 — greet the farm
 
@@ -416,6 +422,7 @@ CREATIVE MAPPING — be generous with interpretation:
 - "get stronger" → mutate
 - "explore" → look
 - "plant my best seed" → plant (auto-walks to dirt if needed; in creative, auto-generates seeds if none)
+- "plow and plant" → DO: plow\nDO: plant\nSAY: Plowed and planted! (MUST be multi-step — plant needs the freshly plowed tile)
 - "plant a few seeds" in creative → DO: plant\nDO: plant\nDO: plant\nSAY: Planted 3 seeds!
 - "give me some seeds" in creative → spawn 5
 - "make a lake" → paint water circle 4
@@ -423,12 +430,20 @@ CREATIVE MAPPING — be generous with interpretation:
 - "plant some trees along the path" → paint tree ring 6
 - "make a park" → DO: paint water circle 3\nDO: paint path ring 4\nDO: paint tree ring 6\nDO: garden spiral 5\nSAY: Built a park with a lake, path, trees, and garden!
 - "clear the area" → paint grass fill 5
-- "dig a river" → DO: moveto 120 128\nDO: paint water line 8\nSAY: Dug an east-west river!
+- "dig a river going east" → paint water line 8 (line = horizontal = east-west)
+- "dig a river going south" → paint water column 8 (column = vertical = north-south)
+- "build a path going south" → paint path column 6 (NOT line! column = N-S)
+- "build a path going east" → paint path line 6 (line = E-W)
 - "fence off my farm" → paint fence ring 6
 - "make a forest" → paint tree circle 5
 - "plant trees north of the lake" (lake at 128,128) → DO: moveto 128 118\nDO: paint tree circle 4\nSAY: Planted a forest north of the lake!
 - "build something east of X" → use higher col: moveto (X.col + offset) X.row
 - Combine paint + moveto for complex landscapes. Paint is the terrain primitive, moveto is the positioning primitive.
+- SCALE WARNING: paint with size > 8 overwrites a LOT of terrain. For large operations, use SUGGEST: to let the player confirm. Example: player says "make a huge lake" → SUGGEST: paint water circle 12
+- COMPOSITE SCHEMAS — chain primitives for complex builds:
+- "build a village" → DO: build cottage Village\nDO: build barn Storage near Village\nDO: paint path cross 4\nDO: paint fence ring 7\nDO: garden circle 3\nSAY: Built a village with a cottage, barn, paths, fence, and garden!
+- "build an island" → DO: paint water circle 12\nDO: paint grass circle 8\nDO: paint path ring 5\nDO: paint tree circle 3\nDO: build cottage Home\nSAY: Built an island with water, beach path, forest, and a cottage!
+- "make a farm" → DO: plow\nDO: paint dirt square 3\nDO: paint fence ring 4\nDO: spawn 5\nDO: plant\nDO: plant\nDO: plant\nSAY: Set up a farm with plowed land, fence, and planted seeds!
 - SPATIAL CONTEXT: The game state includes a scene graph with detected features and structures.
   COORDINATE SYSTEM: col increases east (right), row increases south (down). So north = lower row, south = higher row, west = lower col, east = higher col.
   "N of (128,128)" means row < 128 (e.g. 128,118). "E of (128,128)" means col > 128 (e.g. 138,128).

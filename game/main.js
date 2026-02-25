@@ -529,7 +529,7 @@ function doSave() {
 
 function showMessage(text, duration) {
   const lines = Array.isArray(text) ? text : [text];
-  gameState.message = { lines, timer: duration || 2.5 };
+  gameState.message = { lines, timer: duration || 4 };
 }
 
 // ── World Actions ──
@@ -1850,8 +1850,15 @@ function cmdZoom(arg) {
     showMessage(`Zoom: ${presets}`, 4);
     return;
   }
-  const pct = parseInt(arg);
-  if (isNaN(pct) || pct < 25 || pct > 200) {
+  // Handle natural language zoom
+  const lower = arg.toLowerCase().trim();
+  if (lower === 'out' || lower === 'min') { setZoom(ZOOM_PRESETS[0]); showMessage(`Zoom: ${ZOOM_PRESETS[0]}x`, 1.5); return; }
+  if (lower === 'in' || lower === 'max') { setZoom(ZOOM_PRESETS[ZOOM_PRESETS.length - 1]); showMessage(`Zoom: ${ZOOM_PRESETS[ZOOM_PRESETS.length - 1]}x`, 1.5); return; }
+  const num = parseFloat(arg);
+  if (isNaN(num)) { showMessage('Usage: zoom <25-200> or zoom in/out', 3); return; }
+  // Accept both percentage (25-200) and multiplier (0.25-2.0)
+  const pct = num <= 5 ? num * 100 : num;
+  if (pct < 25 || pct > 200) {
     showMessage('Usage: zoom <25-200> — e.g. /zoom 75', 3);
     return;
   }
@@ -3264,7 +3271,7 @@ function cmdSpawn(arg) {
     const mode = Math.ceil(Math.random() * 5);
     player.inventory.push(createSeed(mode));
   }
-  showMessage(`Spawned ${count} seed${count > 1 ? 's' : ''}!`);
+  showMessage(`Spawned ${count} seed${count > 1 ? 's' : ''} to inventory! Select with number keys to plant.`, 4);
 }
 
 const COMMANDS = {
@@ -3463,7 +3470,7 @@ function executeCommand(raw) {
       } else {
         // Single DO: or plain command
         const execCmd = parsed.actions[0]?.type === 'do' ? parsed.actions[0].content : singleContent;
-        showMessage([`> ${execCmd}`, '(AI interpreted)'], 2);
+        showMessage([`> ${execCmd}`, '(AI interpreted)'], 4);
         setTimeout(() => {
           executeCommand(execCmd);
           // Show SAY if present
