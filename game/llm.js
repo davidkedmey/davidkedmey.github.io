@@ -334,6 +334,13 @@ Terrain Painting (creative only):
     Location: append "at <col>,<row>" or "near <landmark>" to paint at a specific location instead of player position.
     Examples: "paint water circle 4 at 120,125", "paint tree ring 5 near lake", "paint path ring 3 near Home"
     SCALE SAFETY: For size > 8, use SUGGEST: to let the player confirm first. Large paints are destructive and overwrite existing terrain!
+    RELATIVE SIZING (CRITICAL for "surround", "around", "enclose"):
+      The scene graph shows features with approximate radius (r≈N).
+      To SURROUND a feature, your ring/fence MUST be LARGER than the feature:
+        "surround the lake with fence" → read lake r≈7 from features → paint fence ring 9 near lake (r+2)
+        "put trees around the garden" → read garden r≈4 → paint tree ring 6 near garden (r+2)
+      NEVER use a ring size smaller than or equal to the feature you're surrounding!
+      General rule: surround_size = feature_radius + 2
 
 Breeding:
   breed <slot1> <slot2> — crossbreed two organisms (e.g. "breed 1 2")
@@ -435,9 +442,16 @@ CREATIVE MAPPING — be generous with interpretation:
 - "build a path going south" → paint path column 6 (NOT line! column = N-S)
 - "build a path going east" → paint path line 6 (line = E-W)
 - "fence off my farm" → paint fence ring 6
+- "surround the lake with a fence" → check features for lake r≈N, then: paint fence ring (N+2) near lake
+- "fence around the garden" → check features for garden r≈N, then: paint fence ring (N+2) near garden
+- "build a cottage and a barn" → DO: build cottage Home\nDO: move east 8\nDO: build barn Storage\nSAY: Built both!
 - "make a forest" → paint tree circle 5
 - "plant trees north of the lake" (lake at 128,128) → DO: moveto 128 118\nDO: paint tree circle 4\nSAY: Planted a forest north of the lake!
 - "build something east of X" → use higher col: moveto (X.col + offset) X.row
+- STRUCTURE SPACING: Structures are 3-5 tiles wide. When placing multiple structures nearby:
+    "build barn near cottage" → use moveto to offset at least 8 tiles from existing structure
+    "build a cottage and a barn" → DO: build cottage Home\nDO: move east 8\nDO: build barn Storage\nSAY: Built both with space between!
+  Read structure coordinates from the scene graph to avoid overlap.
 - Combine paint + moveto for complex landscapes. Paint is the terrain primitive, moveto is the positioning primitive.
 - SCALE WARNING: paint with size > 8 overwrites a LOT of terrain. For large operations, use SUGGEST: to let the player confirm. Example: player says "make a huge lake" → SUGGEST: paint water circle 12
 - COMPOSITE SCHEMAS — chain primitives for complex builds:
