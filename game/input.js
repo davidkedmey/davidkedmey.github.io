@@ -31,7 +31,7 @@ export function createInput(canvas) {
       e.preventDefault();
       if (e.key === 'Backspace') {
         charBuffer.push('\b'); // backspace sentinel
-      } else if (e.key === 'Enter' || e.key === 'Escape') {
+      } else if (e.key === 'Enter' || e.key === 'Escape' || e.key === '/') {
         // Let these through as justPressed for main.js to handle
         if (!keys[e.key]) pressed[e.key] = true;
         keys[e.key] = true;

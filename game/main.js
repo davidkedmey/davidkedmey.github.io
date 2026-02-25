@@ -20,7 +20,7 @@ import { buildOwnershipGrid, isPlayerProperty } from './property.js';
 import { aiDayTick, updateAITasks, getNarration, precomputeSpectatorAction } from './ai.js';
 import { loadDawkinsDialogue, createDawkinsState, canStartVisit, startVisit, advanceLine, selectChoice, getCurrentLine, completeVisit } from './dawkins.js';
 import { loadAudioSettings, getAudioSettings, initOnInteraction, toggleMusic, toggleVoice, toggleAutoFollow, startMusic, stopMusic, setMusicMood, speak, stopSpeech, resetLastSpoken } from './audio.js';
-import { loadLLMSettings, getLLMSettings, setLLMSetting, interpretCommand, buildGameContext, addWish, getWishlist, clearWishlist, getConversationState, clearConversation, captureScreenshot } from './llm.js';
+import { loadLLMSettings, getLLMSettings, setLLMSetting, interpretCommand, buildGameContext, addWish, getWishlist, clearWishlist, getConversationState, clearConversation, captureScreenshot, detectFeatures, describeRelation, buildSceneGraph, TILE_NAMES } from './llm.js';
 import { parseActions, createActionRunner } from './actions.js';
 import { initExhibits, exhibitBreederURL } from './exhibits.js';
 import { loadBreederGallery, loadAllImportable, breederToOrganism, galleryImportCost } from './gallery-bridge.js';
@@ -184,7 +184,7 @@ const gameState = {
   // Spectator mode (watching NPC at building)
   spectator: null,
   // Command bar
-  commandBar: { active: false, text: '' },
+  commandBar: { active: true, text: '' },
   // Auto-walk target (set by /go command)
   walkTarget: null, // { x, y, label, onArrive?, npcIdx? }
   // Dance spin timer
@@ -1966,6 +1966,282 @@ function cmdGarden(arg) {
   showMessage(count > 0 ? `Planted ${count} in a ${shape} pattern!` : `No valid tiles for ${shape} pattern.`, 3);
 }
 
+// ── Shared shape offset generator ──
+
+function generateShapeOffsets(shape, size) {
+  const offsets = [];
+  if (shape === 'circle' || shape === 'disc') {
+    for (let dy = -size; dy <= size; dy++)
+      for (let dx = -size; dx <= size; dx++)
+        if (Math.hypot(dx, dy) <= size) offsets.push([dx, dy]);
+  } else if (shape === 'ring') {
+    for (let dy = -size; dy <= size; dy++)
+      for (let dx = -size; dx <= size; dx++) {
+        const dist = Math.hypot(dx, dy);
+        if (dist >= size - 1 && dist <= size) offsets.push([dx, dy]);
+      }
+  } else if (shape === 'line' || shape === 'row') {
+    for (let dx = -size; dx <= size; dx++) offsets.push([dx, 0]);
+  } else if (shape === 'column' || shape === 'col') {
+    for (let dy = -size; dy <= size; dy++) offsets.push([0, dy]);
+  } else if (shape === 'grid' || shape === 'square' || shape === 'fill') {
+    for (let dy = -size; dy <= size; dy++)
+      for (let dx = -size; dx <= size; dx++) offsets.push([dx, dy]);
+  } else if (shape === 'cross' || shape === 'plus') {
+    for (let d = -size; d <= size; d++) {
+      offsets.push([d, 0]);
+      if (d !== 0) offsets.push([0, d]);
+    }
+  } else if (shape === 'spiral') {
+    let x = 0, y = 0, dx = 1, dy = 0, steps = 1, stepsTaken = 0, turns = 0;
+    const n = (2 * size + 1) * (2 * size + 1);
+    for (let i = 0; i < Math.min(n, 200); i++) {
+      offsets.push([x, y]);
+      x += dx; y += dy; stepsTaken++;
+      if (stepsTaken >= steps) {
+        stepsTaken = 0; turns++;
+        [dx, dy] = [-dy, dx];
+        if (turns % 2 === 0) steps++;
+      }
+    }
+  } else if (shape === 'dot' || shape === 'single') {
+    offsets.push([0, 0]);
+  } else {
+    return null; // unknown shape
+  }
+  return offsets;
+}
+
+// ── Paint command: generalizable terrain primitive ──
+
+const PAINT_TILES = {
+  grass: TILE.GRASS, dirt: TILE.DIRT, path: TILE.PATH, stone: TILE.PATH,
+  water: TILE.WATER, lake: TILE.WATER, river: TILE.WATER,
+  tree: TILE.TREE, trees: TILE.TREE, forest: TILE.TREE,
+  wall: TILE.BUILDING, building: TILE.BUILDING,
+  fence: TILE.FENCE,
+};
+
+// ── Spatial constraint resolver ──
+// Parses "at <col>,<row>" or "near <landmark>" from end of argument string.
+// Returns { col, row, consumed } where consumed is how many tokens were used, or null if no constraint.
+
+function resolveLocation(parts) {
+  // Check for "at <col>,<row>" or "at <col> <row>"
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (parts[i] === 'at') {
+      // "at 120,125" or "at 120 125"
+      const coordMatch = parts[i + 1].match(/^(\d+)\s*[,]\s*(\d+)$/);
+      if (coordMatch) {
+        return { col: parseInt(coordMatch[1]), row: parseInt(coordMatch[2]), fromIdx: i };
+      }
+      if (i + 2 < parts.length && /^\d+$/.test(parts[i + 1]) && /^\d+$/.test(parts[i + 2])) {
+        return { col: parseInt(parts[i + 1]), row: parseInt(parts[i + 2]), fromIdx: i };
+      }
+    }
+  }
+
+  // Check for "near <landmark>" — resolve to nearby coordinates
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (parts[i] === 'near') {
+      const landmark = parts.slice(i + 1).join(' ').toLowerCase();
+      const loc = resolveLandmark(landmark);
+      if (loc) return { col: loc.col, row: loc.row, fromIdx: i };
+    }
+  }
+
+  return null;
+}
+
+function resolveLandmark(name) {
+  // Check structures
+  const structs = gameState.structures || [];
+  const struct = structs.find(s => s.name.toLowerCase() === name);
+  if (struct) return { col: struct.col + Math.floor((struct.w || 1) / 2), row: struct.row + (struct.h || 1) };
+
+  // Check detected features by type name (e.g. "lake" → first water feature)
+  const featureAliases = { lake: 'water', river: 'water', pond: 'water', forest: 'tree', woods: 'tree', trees: 'tree', road: 'path' };
+  const featureType = featureAliases[name] || name;
+  const features = detectFeatures(world);
+  const feature = features.find(f => f.type === featureType);
+  if (feature) return { col: feature.center.col, row: feature.center.row };
+
+  // Check NPCs
+  if (typeof npcStates !== 'undefined') {
+    const npc = npcStates.find((ns, i) => (NPCS[i]?.name || ns.id).toLowerCase() === name);
+    if (npc) return { col: Math.floor(npc.x / TILE_SIZE), row: Math.floor(npc.y / TILE_SIZE) };
+  }
+
+  return null;
+}
+
+function cmdPaint(arg) {
+  if (!gameState.creativeMode) { showMessage('Paint is only available in creative mode.'); return; }
+  if (!arg) { showMessage('Usage: paint <tile> <shape> [size] [at <col>,<row>] [near <landmark>]'); return; }
+
+  const parts = arg.toLowerCase().split(/\s+/);
+
+  // Extract location constraint before parsing tile/shape/size
+  const loc = resolveLocation(parts);
+  const cleanParts = loc ? parts.slice(0, loc.fromIdx) : parts;
+
+  const tileType = cleanParts[0];
+  const shape = cleanParts[1] || 'dot';
+  const size = Math.max(1, Math.min(20, parseInt(cleanParts[2]) || 3));
+
+  const targetTile = PAINT_TILES[tileType];
+  if (targetTile === undefined) {
+    showMessage(`Unknown tile type "${tileType}". Try: grass, dirt, path, water, tree, fence, wall`);
+    return;
+  }
+
+  const offsets = generateShapeOffsets(shape, size);
+  if (!offsets) return false; // unknown shape — fall through to AI
+
+  // Use resolved location or player position
+  const centerCol = loc ? loc.col : Math.floor(player.x / TILE_SIZE);
+  const centerRow = loc ? loc.row : Math.floor(player.y / TILE_SIZE);
+  let count = 0;
+
+  for (const [dx, dy] of offsets) {
+    const col = centerCol + dx;
+    const row = centerRow + dy;
+    if (row < 0 || row >= world.length || col < 0 || col >= world[0].length) continue;
+
+    // Don't overwrite a tile that already has the target type
+    if (world[row][col] === targetTile) continue;
+
+    // If painting trees, also check for existing planted organisms
+    if (targetTile === TILE.TREE) {
+      if (planted.find(o => o.tileCol === col && o.tileRow === row)) continue;
+    }
+
+    // If overwriting a planted tile, remove the organism
+    if (world[row][col] === TILE.DIRT || world[row][col] === TILE.GRASS) {
+      const plantIdx = planted.findIndex(o => o.tileCol === col && o.tileRow === row);
+      if (plantIdx >= 0) planted.splice(plantIdx, 1);
+    }
+
+    world[row][col] = targetTile;
+    count++;
+  }
+
+  const locDesc = loc ? ` at (${centerCol},${centerRow})` : '';
+  showMessage(count > 0 ? `Painted ${count} ${tileType} tiles in a ${shape}${locDesc}!` : `No tiles changed.`, 3);
+}
+
+// ── Query command: on-demand spatial information ──
+
+function cmdQuery(arg) {
+  if (!arg) { showMessage('Usage: query features|structures|near|area <c1>,<r1> to <c2>,<r2>'); return; }
+  const sub = arg.toLowerCase().trim();
+  const pCol = Math.floor(player.x / TILE_SIZE);
+  const pRow = Math.floor(player.y / TILE_SIZE);
+
+  if (sub === 'features' || sub === 'terrain') {
+    const features = detectFeatures(world);
+    if (features.length === 0) { showMessage('No terrain features detected (just grass).'); return; }
+    const lines = features.map((f, i) => {
+      const rel = describeRelation(pCol, pRow, f.center.col, f.center.row);
+      return `${f.type} ${f.shape} ~${f.tileCount}t at (${f.center.col},${f.center.row}) ${rel}`;
+    });
+    showMessage(['Terrain features:', ...lines.slice(0, 8)], 10);
+    return;
+  }
+
+  if (sub === 'structures' || sub === 'buildings') {
+    const structs = gameState.structures || [];
+    if (structs.length === 0) { showMessage('No structures built yet.'); return; }
+    const features = detectFeatures(world);
+    const lines = structs.map(s => {
+      const rel = describeRelation(pCol, pRow, s.col, s.row);
+      return `${s.name} (${s.type}) at (${s.col},${s.row}) ${rel}`;
+    });
+    showMessage(['Structures:', ...lines.slice(0, 8)], 10);
+    return;
+  }
+
+  if (sub === 'near' || sub === 'around' || sub === 'nearby') {
+    const radius = 10;
+    const tileCounts = {};
+    for (let dr = -radius; dr <= radius; dr++) {
+      for (let dc = -radius; dc <= radius; dc++) {
+        const r = pRow + dr, c = pCol + dc;
+        if (r < 0 || r >= world.length || c < 0 || c >= world[0].length) continue;
+        const name = TILE_NAMES[world[r][c]] || 'unknown';
+        tileCounts[name] = (tileCounts[name] || 0) + 1;
+      }
+    }
+    // Nearby structures
+    const nearStructs = (gameState.structures || []).filter(s =>
+      Math.abs(s.col - pCol) <= radius && Math.abs(s.row - pRow) <= radius
+    );
+    // Nearby planted
+    const nearPlanted = planted.filter(p =>
+      Math.abs(p.tileCol - pCol) <= radius && Math.abs(p.tileRow - pRow) <= radius
+    );
+    const tileDesc = Object.entries(tileCounts)
+      .filter(([name]) => name !== 'grass')
+      .map(([name, count]) => `${count} ${name}`)
+      .join(', ');
+    const lines = [
+      `Around you (${radius}-tile radius):`,
+      tileDesc || 'all grass',
+      nearPlanted.length > 0 ? `${nearPlanted.length} crops nearby` : null,
+      ...nearStructs.map(s => `${s.name} (${s.type}) at (${s.col},${s.row})`),
+    ].filter(Boolean);
+    showMessage(lines, 10);
+    return;
+  }
+
+  // query area <c1>,<r1> to <c2>,<r2>
+  const areaMatch = sub.match(/area\s+(\d+)\s*[,\s]\s*(\d+)\s+to\s+(\d+)\s*[,\s]\s*(\d+)/);
+  if (areaMatch) {
+    const c1 = parseInt(areaMatch[1]), r1 = parseInt(areaMatch[2]);
+    const c2 = parseInt(areaMatch[3]), r2 = parseInt(areaMatch[4]);
+    const minC = Math.max(0, Math.min(c1, c2)), maxC = Math.min(world[0].length - 1, Math.max(c1, c2));
+    const minR = Math.max(0, Math.min(r1, r2)), maxR = Math.min(world.length - 1, Math.max(r1, r2));
+    const tileCounts = {};
+    for (let r = minR; r <= maxR; r++) {
+      for (let c = minC; c <= maxC; c++) {
+        const name = TILE_NAMES[world[r][c]] || 'unknown';
+        tileCounts[name] = (tileCounts[name] || 0) + 1;
+      }
+    }
+    const total = (maxR - minR + 1) * (maxC - minC + 1);
+    const tileDesc = Object.entries(tileCounts).map(([name, count]) => `${count} ${name}`).join(', ');
+    const areaStructs = (gameState.structures || []).filter(s =>
+      s.col >= minC && s.col <= maxC && s.row >= minR && s.row <= maxR
+    );
+    const areaPlanted = planted.filter(p =>
+      p.tileCol >= minC && p.tileCol <= maxC && p.tileRow >= minR && p.tileRow <= maxR
+    );
+    const lines = [
+      `Area (${minC},${minR}) to (${maxC},${maxR}): ${total} tiles`,
+      tileDesc,
+      areaPlanted.length > 0 ? `${areaPlanted.length} crops` : null,
+      ...areaStructs.map(s => `${s.name} (${s.type}) at (${s.col},${s.row})`),
+    ].filter(Boolean);
+    showMessage(lines, 10);
+    return;
+  }
+
+  // Try to look up a named structure or feature
+  const structs = gameState.structures || [];
+  const match = structs.find(s => s.name.toLowerCase() === sub);
+  if (match) {
+    const rel = describeRelation(pCol, pRow, match.col, match.row);
+    showMessage([
+      `${match.name} (${match.type})`,
+      `Position: (${match.col},${match.row}), ${match.w}×${match.h}`,
+      `${rel} from you`,
+    ], 8);
+    return;
+  }
+
+  return false; // fall through to AI
+}
+
 function cmdGo(arg) {
   if (!arg) { showMessage('Usage: go <place or npc>'); return; }
   const target = resolveTarget(arg);
@@ -2700,15 +2976,31 @@ function doBuildAt(type, name, baseCol, baseRow) {
 }
 
 function cmdBuild(arg) {
-  if (!arg) { showMessage('Usage: build <type> [name]'); return; }
+  if (!arg) { showMessage('Usage: build <type> [name] [at <col>,<row>] [near <landmark>]'); return; }
   const parts = arg.split(/\s+/);
   const type = parts[0].toLowerCase();
-  const name = parts.slice(1).join(' ') || STRUCTURE_TEMPLATES[type]?.label || type;
 
   const tmpl = STRUCTURE_TEMPLATES[type];
   if (!tmpl) {
     // Fall through to LLM for natural language like "build me a barn"
     return false;
+  }
+
+  // Extract location constraint
+  const loc = resolveLocation(parts.map(p => p.toLowerCase()));
+  const nameParts = loc ? parts.slice(1, loc.fromIdx) : parts.slice(1);
+  const name = nameParts.join(' ') || tmpl.label || type;
+
+  // If location was specified, search near that location
+  if (loc) {
+    const site = findBuildSite(type, loc.col, loc.row);
+    if (!site) { showMessage(`No space to build near (${loc.col},${loc.row}).`); return; }
+    if (doBuildAt(type, name, site.col, site.row)) {
+      showMessage(`Built ${name} at (${site.col},${site.row})!`, 3);
+      return;
+    }
+    showMessage(`Couldn't build ${name} near (${loc.col},${loc.row}).`);
+    return;
   }
 
   // Try building at facing tile first
@@ -3038,12 +3330,14 @@ const COMMANDS = {
   structures: cmdStructures,
   movestructure: cmdMoveStructure,
   spawn: cmdSpawn,
+  paint: cmdPaint, tile: cmdPaint,
+  query: cmdQuery,
   xyzzy: () => showMessage('A hollow voice says: "Plugh."', 3),
   plugh: () => showMessage('A hollow voice says: "Xyzzy."', 3),
   hello: () => showMessage('Hello, farmer! The biomorphs wave their branches at you.', 2),
 };
 
-const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'settings', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level', 'moveto', 'creative', 'build', 'demolish', 'movestructure', 'structures', 'clearplants', 'cleartrees', 'destroy', 'plant', 'harvest', 'plow', 'spawn'];
+const SANDBOX_COMMANDS = ['help', 'save', 'gallery', 'look', 'music', 'voice', 'ai', 'settings', 'garden', 'breed', 'sell', 'move', 'circle', 'follow', 'stop', 'inventory', 'name', 'appraise', 'zoom', 'level', 'moveto', 'creative', 'build', 'demolish', 'movestructure', 'structures', 'clearplants', 'cleartrees', 'destroy', 'plant', 'harvest', 'plow', 'spawn', 'paint', 'tile', 'query'];
 
 function executeCommand(raw) {
   const rawParts = raw.split(/\s+/);
@@ -3335,6 +3629,12 @@ function gameLoop(timestamp) {
 
   // ── Playing phase ──
 
+  // Enable text mode for command bar on first frame of playing phase
+  if (gameState.commandBar.active && !gameState._commandBarTextModeSet) {
+    gameState._commandBarTextModeSet = true;
+    input.setTextMode(true);
+  }
+
   // Cancel action runner on Escape (before pause toggle consumes it)
   if (actionRunner.isRunning && input.justPressed('Escape')) {
     actionRunner.cancel();
@@ -3354,10 +3654,12 @@ function gameLoop(timestamp) {
     if (gameState.commandBar.active) {
       input.drainCharBuffer(); // discard typed chars while paused
       if (input.justPressed('Enter') || input.justPressed('Escape')) {
-        gameState.commandBar.active = false;
-        gameState.commandBar.text = '';
-        gameState.commandBar.suggestion = false;
-        input.setTextMode(false);
+        if (gameState.overlay) {
+          gameState.overlay = null;
+        } else {
+          gameState.commandBar.text = '';
+          gameState.commandBar.suggestion = false;
+        }
       }
     }
     gameState.tutorialState = tutorialState;
@@ -3368,7 +3670,24 @@ function gameLoop(timestamp) {
     return;
   }
 
-  // ── Command bar ──
+  // ── Command bar toggle: / hides when active+empty, shows when hidden ──
+  if (!gameState.overlay && input.justPressed('/')) {
+    if (gameState.commandBar.active && !gameState.commandBar.text) {
+      // Hide the bar (only when text is empty — otherwise let '/' be typed)
+      gameState.commandBar.active = false;
+      gameState.commandBar.suggestion = false;
+      input.setTextMode(false);
+      input.drainCharBuffer(); // discard the '/' from char buffer
+    } else if (!gameState.commandBar.active) {
+      // Show the bar
+      gameState.commandBar.active = true;
+      gameState.commandBar.text = '';
+      input.setTextMode(true);
+      input.drainCharBuffer(); // discard the '/' from char buffer
+    }
+  }
+
+  // ── Command bar input ──
   if (gameState.commandBar.active) {
     // Drain character buffer into command text
     const chars = input.drainCharBuffer();
@@ -3379,29 +3698,24 @@ function gameLoop(timestamp) {
         gameState.commandBar.text += ch;
       }
     }
-    // Enter submits, Escape cancels
+    // Enter submits, Escape clears text (or closes overlay if one is open)
     if (input.justPressed('Enter')) {
       const cmd = gameState.commandBar.text.trim();
-      gameState.commandBar.active = false;
       gameState.commandBar.text = '';
       gameState.commandBar.suggestion = false;
-      input.setTextMode(false);
       if (cmd) executeCommand(cmd);
     } else if (input.justPressed('Escape')) {
-      gameState.commandBar.active = false;
-      gameState.commandBar.text = '';
-      gameState.commandBar.suggestion = false;
-      input.setTextMode(false);
+      if (gameState.overlay) {
+        // Close the overlay first — more useful than clearing bar text
+        gameState.overlay = null;
+      } else {
+        gameState.commandBar.text = '';
+        gameState.commandBar.suggestion = false;
+      }
     }
     // Skip all other game input while command bar is open
     // (still update world, camera, NPCs below)
   } else {
-    // / key opens command bar (only when no overlay is open)
-    if (!gameState.overlay && input.justPressed('/')) {
-      gameState.commandBar.active = true;
-      gameState.commandBar.text = '';
-      input.setTextMode(true);
-    }
 
   // Sandbox: scroll-to-browse palette when mouse over sidebar
   if (gameState.sandboxMode && !gameState.overlay) {

@@ -3196,11 +3196,23 @@ function drawSpectatorBanner(ctx, gs) {
 function drawCommandBar(ctx, gs) {
   const bar = gs.commandBar;
   if (!bar || !bar.active) return;
-  const barH = 30;
-  const barY = HUD_Y - barH - 6;
-  const barX = 120;
-  const barW = CANVAS_W - 240;
-  // Dark background
+
+  const barX = 8;
+  const barW = CANVAS_W - 16;
+  const barY = 8;
+
+  // Auto-expand: measure text, wrap at bar width
+  ctx.font = '14px monospace';
+  const charW = ctx.measureText('M').width;
+  const promptW = bar.suggestion ? 38 : 24; // space for prompt char
+  const usableW = barW - promptW - 16; // padding on right
+  const maxCharsPerLine = Math.max(1, Math.floor(usableW / charW));
+  const textStr = bar.text || '';
+  const lineCount = Math.max(1, Math.ceil(textStr.length / maxCharsPerLine) || 1);
+  const lineH = 20;
+  const barH = lineCount * lineH + 10;
+
+  // Dark background with rounded corners
   ctx.fillStyle = 'rgba(10, 10, 30, 0.92)';
   ctx.beginPath();
   const r = 6;
@@ -3219,34 +3231,47 @@ function drawCommandBar(ctx, gs) {
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
   ctx.lineWidth = 1;
   ctx.stroke();
+
   // Prompt + text
-  ctx.font = '14px monospace';
   ctx.fillStyle = '#888';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  const textY = barY + barH / 2;
+
   if (bar.suggestion) {
     // AI suggestion mode: different prompt and hint
+    const firstLineY = barY + lineH / 2 + 5;
     ctx.fillStyle = '#f8d48a';
-    ctx.fillText('AI\u2192', barX + 6, textY);
+    ctx.fillText('AI\u2192', barX + 6, firstLineY);
     ctx.fillStyle = '#fff';
-    ctx.fillText(bar.text, barX + 38, textY);
-    // Hint on right side
+    // Draw text lines
+    for (let i = 0; i < lineCount; i++) {
+      const lineText = textStr.slice(i * maxCharsPerLine, (i + 1) * maxCharsPerLine);
+      ctx.fillText(lineText, barX + promptW, firstLineY + i * lineH);
+    }
+    // Hint on right side of first line
     ctx.fillStyle = '#666';
     ctx.textAlign = 'right';
-    ctx.fillText('[Enter] run \u2022 [Esc] cancel', barX + barW - 10, textY);
+    ctx.fillText('[Enter] run \u2022 [Esc] cancel', barX + barW - 10, firstLineY);
     ctx.textAlign = 'left';
   } else {
-    ctx.fillText('>', barX + 10, textY);
+    const firstLineY = barY + lineH / 2 + 5;
+    ctx.fillText('>', barX + 10, firstLineY);
     ctx.fillStyle = '#fff';
-    ctx.fillText(bar.text, barX + 24, textY);
+    // Draw text lines
+    for (let i = 0; i < lineCount; i++) {
+      const lineText = textStr.slice(i * maxCharsPerLine, (i + 1) * maxCharsPerLine);
+      ctx.fillText(lineText, barX + promptW, firstLineY + i * lineH);
+    }
   }
-  // Blinking cursor
+
+  // Blinking cursor at end of last line
   if (Math.floor(Date.now() / 500) % 2 === 0) {
-    const xOff = bar.suggestion ? 38 : 24;
-    const tw = ctx.measureText(bar.text).width;
+    const lastLineIdx = lineCount - 1;
+    const lastLineText = textStr.slice(lastLineIdx * maxCharsPerLine);
+    const tw = ctx.measureText(lastLineText).width;
+    const cursorY = barY + lineH / 2 + 5 + lastLineIdx * lineH;
     ctx.fillStyle = '#fff';
-    ctx.fillRect(barX + xOff + tw + 1, textY - 7, 2, 14);
+    ctx.fillRect(barX + promptW + tw + 1, cursorY - 7, 2, 14);
   }
 }
 
