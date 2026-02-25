@@ -306,7 +306,7 @@ export function render(ctx, world, player, gs, planted, collection, lab, npcStat
       const dots = '.'.repeat(1 + Math.floor(Date.now() / 400) % 3);
       lines = ['Thinking' + dots];
     }
-    drawMessage(ctx, lines);
+    drawMessage(ctx, lines, gs);
   }
 
   // Action runner step counter
@@ -3275,20 +3275,62 @@ function drawCommandBar(ctx, gs) {
   }
 }
 
-function drawMessage(ctx, lines) {
+function drawMessage(ctx, lines, gs) {
   ctx.font = 'bold 14px monospace';
   const lineH = 20;
-  const maxW = Math.max(...lines.map(l => ctx.measureText(l).width));
-  const boxW = maxW + 28;
-  const boxH = lines.length * lineH + 14;
+  const maxBoxW = CANVAS_W - 32; // max width with margin
+
+  // Word-wrap lines that exceed max width
+  const wrapped = [];
+  for (const line of lines) {
+    if (ctx.measureText(line).width <= maxBoxW - 28) {
+      wrapped.push(line);
+    } else {
+      const words = line.split(' ');
+      let cur = '';
+      for (const word of words) {
+        const test = cur ? cur + ' ' + word : word;
+        if (ctx.measureText(test).width > maxBoxW - 28) {
+          if (cur) wrapped.push(cur);
+          cur = word;
+        } else {
+          cur = test;
+        }
+      }
+      if (cur) wrapped.push(cur);
+    }
+  }
+
+  const maxW = Math.max(...wrapped.map(l => ctx.measureText(l).width));
+  const boxW = Math.min(maxW + 28, maxBoxW);
+  const boxH = wrapped.length * lineH + 14;
+
+  // Position below the command bar at top, or fallback if bar hidden
+  let boxY;
+  if (gs && gs.commandBar && gs.commandBar.active) {
+    // Recalculate bar height to position message just below it
+    ctx.font = '14px monospace';
+    const charW = ctx.measureText('M').width;
+    const barW = CANVAS_W - 16;
+    const promptW = gs.commandBar.suggestion ? 38 : 24;
+    const usableW = barW - promptW - 16;
+    const maxCharsPerLine = Math.max(1, Math.floor(usableW / charW));
+    const textStr = gs.commandBar.text || '';
+    const barLineCount = Math.max(1, Math.ceil(textStr.length / maxCharsPerLine) || 1);
+    const barH = barLineCount * 20 + 10;
+    boxY = 8 + barH + 6; // barY + barH + gap
+    ctx.font = 'bold 14px monospace'; // restore
+  } else {
+    boxY = 8; // top of screen when bar is hidden
+  }
+
   const mx = CANVAS_W / 2;
-  const boxY = HUD_Y - boxH - 8;
   ctx.fillStyle = 'rgba(0,0,0,0.85)';
   ctx.fillRect(mx - boxW / 2, boxY, boxW, boxH);
   ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
   ctx.strokeRect(mx - boxW / 2, boxY, boxW, boxH);
   ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i], mx, boxY + 7 + lineH / 2 + i * lineH);
+  for (let i = 0; i < wrapped.length; i++) {
+    ctx.fillText(wrapped[i], mx, boxY + 7 + lineH / 2 + i * lineH);
   }
 }

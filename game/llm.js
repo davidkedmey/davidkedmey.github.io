@@ -501,20 +501,12 @@ export async function interpretCommand(rawInput, context, screenshotDataUrl) {
   conversation.push({ role: 'user', content: rawInput });
 
   try {
-    // Use local proxy on localhost to avoid CORS, direct call otherwise
-    const useProxy = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    const fetchUrl = useProxy ? '/api/llm' : `${baseUrl}/chat/completions`;
-    const fetchOpts = useProxy
-      ? {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apiKey, baseUrl, model, messages, max_tokens: 500, temperature: 0.3 }),
-        }
-      : {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-          body: JSON.stringify({ model, messages, max_tokens: 500, temperature: 0.3 }),
-        };
+    const fetchUrl = `${baseUrl}/chat/completions`;
+    const fetchOpts = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({ model, messages, max_tokens: 500, temperature: 0.3 }),
+    };
     const res = await fetch(fetchUrl, fetchOpts);
 
     if (!res.ok) {
