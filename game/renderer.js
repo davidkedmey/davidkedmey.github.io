@@ -2686,7 +2686,7 @@ function drawHelpOverlay(ctx) {
 
   // Footer
   ctx.font = '11px monospace'; ctx.textAlign = 'center'; ctx.fillStyle = '#888';
-  ctx.fillText('[H] or [Esc] to close  \u2022  Press / to open command bar', px + pw / 2, py + ph - 18);
+  ctx.fillText('[H] or [Esc] to close  \u2022  / toggles command bar', px + pw / 2, py + ph - 18);
 }
 
 // ── Codex Overlay ──
