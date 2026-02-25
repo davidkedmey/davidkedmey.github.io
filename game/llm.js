@@ -71,6 +71,165 @@ export function clearConversation() {
 
 // ── Game Context ──
 
+// Tile type names (matches TILE enum in world.js)
+const TILE_NAMES = { 0: 'grass', 1: 'dirt', 2: 'path', 3: 'water', 4: 'building', 5: 'tree', 6: 'fence' };
+const FEATURE_TILE_TYPES = new Set([2, 3, 5, 6]); // path, water, tree, fence — things worth detecting as features
+
+/**
+ * Detect connected regions of notable tile types (water, trees, path, fence).
+ * Returns array of { type, tiles: [{col,row}], center: {col,row}, radius }.
+ * Uses flood-fill. Caps at 20 features to keep prompt compact.
+ */
+function detectFeatures(world) {
+  if (!world || !world.length) return [];
+  const rows = world.length, cols = world[0].length;
+  const visited = new Uint8Array(rows * cols);
+  const features = [];
+
+  for (let r = 0; r < rows && features.length < 20; r++) {
+    for (let c = 0; c < cols && features.length < 20; c++) {
+      const t = world[r][c];
+      if (!FEATURE_TILE_TYPES.has(t) || visited[r * cols + c]) continue;
+
+      // Flood-fill this region
+      const tiles = [];
+      const stack = [[c, r]];
+      while (stack.length > 0) {
+        const [fc, fr] = stack.pop();
+        if (fr < 0 || fr >= rows || fc < 0 || fc >= cols) continue;
+        if (visited[fr * cols + fc] || world[fr][fc] !== t) continue;
+        visited[fr * cols + fc] = 1;
+        tiles.push({ col: fc, row: fr });
+        stack.push([fc + 1, fr], [fc - 1, fr], [fc, fr + 1], [fc, fr - 1]);
+      }
+
+      if (tiles.length < 3) continue; // skip tiny features (1-2 tiles)
+
+      // Compute bounding box and center
+      let minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
+      for (const p of tiles) {
+        if (p.col < minC) minC = p.col;
+        if (p.col > maxC) maxC = p.col;
+        if (p.row < minR) minR = p.row;
+        if (p.row > maxR) maxR = p.row;
+      }
+      const centerCol = Math.round((minC + maxC) / 2);
+      const centerRow = Math.round((minR + maxR) / 2);
+      const w = maxC - minC + 1;
+      const h = maxR - minR + 1;
+      const radius = Math.round(Math.max(w, h) / 2);
+
+      // Classify shape
+      const area = tiles.length;
+      const boxArea = w * h;
+      const fillRatio = area / boxArea;
+      let shape;
+      if (w === 1 || h === 1) shape = w > h ? 'line' : 'column';
+      else if (fillRatio > 0.7) shape = (Math.abs(w - h) <= 2) ? 'circle' : 'rect';
+      else if (fillRatio > 0.3) shape = 'ring';
+      else shape = 'scatter';
+
+      features.push({
+        type: TILE_NAMES[t] || `tile${t}`,
+        tileCount: area,
+        center: { col: centerCol, row: centerRow },
+        w, h, radius, shape,
+      });
+    }
+  }
+
+  return features;
+}
+
+/**
+ * Compute directional relationship between two points.
+ */
+function describeRelation(fromCol, fromRow, toCol, toRow) {
+  const dc = toCol - fromCol;
+  const dr = toRow - fromRow;
+  const dist = Math.round(Math.hypot(dc, dr));
+
+  let dir = '';
+  if (Math.abs(dr) > Math.abs(dc) * 0.5) dir += dr < 0 ? 'N' : 'S';
+  if (Math.abs(dc) > Math.abs(dr) * 0.5) dir += dc < 0 ? 'W' : 'E';
+  if (!dir) dir = 'nearby';
+
+  return `${dist} tiles ${dir}`;
+}
+
+/**
+ * Build a scene graph description of the world for the LLM prompt.
+ */
+function buildSceneGraph(world, structures, planted, playerCol, playerRow) {
+  const lines = [];
+  const worldRows = world ? world.length : 0;
+  const worldCols = world && world[0] ? world[0].length : 0;
+  lines.push(`World: ${worldCols}×${worldRows}`);
+
+  // Detect terrain features
+  const features = detectFeatures(world);
+
+  // Name features by type + index
+  const featureNames = [];
+  const typeCounts = {};
+  for (const f of features) {
+    const count = (typeCounts[f.type] || 0) + 1;
+    typeCounts[f.type] = count;
+    const name = count === 1 ? f.type : `${f.type}${count}`;
+    featureNames.push(name);
+  }
+
+  if (features.length > 0) {
+    lines.push('Features:');
+    for (let i = 0; i < features.length; i++) {
+      const f = features[i];
+      const rel = describeRelation(playerCol, playerRow, f.center.col, f.center.row);
+      lines.push(`  ${featureNames[i]}: ${f.type} ${f.shape} ~${f.tileCount} tiles at (${f.center.col},${f.center.row}), r≈${f.radius}, ${rel} from you`);
+    }
+  }
+
+  // Structures with relationships
+  const structs = structures || [];
+  if (structs.length > 0) {
+    lines.push('Structures:');
+    for (const s of structs) {
+      const rel = describeRelation(playerCol, playerRow, s.col, s.row);
+      // Describe relation to nearest feature
+      let featureRel = '';
+      let minDist = Infinity;
+      for (let i = 0; i < features.length; i++) {
+        const d = Math.hypot(s.col - features[i].center.col, s.row - features[i].center.row);
+        if (d < minDist) {
+          minDist = d;
+          featureRel = `, ${describeRelation(features[i].center.col, features[i].center.row, s.col, s.row)} from ${featureNames[i]}`;
+        }
+      }
+      lines.push(`  ${s.name} (${s.type}): at (${s.col},${s.row}), ${rel} from you${featureRel}`);
+    }
+  }
+
+  // Planted summary
+  if (planted && planted.length > 0) {
+    // Group planted by rough area
+    let minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
+    for (const p of planted) {
+      if (p.tileCol < minC) minC = p.tileCol;
+      if (p.tileCol > maxC) maxC = p.tileCol;
+      if (p.tileRow < minR) minR = p.tileRow;
+      if (p.tileRow > maxR) maxR = p.tileRow;
+    }
+    const cCenter = Math.round((minC + maxC) / 2);
+    const rCenter = Math.round((minR + maxR) / 2);
+    const rel = describeRelation(playerCol, playerRow, cCenter, rCenter);
+    lines.push(`Planted: ${planted.length} crops around (${cCenter},${rCenter}), ${rel} from you`);
+  }
+
+  return lines.join('\n');
+}
+
+// Exported for query command
+export { detectFeatures, describeRelation, buildSceneGraph, TILE_NAMES };
+
 export function buildGameContext(gameState, player, npcStates, planted, collection, world, tileSize) {
   const inv = player.inventory;
   const invLines = inv.slice(0, 9).map((item, i) => {
@@ -89,44 +248,22 @@ export function buildGameContext(gameState, player, npcStates, planted, collecti
     return `${ns.id} ${task} ${ns.wallet}g`;
   }).join(', ');
 
-  // Spatial context: player position and nearby tiles
   const ts = tileSize || 48;
   const pCol = Math.floor(player.x / ts);
   const pRow = Math.floor(player.y / ts);
   const facing = player.facing || 'down';
 
-  // Tile type names for spatial context
-  const TILE_NAMES = { 0: 'grass', 1: 'dirt', 2: 'water', 3: 'wall', 4: 'floor', 5: 'planted', 6: 'door' };
-  let nearbyDesc = '';
-  if (world) {
-    const tiles = [];
-    for (let dr = -2; dr <= 2; dr++) {
-      for (let dc = -2; dc <= 2; dc++) {
-        if (dr === 0 && dc === 0) continue;
-        const r = pRow + dr, c = pCol + dc;
-        if (r >= 0 && r < world.length && c >= 0 && c < world[0].length) {
-          const t = world[r][c];
-          const name = TILE_NAMES[t] || `tile${t}`;
-          if (name !== 'grass' && name !== 'wall' && name !== 'floor') {
-            tiles.push(`${name}@(${c},${r})`);
-          }
-        }
-      }
-    }
-    if (tiles.length > 0) nearbyDesc = `\nNearby: ${tiles.join(', ')}`;
-  }
-
-  const structLines = (gameState.structures || []).map(s => `${s.name}(${s.type})@(${s.col},${s.row})`).join(', ');
+  // Build scene graph for spatial context
+  const sceneGraph = world ? buildSceneGraph(world, gameState.structures, planted, pCol, pRow) : '';
 
   const ctx = [
     `Day ${gameState.day} | ${player.wallet}g | Inventory: ${inv.length} items`,
     invLines.length > 0 ? invLines.join('  ') : '(empty)',
     `Position: col ${pCol}, row ${pRow}, facing ${facing}`,
-    `Planted: ${planted.length} plots`,
     `NPCs: ${npcLines}`,
     `Mode: ${gameState.sandboxMode ? 'sandbox' : gameState.creativeMode ? 'creative' : 'survival'}`,
-    structLines ? `Structures: ${structLines}` : '',
-  ].filter(Boolean).join('\n') + nearbyDesc;
+    sceneGraph,
+  ].filter(Boolean).join('\n');
   conversationContext = ctx;
   return ctx;
 }
@@ -175,13 +312,22 @@ Farming:
   garden <shape> [size] — auto-build a garden (circle/ring/line/row/column/grid/square/cross/spiral, size 1-8)
 
 Building & Destruction:
-  build <type> [name]   — build a structure (shed/cottage/barn/tower/pen/wall). Free in creative, costs gold otherwise.
+  build <type> [name] [at <col>,<row>] [near <landmark>] — build a structure (shed/cottage/barn/tower/pen/wall). Free in creative, costs gold otherwise. Use "near lake" or "at 120,125" to build at a specific location.
   demolish <name|nearest> — walk to and demolish a named structure, restoring original tiles
   movestructure <name> <col> <row> — relocate a structure to new coordinates
   clearplants [all]     — walk to and remove crops. In creative, clears NPC crops too.
   cleartrees [all]      — walk to and remove trees. In creative, clears all trees.
   destroy <target>      — meta: "plants"→clearplants, "trees"→cleartrees, "everything"→both, else→demolish by name
   structures            — list all player-built structures
+
+Terrain Painting (creative only):
+  paint <tile> <shape> [size] — paint terrain tiles around you. THE core building primitive.
+    Tiles: grass, dirt, path/stone, water/lake, tree/forest, fence, wall
+    Shapes: circle/disc, ring, square/grid/fill, line/row, column, cross, spiral, dot
+    Size: 1-20 (default 3)
+    Examples: "paint water circle 4" (lake), "paint path ring 5" (path around), "paint tree line 6" (tree row)
+    Location: append "at <col>,<row>" or "near <landmark>" to paint at a specific location instead of player position.
+    Examples: "paint water circle 4 at 120,125", "paint tree ring 5 near lake", "paint path ring 3 near Home"
 
 Breeding:
   breed <slot1> <slot2> — crossbreed two organisms (e.g. "breed 1 2")
@@ -200,6 +346,12 @@ Creature Interaction:
   pet                   — pet the biomorph/tree you're facing (they react!)
   water                 — water all planted crops (boosts growth)
   spawn [n]             — (creative only) add n random seeds to inventory (default 1, max 9)
+
+Spatial Queries:
+  query features        — list all detected terrain features (lakes, forests, paths, etc.)
+  query structures      — list all structures with positions and spatial relations
+  query near            — describe what's around the player (10-tile radius)
+  query area <c1>,<r1> to <c2>,<r2> — describe tiles in a rectangular area
 
 Info & Utility:
   name <nickname>       — rename your CURRENTLY SELECTED organism (max 16 chars). Just the name, e.g. "name Steve"
@@ -266,6 +418,25 @@ CREATIVE MAPPING — be generous with interpretation:
 - "plant my best seed" → plant (auto-walks to dirt if needed; in creative, auto-generates seeds if none)
 - "plant a few seeds" in creative → DO: plant\nDO: plant\nDO: plant\nSAY: Planted 3 seeds!
 - "give me some seeds" in creative → spawn 5
+- "make a lake" → paint water circle 4
+- "build a path around the lake" → paint path ring 5
+- "plant some trees along the path" → paint tree ring 6
+- "make a park" → DO: paint water circle 3\nDO: paint path ring 4\nDO: paint tree ring 6\nDO: garden spiral 5\nSAY: Built a park with a lake, path, trees, and garden!
+- "clear the area" → paint grass fill 5
+- "dig a river" → DO: moveto 120 128\nDO: paint water line 8\nSAY: Dug an east-west river!
+- "fence off my farm" → paint fence ring 6
+- "make a forest" → paint tree circle 5
+- "plant trees north of the lake" (lake at 128,128) → DO: moveto 128 118\nDO: paint tree circle 4\nSAY: Planted a forest north of the lake!
+- "build something east of X" → use higher col: moveto (X.col + offset) X.row
+- Combine paint + moveto for complex landscapes. Paint is the terrain primitive, moveto is the positioning primitive.
+- SPATIAL CONTEXT: The game state includes a scene graph with detected features and structures.
+  COORDINATE SYSTEM: col increases east (right), row increases south (down). So north = lower row, south = higher row, west = lower col, east = higher col.
+  "N of (128,128)" means row < 128 (e.g. 128,118). "E of (128,128)" means col > 128 (e.g. 138,128).
+  Use feature coordinates for spatial commands: if "water circle at (128,128)" is in context,
+  you know where the lake is and can position things relative to it with moveto.
+- "build a barn near the lake" → build barn Storage near lake
+- "put trees around my house" → paint tree ring 3 near Home
+- For precise spatial work, use query to get detailed area info before composing commands.
 - Use SUGGEST: for uncertain mappings. Only return NONE for truly unrecognizable gibberish.
 
 PERSONALITY: You're a savvy farmhand who's been here a while. Give real tactical advice, not generic tips. Reference the player's actual inventory, wallet, and NPCs by name. Be brief and punchy — one or two sentences max for SAY responses. When in doubt, DO something rather than asking.
