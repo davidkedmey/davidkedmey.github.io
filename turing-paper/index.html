@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>On Computable Numbers — A. M. Turing (1936) — Interactive Edition</title>
+<link rel="stylesheet" href="turing-machine.css">
+<style>
+/* ─── Design Tokens ──────────────────────────────────── */
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #1c2128;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text-muted: #8b949e;
+  --heading: #e6edf3;
+  --accent: #58a6ff;
+  --accent2: #7ee787;
+  --accent3: #f0883e;
+  --link: #58a6ff;
+  --sidebar-w: 260px;
+  --content-max: 720px;
+}
+
+/* ─── Reset & Base ───────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 18px;
+  line-height: 1.75;
+  display: flex;
+}
+
+/* ─── Paragraph Index Sidebar ────────────────────────── */
+#sidebar {
+  position: fixed;
+  top: 0; left: 0;
+  width: var(--sidebar-w);
+  height: 100vh;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 1em 0;
+  z-index: 100;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: #30363d transparent;
+  transition: transform 0.3s;
+}
+
+#sidebar.collapsed { transform: translateX(calc(-1 * var(--sidebar-w))); }
+
+.pi-title {
+  padding: 0 1em 0.8em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pi-item {
+  display: block;
+  padding: 3px 1em 3px 1.5em;
+  color: var(--text-muted);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pi-item:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.pi-item.active { color: var(--accent); background: rgba(88,166,255,0.08); }
+.pi-item.pi-heading {
+  font-weight: 700;
+  color: var(--heading);
+  padding-left: 1em;
+  margin-top: 0.6em;
+  font-size: 12px;
+}
+
+/* ─── Main Content ───────────────────────────────────── */
+#content {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+}
+
+.paper {
+  max-width: var(--content-max);
+  width: 100%;
+  padding: 3em 2em 6em;
+}
+
+/* ─── Paper Header ───────────────────────────────────── */
+.paper-header {
+  text-align: center;
+  margin-bottom: 3em;
+  padding-bottom: 2em;
+  border-bottom: 1px solid var(--border);
+}
+
+.paper-header h1 {
+  font-size: 1.6em;
+  font-weight: 700;
+  color: var(--heading);
+  line-height: 1.3;
+  margin-bottom: 0.3em;
+  letter-spacing: 0.02em;
+}
+
+.paper-header .subtitle {
+  font-size: 0.85em;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-bottom: 0.2em;
+}
+
+.paper-header .author {
+  font-size: 1.15em;
+  color: var(--text);
+  margin: 0.8em 0 0.3em;
+}
+
+.paper-header .meta {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.paper-header .part-badge {
+  display: inline-block;
+  margin-top: 1em;
+  padding: 0.3em 1em;
+  background: rgba(88, 166, 255, 0.1);
+  border: 1px solid rgba(88, 166, 255, 0.3);
+  border-radius: 20px;
+  font-size: 0.75em;
+  color: var(--accent);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ─── Sections & Paragraphs ──────────────────────────── */
+.section { margin-bottom: 2.5em; }
+.section-heading {
+  font-size: 1.15em;
+  font-weight: 700;
+  color: var(--heading);
+  margin: 2em 0 1em;
+  text-align: center;
+  font-style: italic;
+}
+
+.section-subheading {
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--heading);
+  margin: 1.5em 0 0.8em;
+  font-style: italic;
+}
+
+.para {
+  margin-bottom: 1em;
+  text-indent: 1.5em;
+  text-align: justify;
+  position: relative;
+}
+
+.para:first-child { text-indent: 0; }
+.para.no-indent { text-indent: 0; }
+
+/* ─── Footnotes ──────────────────────────────────────── */
+.fn-ref {
+  font-size: 0.7em;
+  vertical-align: super;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.fn-ref:hover { text-decoration: underline; }
+
+.footnote {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  margin-top: 2em;
+  padding-top: 0.8em;
+  line-height: 1.5;
+}
+
+.footnote-marker {
+  font-size: 0.8em;
+  vertical-align: super;
+  color: var(--accent);
+  margin-right: 0.3em;
+}
+
+/* ─── Margin Notes ───────────────────────────────────── */
+.margin-note {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.75em;
+  color: var(--text-muted);
+  line-height: 1.5;
+  background: var(--surface);
+  border-left: 2px solid var(--accent);
+  padding: 0.6em 0.8em;
+  margin: 1em 0;
+  border-radius: 0 4px 4px 0;
+  text-indent: 0;
+}
+
+body.mode-clean .margin-note { display: none; }
+body.mode-clean .tm-widget { display: none; }
+body.mode-enhanced .margin-note { display: block; }
+body.mode-enhanced .tm-widget { opacity: 0.6; pointer-events: none; }
+body.mode-multimedia .margin-note { display: block; }
+body.mode-multimedia .tm-widget { opacity: 1; pointer-events: auto; }
+
+/* ─── Machine Tables (Turing's original notation) ────── */
+.machine-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.85em;
+}
+
+.machine-table th {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--text-muted);
+  padding: 0.4em 0.8em;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  font-family: Georgia, serif;
+}
+
+.machine-table td {
+  padding: 0.3em 0.8em;
+  text-align: center;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.3);
+}
+
+.machine-table .col-config { color: var(--accent); font-weight: 600; }
+.machine-table .col-symbol { color: var(--accent3); }
+.machine-table .col-ops { color: var(--text); }
+.machine-table .col-final { color: var(--accent2); font-weight: 600; }
+
+/* ─── Reading Mode Toggle ────────────────────────────── */
+#mode-toggle {
+  position: fixed;
+  top: 1em;
+  right: 1em;
+  z-index: 200;
+  display: flex;
+  gap: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 11px;
+}
+
+.mode-btn {
+  padding: 0.5em 0.8em;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.mode-btn:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.mode-btn.active { color: var(--accent); background: rgba(88,166,255,0.1); }
+
+/* ─── Flashcard FAB ──────────────────────────────────── */
+#fc-fab {
+  position: fixed;
+  bottom: 1.5em;
+  right: 1.5em;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  font-size: 1.3em;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s;
+}
+
+#fc-fab:hover { transform: scale(1.1); }
+
+/* Flashcard count badge */
+#fc-fab .fc-badge {
+  position: absolute;
+  top: -4px; right: -4px;
+  background: #f85149;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, sans-serif;
+}
+
+/* ─── Flashcard Drawer ───────────────────────────────── */
+#fc-drawer {
+  position: fixed;
+  top: 0; right: 0;
+  width: 380px;
+  max-width: 90vw;
+  height: 100vh;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  z-index: 300;
+  transform: translateX(100%);
+  transition: transform 0.3s;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+#fc-drawer.open { transform: translateX(0); }
+
+.fc-drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1em;
+  border-bottom: 1px solid var(--border);
+}
+
+.fc-drawer-header h3 {
+  font-size: 0.95em;
+  color: var(--heading);
+}
+
+.fc-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1em;
+}
+
+.fc-card-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.8em;
+  margin-bottom: 0.6em;
+  font-size: 0.85em;
+}
+
+.fc-card-type {
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  margin-bottom: 0.3em;
+}
+
+/* ─── Text Selection Popup ───────────────────────────── */
+#fc-popup {
+  position: absolute;
+  display: none;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4em;
+  z-index: 250;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  font-family: -apple-system, sans-serif;
+  font-size: 12px;
+}
+
+#fc-popup button {
+  background: none;
+  border: none;
+  color: var(--text);
+  padding: 0.4em 0.7em;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+#fc-popup button:hover { background: rgba(255,255,255,0.08); }
+
+/* ─── Sidebar Toggle (mobile) ────────────────────────── */
+#sidebar-toggle {
+  position: fixed;
+  top: 1em;
+  left: 1em;
+  z-index: 200;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 0.4em 0.6em;
+  cursor: pointer;
+  font-size: 14px;
+  display: none;
+}
+
+/* ─── Annotation Form ────────────────────────────────── */
+#ann-form {
+  position: fixed;
+  bottom: 5em;
+  right: 1.5em;
+  width: 360px;
+  max-width: 90vw;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1em;
+  z-index: 260;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13px;
+}
+
+.ann-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.6em;
+  font-weight: 700;
+  color: var(--heading);
+  font-size: 0.95em;
+}
+
+.ann-form-quote {
+  background: var(--bg);
+  border-left: 2px solid var(--accent);
+  padding: 0.4em 0.6em;
+  margin-bottom: 0.6em;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  max-height: 4em;
+  overflow: hidden;
+  border-radius: 0 4px 4px 0;
+}
+
+#ann-form textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 0.6em;
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 3em;
+}
+
+#ann-form textarea:focus { outline: none; border-color: var(--accent); }
+
+.ann-form-meta {
+  margin: 0.5em 0;
+}
+
+.ann-form-meta input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 0.4em 0.6em;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.ann-form-meta input:focus { outline: none; border-color: var(--accent); }
+
+.ann-form-actions {
+  display: flex;
+  gap: 0.5em;
+  justify-content: flex-end;
+  margin-top: 0.5em;
+}
+
+/* ─── Paragraph Annotation Dots ──────────────────────── */
+.para { position: relative; }
+
+.ann-dots {
+  position: absolute;
+  right: -2em;
+  top: 0.2em;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.ann-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+
+.ann-dot:hover { transform: scale(1.4); }
+.ann-dot.ann-question { background: var(--accent); }
+.ann-dot.ann-note { background: var(--accent2); }
+.ann-dot.ann-reply { background: var(--accent3); }
+
+/* ─── Inline Annotation Thread ───────────────────────── */
+.ann-thread {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 0.8em 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.85em;
+  text-indent: 0;
+  overflow: hidden;
+}
+
+.ann-thread-item {
+  padding: 0.7em 0.9em;
+  border-bottom: 1px solid rgba(48,54,61,0.3);
+}
+
+.ann-thread-item:last-child { border-bottom: none; }
+
+.ann-thread-item .ann-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.3em;
+}
+
+.ann-thread-item .ann-author {
+  font-weight: 600;
+  color: var(--heading);
+  font-size: 0.9em;
+}
+
+.ann-thread-item .ann-time {
+  color: var(--text-muted);
+  font-size: 0.8em;
+}
+
+.ann-thread-item .ann-type-tag {
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.15em 0.5em;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.ann-type-tag.question { background: rgba(88,166,255,0.15); color: var(--accent); }
+.ann-type-tag.note { background: rgba(126,231,135,0.15); color: var(--accent2); }
+.ann-type-tag.reply { background: rgba(240,136,62,0.15); color: var(--accent3); }
+
+.ann-thread-item .ann-quote {
+  font-style: italic;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  border-left: 2px solid var(--border);
+  padding-left: 0.5em;
+  margin-bottom: 0.3em;
+}
+
+.ann-thread-item .ann-content {
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.ann-thread-reply-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.8em;
+  padding: 0.2em 0;
+  margin-top: 0.3em;
+}
+
+.ann-thread-reply-btn:hover { text-decoration: underline; }
+
+body.mode-clean .ann-dots { display: none; }
+body.mode-clean .ann-thread { display: none; }
+
+/* ─── Drawer Tabs ────────────────────────────────────── */
+.fc-drawer-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.fc-tab {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.5em 1em;
+  cursor: pointer;
+  font-size: 0.85em;
+  font-family: inherit;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+
+.fc-tab:hover { color: var(--text); }
+.fc-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ─── Responsive ─────────────────────────────────────── */
+@media (max-width: 900px) {
+  #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
+  #sidebar.open { transform: translateX(0); }
+  #content { margin-left: 0; }
+  #sidebar-toggle { display: block; }
+  .paper { padding: 2em 1.2em 4em; }
+}
+
+@media (max-width: 600px) {
+  body { font-size: 16px; }
+  .paper-header h1 { font-size: 1.3em; }
+}
+</style>
+</head>
+<body class="mode-multimedia">
+
+<!-- Sidebar Toggle (mobile) -->
+<button id="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">&#9776;</button>
+
+<!-- Reading Mode Toggle -->
+<div id="mode-toggle">
+  <button class="mode-btn" data-mode="clean">Clean</button>
+  <button class="mode-btn" data-mode="enhanced">Enhanced</button>
+  <button class="mode-btn active" data-mode="multimedia">Multimedia</button>
+</div>
+
+<!-- ─── Paragraph Index Sidebar ───────────────────────── -->
+<nav id="sidebar">
+  <div class="pi-title">Paragraph Index</div>
+  <!-- Generated by JS from PARA_INDEX -->
+</nav>
+
+<!-- ─── Main Content ─────────────────────────────────── -->
+<div id="content">
+<article class="paper">
+
+<!-- ═══════════════════════════════════════════════════════
+     PAPER HEADER
+     ═══════════════════════════════════════════════════════ -->
+<header class="paper-header">
+  <h1>ON COMPUTABLE NUMBERS, WITH AN APPLICATION TO THE ENTSCHEIDUNGSPROBLEM</h1>
+  <p class="author">By A. M. Turing</p>
+  <p class="meta">Received 28 May, 1936 — Read 12 November, 1936</p>
+  <p class="meta"><em>Proceedings of the London Mathematical Society</em>, s2-42 (1937), pp. 230–265</p>
+  <span class="part-badge">Part 1: Sections 1–8 — Computing Machines through the Diagonal Argument</span>
+</header>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════════════ -->
+<section class="section" id="sec-intro">
+
+<p class="para" id="intro-p1">The "computable" numbers may be described briefly as the real numbers whose expressions as a decimal are calculable by finite means. Although the subject of this paper is ostensibly the computable <em>numbers</em>, it is almost equally easy to define and investigate computable functions of an integral variable or a real or computable variable, computable predicates, and so forth. The fundamental problems involved are, however, the same in each case, and I have chosen the computable numbers for explicit treatment as involving the least cumbrous technique. I hope shortly to give an account of the relations of the computable numbers, functions, and so forth to one another. This will include a development of the theory of functions of a real variable expressed in terms of computable numbers. According to my definition, a number is computable if its decimal can be written down by a machine.<a href="#fn1" class="fn-ref">†</a></p>
+
+<div class="margin-note" id="mn-intro-1">
+  <strong>Key idea:</strong> A "computable number" is one whose decimal expansion can be produced by a mechanical, step-by-step process. This is Turing's central definition — simple but world-changing.
+</div>
+
+<p class="para" id="intro-p2">In §§ 9, 10 I give some arguments with the intention of showing that the computable numbers include all numbers which could naturally be regarded as computable. In particular, I show that certain large classes of numbers are computable. They include, for instance, the real parts of all algebraic numbers, the real parts of the zeros of the Bessel functions, the numbers &pi;, <em>e</em>, etc. The computable numbers do not, however, include all definable numbers, and an example is given of a definable number which is not computable.</p>
+
+<p class="para" id="intro-p3">Although the class of computable numbers is so great, and in many ways similar to the class of real numbers, it is nevertheless enumerable. In § 8 I examine certain arguments which would seem to prove the contrary. By the correct application of one of these arguments, conclusions are reached which are superficially similar to those of Gödel<a href="#fn1" class="fn-ref">†</a>. These results have valuable applications. In particular, it is shown (§ 11) that the Hilbertian Entscheidungsproblem can have no solution.</p>
+
+<div class="margin-note" id="mn-intro-2">
+  <strong>The punchline:</strong> The computable numbers are <em>enumerable</em> (you can list all possible machines), but there's no general process for deciding if a given machine is "satisfactory." This leads to the unsolvability of the Entscheidungsproblem — the decision problem Hilbert posed.
+</div>
+
+<p class="para" id="intro-p4">In a recent paper Alonzo Church<a href="#fn2" class="fn-ref">†</a> has introduced an idea of "effective calculability", which is equivalent to my "computability", but is very differently defined. Church also reaches similar conclusions about the Entscheidungsproblem<a href="#fn3" class="fn-ref">‡</a>. The proof of equivalence between "computability" and "effective calculability" is outlined in an appendix to the present paper.</p>
+
+<div class="footnote" id="fn1">
+  <span class="footnote-marker">†</span> Gödel, "Über formal unentscheidbare Sätze der Principia Mathematica und verwandter Systeme, I", <em>Monatshefte Math. Phys.</em>, 38 (1931), 173–198.
+</div>
+<div class="footnote" id="fn2">
+  <span class="footnote-marker">†</span> Alonzo Church, "An unsolvable problem of elementary number theory", <em>American J. of Math.</em>, 58 (1936), 345–363.
+</div>
+<div class="footnote" id="fn3">
+  <span class="footnote-marker">‡</span> Alonzo Church, "A note on the Entscheidungsproblem", <em>J. of Symbolic Logic</em>, 1 (1936), 40–41.
+</div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     §1. COMPUTING MACHINES
+     ═══════════════════════════════════════════════════════ -->
+<section class="section" id="sec1">
+<h2 class="section-heading" id="h-sec1">1. Computing machines.</h2>
+
+<p class="para" id="s1-p1">We have said that the computable numbers are those whose decimals are calculable by finite means. This requires rather more explicit definition. No real attempt will be made to justify the definitions given until we reach § 9. For the present I shall only say that the justification lies in the fact that the human memory is necessarily limited.</p>
+
+<div class="margin-note" id="mn-s1-1">
+  <strong>The thought experiment begins.</strong> Turing asks: what does a human "computer" (a person performing calculations) actually <em>do</em>? He strips the process to its absolute minimum.
+</div>
+
+<p class="para" id="s1-p2">We may compare a man in the process of computing a real number to a machine which is only capable of a finite number of conditions <em>q</em><sub>1</sub>, <em>q</em><sub>2</sub>, ..., <em>q<sub>R</sub></em> which will be called "<em>m</em>-configurations". The machine is supplied with a "tape" (the analogue of paper) running through it, and divided into sections (called "squares") each capable of bearing a "symbol". At any moment there is just one square, say the <em>r</em>-th, bearing the symbol 𝔖(<em>r</em>) which is "in the machine". We may call this square the "scanned square". The symbol on the scanned square may be called the "scanned symbol". The "scanned symbol" is the only one of which the machine is, so to speak, "directly aware". However, by altering its <em>m</em>-configuration the machine can effectively remember some of the symbols which it has "seen" (scanned) previously. The possible behaviour of the machine at any moment is determined by the <em>m</em>-configuration <em>q<sub>n</sub></em> and the scanned symbol 𝔖(<em>r</em>). This pair <em>q<sub>n</sub></em>, 𝔖(<em>r</em>) will be called the "configuration": thus the configuration determines the possible behaviour of the machine. In some of the configurations in which the scanned square is blank (i.e. bears no symbol) the machine writes down a new symbol on the scanned square: in other configurations it erases the scanned symbol. The machine may also change the square which is being scanned, but only by shifting it one place to right or left. In addition to any of these operations the <em>m</em>-configuration may be changed. Some of the symbols written down will form the sequence of figures which is the decimal of the real number which is being computed. The others are just rough notes to "assist the memory". It will only be these rough notes which will be liable to erasure.</p>
+
+<div class="margin-note" id="mn-s1-2">
+  <strong>This is the Turing machine.</strong> Five components: (1) a tape divided into squares, (2) a head that reads one square at a time, (3) a finite set of internal states (<em>m</em>-configurations), (4) a table of rules, (5) the ability to write, erase, and move left or right. That's it — and it captures all of computation.
+</div>
+
+<p class="para" id="s1-p3">It is my contention that these operations include all those which are used in the computation of a number. The defence of this contention will be easier when the theory of the machines is familiar to the reader. In the next section I therefore proceed with the development of the theory and assume that it is understood what is meant by "machine", "tape", "scanned", etc.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     §2. DEFINITIONS
+     ═══════════════════════════════════════════════════════ -->
+<section class="section" id="sec2">
+<h2 class="section-heading" id="h-sec2">2. Definitions.</h2>
+
+<h3 class="section-subheading"><em>Automatic machines.</em></h3>
+
+<p class="para no-indent" id="s2-p1">If at each stage the motion of a machine (in the sense of § 1) is <em>completely</em> determined by the configuration, we shall call the machine an "automatic machine" (or <em>a</em>-machine).</p>
+
+<p class="para" id="s2-p2">For some purposes we might use machines (choice machines or <em>c</em>-machines) whose motion is only partially determined by the configuration (hence the use of the word "possible" in § 1). When such a machine reaches one of these ambiguous configurations, it cannot go on until some arbitrary choice has been made by an external operator. This would be the case if we were using machines to deal with axiomatic systems. In this paper I deal only with automatic machines, and will therefore often omit the prefix <em>a</em>-.</p>
+
+<div class="margin-note" id="mn-s2-1">
+  <strong>a-machines vs c-machines:</strong> An <em>a</em>-machine runs on its own — every step is determined by its rules. A <em>c</em>-machine sometimes needs a human to make a choice. Modern computers are a-machines. Interactive programs (which wait for user input) are closer to c-machines.
+</div>
+
+<h3 class="section-subheading"><em>Computing machines.</em></h3>
+
+<p class="para no-indent" id="s2-p3">If an <em>a</em>-machine prints two kinds of symbols, of which the first kind (called figures) consists entirely of 0 and 1 (the others being called symbols of the second kind), then the machine will be called a computing machine. If the machine is supplied with a blank tape and set in motion, starting from the correct initial <em>m</em>-configuration, the subsequence of the symbols of the first kind which are printed by it which are of the first kind will be called the <em>sequence computed by the machine</em>. The real number whose expression as a binary decimal is obtained by prefacing this sequence by a decimal point is called the <em>number computed by the machine</em>.</p>
+
+<h3 class="section-subheading"><em>Circular and circle-free machines.</em></h3>
+
+<p class="para no-indent" id="s2-p4">If a computing machine never writes down more than a finite number of symbols of the first kind, it will be called <em>circular</em>. Otherwise it is said to be <em>circle-free</em>.</p>
+
+<p class="para" id="s2-p5">A machine will be circular if it reaches a configuration from which there is no possible move, or if it goes on moving, and possibly printing symbols of the second kind, but cannot print any more symbols of the first kind. The significance of the term "circular" will be explained in § 8.</p>
+
+<h3 class="section-subheading"><em>Computable sequences and numbers.</em></h3>
+
+<p class="para no-indent" id="s2-p6">A sequence is said to be computable if it can be computed by a circle-free machine. A number is computable if it differs by an integer from the number computed by a circle-free machine.</p>
+
+<p class="para" id="s2-p7">We shall avoid confusion by speaking more often of computable sequences than of computable numbers.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     §3. EXAMPLES OF COMPUTING MACHINES
+     ═══════════════════════════════════════════════════════ -->
+<section class="section" id="sec3">
+<h2 class="section-heading" id="h-sec3">3. Examples of computing machines.</h2>
+
+<p class="para no-indent" id="s3-p1">I. A machine can be constructed to compute the sequence 010101.... The machine is to have the four <em>m</em>-configurations "𝔟", "𝔠", "𝔢", "𝔣" and is capable of printing "0" and "1". The behaviour of the machine is described in the following table in which "<em>R</em>" means the machine moves so that it scans the square immediately on the right of the one it was scanning previously. Similarly for "<em>L</em>". "<em>E</em>" means the scanned symbol is erased and "<em>P</em>" stands for "prints". This table (and all succeeding tables of the same kind) is to be understood to mean that for a configuration described in the first two columns the operations in the third column are carried out successively, and the machine then goes over into the <em>m</em>-configuration described in the last column. When the second column is left blank, it is understood that the behaviour of the third and fourth columns applies for any symbol and for no symbol.</p>
+
+<!-- Machine I: Original Table -->
+<table class="machine-table" id="table-m1">
+  <thead>
+    <tr>
+      <th colspan="2"><em>Configuration</em></th>
+      <th colspan="2"><em>Behaviour</em></th>
+    </tr>
+    <tr>
+      <th><em>m</em>-config.</th>
+      <th>symbol</th>
+      <th>operations</th>
+      <th>final <em>m</em>-config.</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="col-config">𝔟</td><td class="col-symbol">None</td><td class="col-ops"><em>P</em>0, <em>R</em></td><td class="col-final">𝔠</td></tr>
+    <tr><td class="col-config">𝔠</td><td class="col-symbol">None</td><td class="col-ops"><em>R</em></td><td class="col-final">𝔢</td></tr>
+    <tr><td class="col-config">𝔢</td><td class="col-symbol">None</td><td class="col-ops"><em>P</em>1, <em>R</em></td><td class="col-final">𝔣</td></tr>
+    <tr><td class="col-config">𝔣</td><td class="col-symbol">None</td><td class="col-ops"><em>R</em></td><td class="col-final">𝔟</td></tr>
+  </tbody>
+</table>
+
+<div class="margin-note" id="mn-s3-1">
+  <strong>Try it!</strong> The machine below runs this exact table. Press <strong>Step</strong> to advance one step at a time, or <strong>Run</strong> to watch it go. The blue-highlighted cell is the tape head. F-squares (slightly blue) hold the output figures; E-squares (dark) are scratch space.
+</div>
+
+<!-- ★ INTERACTIVE WIDGET: Machine I Simulator ★ -->
+<div id="widget-machine1" class="tm-widget-slot"></div>
+
+<p class="para" id="s3-p2">If (contrary to the description in § 1) we allow the letters <em>L</em>, <em>R</em> to appear more than once in the operations column we can simplify the table considerably.</p>
+
+<!-- Machine I: Simplified Table -->
+<table class="machine-table" id="table-m1s">
+  <thead>
+    <tr>
+      <th><em>m</em>-config.</th>
+      <th>symbol</th>
+      <th>operations</th>
+      <th>final <em>m</em>-config.</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="col-config">𝔟</td><td class="col-symbol">None</td><td class="col-ops"><em>P</em>0</td><td class="col-final">𝔟</td></tr>
+    <tr><td class="col-config">𝔟</td><td class="col-symbol">0</td><td class="col-ops"><em>R</em>, <em>R</em>, <em>P</em>1</td><td class="col-final">𝔟</td></tr>
+    <tr><td class="col-config">𝔟</td><td class="col-symbol">1</td><td class="col-ops"><em>R</em>, <em>R</em>, <em>P</em>0</td><td class="col-final">𝔟</td></tr>
+  </tbody>
+</table>
+
+<p class="para" id="s3-p3">II. As a slightly more difficult example we can construct a machine to compute the sequence 001011011101111.... The machine is to be capable of five <em>m</em>-configurations, viz. "𝔬", "𝔮", "𝔭", "𝔣", "𝔟" and of printing "ə", "<em>x</em>", "0", "1". The first three symbols on the tape will be "əə0"; the other figures follow on alternate squares. On the intermediate squares we never print anything but "<em>x</em>". These letters serve to "keep the place" for us and are erased when we have finished with them. We also arrange that in the sequence of figures on alternate squares there shall be no blanks.</p>
+
+<!-- Machine II Table -->
+<table class="machine-table" id="table-m2">
+  <thead>
+    <tr>
+      <th><em>m</em>-config.</th>
+      <th>symbol</th>
+      <th>operations</th>
+      <th>final <em>m</em>-config.</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="col-config">𝔟</td><td class="col-symbol"></td><td class="col-ops"><em>P</em>ə, <em>R</em>, <em>P</em>ə, <em>R</em>, <em>P</em>0, <em>R</em>, <em>R</em>, <em>P</em>0, <em>L</em>, <em>L</em></td><td class="col-final">𝔬</td></tr>
+    <tr><td class="col-config">𝔬</td><td class="col-symbol">1</td><td class="col-ops"><em>R</em>, <em>P</em><em>x</em>, <em>L</em>, <em>L</em>, <em>L</em></td><td class="col-final">𝔬</td></tr>
+    <tr><td class="col-config">𝔬</td><td class="col-symbol">0</td><td class="col-ops"></td><td class="col-final">𝔮</td></tr>
+    <tr><td class="col-config">𝔮</td><td class="col-symbol">Any</td><td class="col-ops"><em>R</em>, <em>R</em></td><td class="col-final">𝔮</td></tr>
+    <tr><td class="col-config">𝔮</td><td class="col-symbol">None</td><td class="col-ops"><em>P</em>1, <em>L</em></td><td class="col-final">𝔭</td></tr>
+    <tr><td class="col-config">𝔭</td><td class="col-symbol"><em>x</em></td><td class="col-ops"><em>E</em>, <em>R</em></td><td class="col-final">𝔮</td></tr>
+    <tr><td class="col-config">𝔭</td><td class="col-symbol">ə</td><td class="col-ops"><em>R</em></td><td class="col-final">𝔣</td></tr>
+    <tr><td class="col-config">𝔭</td><td class="col-symbol">None</td><td class="col-ops"><em>L</em>, <em>L</em></td><td class="col-final">𝔭</td></tr>
+    <tr><td class="col-config">𝔣</td><td class="col-symbol">Any</td><td class="col-ops"><em>R</em>, <em>R</em></td><td class="col-final">𝔣</td></tr>
+    <tr><td class="col-config">𝔣</td><td class="col-symbol">None</td><td class="col-ops"><em>P</em>0, <em>L</em>, <em>L</em></td><td class="col-final">𝔬</td></tr>
+  </tbody>
+</table>
+
+<div class="margin-note" id="mn-s3-2">
+  <strong>Much more interesting.</strong> This machine uses scratch marks (<em>x</em>) on E-squares to count how many 1s to print in each run. Watch how the tape fills up — the pattern of increasing runs of 1s emerges from a simple set of rules.
+</div>
+
+<!-- ★ INTERACTIVE WIDGET: Machine II Simulator ★ -->
+<div id="widget-machine2" class="tm-widget-slot"></div>
+
+<p class="para" id="s3-p4">To illustrate the working of this machine a table is given below of the first few complete configurations. These complete configurations are described by writing down the sequence of symbols which are on the tape, with the <em>m</em>-configuration written below the scanned symbol. The successive complete configurations are separated by colons.</p>
+
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     §4. ABBREVIATED TABLES (condensed)
+     ═══════════════════════════════════════════════════════ -->
+<section class="section" id="sec4">
+<h2 class="section-heading" id="h-sec4">4. Abbreviated tables.</h2>
+
+<p class="para no-indent" id="s4-p1">There are certain types of process used by nearly all machines, and these, in some machines, are used in many connections. These processes include copying down sequences of symbols, comparing sequences, erasing all symbols of a given form, etc. Where such processes are concerned we can abbreviate the tables for the <em>m</em>-configurations considerably by the use of "skeleton tables". In skeleton tables there appear capital German and small Greek letters. These are of the nature of "variables". By replacing each capital German letter throughout by an <em>m</em>-configuration and each small Greek letter by a symbol, we obtain the table for an <em>m</em>-configuration.</p>
+
+<div class="margin-note" id="mn-s4-1">
+  <strong>Subroutines before subroutines existed.</strong> Turing invents the idea of reusable code — skeleton tables are essentially functions or macros. The capital German letters are parameters. This is 1936, decades before any programming language.
+</div>
+
+<p class="para" id="s4-p2">The skeleton tables are to be regarded as nothing but abbreviations: they are not essential. So long as the reader understands how to obtain the complete tables from the skeleton tables, there is no need to give any exact definitions in this connection.</p>
+
+<p class="para" id="s4-p3">Let us consider an example:</p>
+
+<div class="margin-note" id="mn-s4-2">
+  <strong>Key skeleton tables Turing defines:</strong> <code>f(𝔈, 𝔅, a)</code> — find the leftmost symbol <em>a</em>; <code>e(𝔈, 𝔅, a)</code> — erase all symbols <em>a</em>; <code>pe(𝔈, a, β)</code> — print <em>β</em> at end of sequence; <code>ce(𝔈, 𝔅, a)</code> — copy all symbols marked <em>a</em> to the end; <code>re(𝔈, 𝔅, a, β)</code> — replace all <em>a</em> by <em>β</em>; <code>cr(𝔈, 𝔅, a)</code> — copy without erasing; <code>cp(𝔈, 𝔄, 𝔈, a, β)</code> — compare sequences marked <em>a</em> and <em>β</em>.
+  These compose into increasingly powerful operations — the whole universal machine is built from these primitives.
+</div>
+
+<p class="para" id="s4-p4">If we were to replace 𝔈 throughout by 𝔮 (say), 𝔅 by 𝔯, and <em>a</em> by <em>x</em>, we should have a complete table for the <em>m</em>-configuration 𝔣(𝔮, 𝔯, <em>x</em>). 𝔣 is called an "<em>m</em>-configuration function" or "<em>m</em>-function".</p>
+
+<p class="para" id="s4-p5">The only expressions which are admissible for substitution in an <em>m</em>-function are the <em>m</em>-configurations and symbols of the machine. These have to be enumerated more or less explicitly: they may include expressions such as 𝔭(<em>e</em>, <em>x</em>); indeed they must if there are any <em>m</em>-functions used at all. If we did not insist on this explicit enumeration, but simply stated that the machine had certain <em>m</em>-configurations (enumerated) and all <em>m</em>-configurations obtainable by substitution of <em>m</em>-configurations in certain <em>m</em>-functions, we should usually get an infinity of <em>m</em>-configurations.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     §5. ENUMERATION OF COMPUTABLE SEQUENCES
+     ═══════════════════════════════════════════════════════ -->
+<section class="section" id="sec5">
+<h2 class="section-heading" id="h-sec5">5. Enumeration of computable sequences.</h2>
+
+<p class="para no-indent" id="s5-p1">A computable sequence γ is determined by a description of a machine which computes γ. Thus the sequence 001011011101111... is determined by the table on p. 234, and, in fact, any computable sequence is capable of being described in terms of such a table.</p>
+
+<p class="para" id="s5-p2">It will be useful to put these tables into a kind of standard form. In the first place let us suppose that the table is given in the same form as the first table, for example, I on p. 233. That is to say, that the entry in the operations column is always of one of the forms <em>E</em> : <em>E</em>, <em>R</em> : <em>E</em>, <em>L</em> : <em>Pa</em> : <em>Pa</em>, <em>R</em> : <em>Pa</em>, <em>L</em> : <em>R</em> : <em>L</em> : or no entry at all. The table can always be put into this form by introducing more <em>m</em>-configurations. Now let us give numbers to the <em>m</em>-configurations, calling them <em>q</em><sub>1</sub>, ..., <em>q<sub>R</sub></em>, as in § 1. The initial <em>m</em>-configuration is always to be called <em>q</em><sub>1</sub>. We also give numbers to the symbols <em>S</em><sub>1</sub>, ..., <em>S<sub>m</sub></em> and, in particular, blank = <em>S</em><sub>0</sub>, 0 = <em>S</em><sub>1</sub>, 1 = <em>S</em><sub>2</sub>.</p>
+
+<div class="margin-note" id="mn-s5-1">
+  <strong>Encoding machines as numbers.</strong> This is the crucial move. Every machine can be written in a standard form, which can be expressed as a string of letters (the "standard description"), which can be converted to a number (the "description number"). This means <em>machines are data</em> — a machine can be fed to another machine.
+</div>
+
+<p class="para" id="s5-p3">From each line of form (<em>N</em><sub>1</sub>) let us form an expression <em>q<sub>i</sub> S<sub>j</sub> S<sub>k</sub> L q<sub>m</sub></em>; from each line of form (<em>N</em><sub>2</sub>) we form an expression <em>q<sub>i</sub> S<sub>j</sub> S<sub>k</sub> R q<sub>m</sub></em>; and from each line of form (<em>N</em><sub>3</sub>) we form an expression <em>q<sub>i</sub> S<sub>j</sub> S<sub>k</sub> N q<sub>m</sub></em>.</p>
+
+<p class="para" id="s5-p4">Let us write down all expressions so formed from the table for the machine and separate them by semi-colons. In this way we obtain a complete description of the machine. In this description we shall replace <em>q<sub>i</sub></em> by the letter "<em>D</em>" followed by the letter "<em>A</em>" repeated <em>i</em> times, and <em>S<sub>j</sub></em> by "<em>D</em>" followed by "<em>C</em>" repeated the appropriate number of times. This new description of the machine may be called the <em>standard description</em> (S.D.). It is made up entirely from the letters "<em>A</em>", "<em>C</em>", "<em>D</em>", "<em>L</em>", "<em>R</em>", "<em>N</em>", and from ";".</p>
+
+<p class="para" id="s5-p5">If finally we replace "<em>A</em>" by "1", "<em>C</em>" by "2", "<em>D</em>" by "3", "<em>L</em>" by "4", "<em>R</em>" by "5", "<em>N</em>" by "6", and ";" by "7" we shall have a description of the machine in the form of an arabic numeral. The integer represented by this numeral may be called a <em>description number</em> (D.N) of the machine. The D.N determine the S.D and the structure of the machine uniquely. The machine whose D.N is <em>n</em> may be described as ℳ(<em>n</em>).</p>
+
+<div class="margin-note" id="mn-s5-2">
+  <strong>The idea that changed everything.</strong> Every possible Turing machine corresponds to a number. Every number either is or isn't a valid machine description. This means we can <em>enumerate</em> all possible machines by listing the integers 1, 2, 3, ... and checking each one — making the computable sequences enumerable. It also means a machine's instructions can be written on its own tape.
+</div>
+
+<p class="para" id="s5-p6">To each computable sequence there corresponds at least one description number, while to no description number does there correspond more than one computable sequence. The computable sequences and numbers are therefore enumerable.</p>
+
+<p class="para" id="s5-p7">Let us find a description number for the machine I of § 3. When we rename the <em>m</em>-configurations its table becomes:</p>
+
+<table class="machine-table" id="table-m1-standard">
+  <thead><tr><th><em>q<sub>i</sub></em></th><th><em>S<sub>j</sub></em></th><th>operations</th><th>final</th></tr></thead>
+  <tbody>
+    <tr><td class="col-config"><em>q</em><sub>1</sub></td><td class="col-symbol"><em>S</em><sub>0</sub></td><td class="col-ops"><em>PS</em><sub>1</sub>, <em>R</em></td><td class="col-final"><em>q</em><sub>2</sub></td></tr>
+    <tr><td class="col-config"><em>q</em><sub>2</sub></td><td class="col-symbol"><em>S</em><sub>0</sub></td><td class="col-ops"><em>PS</em><sub>0</sub>, <em>R</em></td><td class="col-final"><em>q</em><sub>3</sub></td></tr>
+    <tr><td class="col-config"><em>q</em><sub>3</sub></td><td class="col-symbol"><em>S</em><sub>0</sub></td><td class="col-ops"><em>PS</em><sub>2</sub>, <em>R</em></td><td class="col-final"><em>q</em><sub>4</sub></td></tr>
+    <tr><td class="col-config"><em>q</em><sub>4</sub></td><td class="col-symbol"><em>S</em><sub>0</sub></td><td class="col-ops"><em>PS</em><sub>0</sub>, <em>R</em></td><td class="col-final"><em>q</em><sub>1</sub></td></tr>
+  </tbody>
+</table>
+
+<p class="para" id="s5-p8">Our first standard form would be</p>
+<p class="para no-indent" style="text-align:center;font-family:monospace;color:var(--accent)"><em>q</em><sub>1</sub> <em>S</em><sub>0</sub> <em>S</em><sub>1</sub> <em>R</em> <em>q</em><sub>2</sub>; <em>q</em><sub>2</sub> <em>S</em><sub>0</sub> <em>S</em><sub>0</sub> <em>R</em> <em>q</em><sub>3</sub>; <em>q</em><sub>3</sub> <em>S</em><sub>0</sub> <em>S</em><sub>2</sub> <em>R</em> <em>q</em><sub>4</sub>; <em>q</em><sub>4</sub> <em>S</em><sub>0</sub> <em>S</em><sub>0</sub> <em>R</em> <em>q</em><sub>1</sub>;</p>
+
+<p class="para" id="s5-p9">The standard description is</p>
+<p class="para no-indent" style="text-align:center;font-family:monospace;color:var(--accent);word-break:break-all"><em>DADDCRDAA</em> ; <em>DAADDCRDAAA</em> ; <em>DAAADDCCRDAAAA</em> ; <em>DAAAADDCRDAA</em> ;</p>
+
+<p class="para" id="s5-p10">A description number is</p>
+<p class="para no-indent" style="text-align:center;font-family:monospace;color:var(--accent2);font-size:0.9em;word-break:break-all">31332531173113353111731113322531111731111335317</p>
+
+<p class="para" id="s5-p11">A number which is a description number of a circle-free machine will be called a <em>satisfactory</em> number. In § 8 it is shown that there can be no general process for determining whether a given number is satisfactory or not.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     §6. THE UNIVERSAL COMPUTING MACHINE
+     ═══════════════════════════════════════════════════════ -->
+<section class="section" id="sec6">
+<h2 class="section-heading" id="h-sec6">6. The universal computing machine.</h2>
+
+<p class="para no-indent" id="s6-p1">It is possible to invent a single machine which can be used to compute any computable sequence. If this machine 𝔘 is supplied with a tape on the beginning of which is written the S.D of some computing machine ℳ, then 𝔘 will compute the same sequence as ℳ. In this section I explain in outline the behaviour of the machine. The next section is devoted to giving the complete table for 𝔘.</p>
+
+<div class="margin-note" id="mn-s6-1">
+  <strong>The universal machine.</strong> This is arguably the single most important idea in the paper — and one of the most important in all of science. A <em>single</em> machine that can simulate <em>any</em> machine, given its description. This is the theoretical foundation of the general-purpose computer. Every laptop, phone, and server is a physical realization of this idea.
+</div>
+
+<p class="para" id="s6-p2">Let us first suppose that we have a machine ℳ′ which will write down on the <em>F</em>-squares the successive complete configurations of ℳ. These might be expressed in the same form as on p. 235, using the second description (C), with all symbols on one line. Or, better, we could transform this description (as in § 5) by replacing each <em>m</em>-configuration by "<em>D</em>" followed by "<em>A</em>" repeated the appropriate number of times, and by replacing each symbol by "<em>D</em>" followed by "<em>C</em>" repeated the appropriate number of times. The numbers of letters "<em>A</em>" and "<em>C</em>" are to agree with the numbers chosen in § 5, so that, in particular, "0" is replaced by "<em>DC</em>", and the blanks by "<em>D</em>". These substitutions are to be made after the complete configurations have been put together, as in (C). Difficulties arise if we do the substitution first. In each complete configuration the blanks would all have to be replaced by "<em>D</em>", so that the complete configuration would not be expressed as a finite sequence of symbols.</p>
+
+<p class="para" id="s6-p3">If in the description of the machine II of § 3 we replace "ə" by "<em>DAA</em>", "𝔮" by "<em>DAAA</em>", then the sequence (C) becomes:</p>
+
+<p class="para no-indent" style="text-align:center;font-family:monospace;color:var(--accent);font-size:0.85em;word-break:break-all"><em>DA</em> : <em>DCCCDCCCDA ADCDDC</em> : <em>DCCCDCCCDA AADCDDC</em> : ...</p>
+
+<p class="para" id="s6-p4">It is not difficult to see that if ℳ can be constructed, then so can ℳ′. The manner of operation of ℳ′ could be made to depend on having the rules of operation (i.e., the S.D) of ℳ written somewhere within itself (i.e. within ℳ′); each step could be carried out by referring to these rules. We have only to regard the rules as being capable of being taken out and exchanged for others and we have something very akin to the universal machine.</p>
+
+<div class="margin-note" id="mn-s6-2">
+  <strong>Software.</strong> Read that last sentence again: "rules capable of being taken out and exchanged for others." Turing has just invented the concept of a <em>stored program</em>. The machine's behaviour is determined by data on its tape — change the data, change the behaviour. This is the deep reason why one laptop can run a word processor, a game, a web browser, an AI.
+</div>
+
+<p class="para" id="s6-p5">One thing is lacking: at present the machine ℳ′ prints no figures. We may correct this by printing between each successive pair of complete configurations the figures which appear in the new configuration but not in the old. Then (C<sub>1</sub>) becomes</p>
+<p class="para no-indent" style="text-align:center;font-family:monospace;color:var(--accent);font-size:0.85em"><em>DDA</em> : 0 : 0 : <em>DCCCDCCCDA ADCDDC</em> : <em>DCCC</em>...</p>
+
+<p class="para" id="s6-p6">It is not altogether obvious that the <em>E</em>-squares leave enough room for the necessary "rough work", but this is, in fact, the case.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     §7. DETAILED DESCRIPTION OF THE UNIVERSAL MACHINE
+     (condensed — key ideas only)
+     ═══════════════════════════════════════════════════════ -->
+<section class="section" id="sec7">
+<h2 class="section-heading" id="h-sec7">7. Detailed description of the universal machine.</h2>
+
+<p class="para no-indent" id="s7-p1">A table is given below of the behaviour of this universal machine. The <em>m</em>-configurations of which the machine is capable are all those occurring in the first and last columns of the table, together with all those which occur when we write out the unabbreviated tables of those which appear in the table in the form of <em>m</em>-functions.</p>
+
+<div class="margin-note" id="mn-s7-1">
+  <strong>The first program ever written.</strong> Section 7 contains the complete instruction table for the universal machine — effectively the first computer program in history, written 9 years before ENIAC. It uses the skeleton tables from §4 as subroutines. The key stages: (1) <strong>𝔟</strong> — initial setup, writes <code>::DA</code> on the tape; (2) <strong>anf</strong> — marks the last complete configuration with <em>y</em>; (3) <strong>fom</strong> — finds the last unmarked semicolon in the S.D.; (4) <strong>fmp</strong> — compares the current configuration with the instruction being examined; (5) <strong>sim</strong> — executes the matching instruction; (6) <strong>mf</strong> — marks out the complete configuration into sections; (7) <strong>sh</strong> — examines and executes each instruction.
+</div>
+
+<p class="para" id="s7-p2">When 𝔘 is ready to start work the tape running through it bears on it the symbol ə on an <em>F</em>-square and again ə on the next <em>E</em>-square; after this, on <em>F</em>-squares only, comes the S.D of the machine followed by a double colon "::" (a single symbol, on an <em>F</em>-square). The S.D consists of a number of instructions, separated by semi-colons.</p>
+
+<p class="para" id="s7-p3">Each instruction consists of five consecutive parts</p>
+
+<p class="para no-indent" id="s7-p4" style="padding-left:2em">(i) "<em>D</em>" followed by a sequence of letters "<em>A</em>". This describes the relevant <em>m</em>-configuration.</p>
+<p class="para no-indent" style="padding-left:2em">(ii) "<em>D</em>" followed by a sequence of letters "<em>C</em>". This describes the scanned symbol.</p>
+<p class="para no-indent" style="padding-left:2em">(iii) "<em>D</em>" followed by another sequence of letters "<em>C</em>". This describes the symbol into which the scanned symbol is to be changed.</p>
+<p class="para no-indent" style="padding-left:2em">(iv) "<em>L</em>", "<em>R</em>", or "<em>N</em>", describing whether to move to left, right, or not at all.</p>
+<p class="para no-indent" style="padding-left:2em">(v) "<em>D</em>" followed by a sequence of letters "<em>A</em>". This describes the final <em>m</em>-configuration.</p>
+
+<p class="para" id="s7-p5">The machine 𝔘 is to be capable of printing "<em>A</em>", "<em>C</em>", "<em>D</em>", "0", "1", "<em>u</em>", "<em>v</em>", "<em>w</em>", "<em>x</em>", "<em>y</em>", "<em>z</em>". The S.D is formed from ";" , "<em>A</em>", "<em>C</em>", "<em>D</em>", "<em>L</em>", "<em>R</em>", "<em>N</em>".</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════════════
+     §8. APPLICATION OF THE DIAGONAL PROCESS
+     ═══════════════════════════════════════════════════════ -->
+<section class="section" id="sec8">
+<h2 class="section-heading" id="h-sec8">8. Application of the diagonal process.</h2>
+
+<p class="para no-indent" id="s8-p1">It may be thought that arguments which prove that the real numbers are not enumerable would also prove that the computable numbers and sequences cannot be enumerable*. It might, for instance, be thought that the limit of a sequence of computable numbers must be computable. This is clearly only true if the sequence of computable numbers is defined by some rule.</p>
+
+<div class="footnote">
+  <span class="footnote-marker">*</span> Cf. Hobson, <em>Theory of functions of a real variable</em> (2nd ed., 1921), 87, 88.
+</div>
+
+<div class="margin-note" id="mn-s8-1">
+  <strong>The crux of the whole paper.</strong> Turing now confronts the apparent paradox: Cantor showed the reals are uncountable via the diagonal argument. But Turing just showed the computable sequences <em>are</em> countable (§5). Doesn't the same diagonal argument apply? The resolution is subtle and profound.
+</div>
+
+<p class="para" id="s8-p2">Or we might apply the diagonal process. "If the computable sequences are enumerable, let α<sub><em>n</em></sub> be the <em>n</em>-th computable sequence, and let φ<sub><em>n</em></sub>(<em>m</em>) be the <em>m</em>-th figure in α<sub><em>n</em></sub>. Let β be the sequence with 1−φ<sub><em>n</em></sub>(<em>n</em>) as its <em>n</em>-th figure. Since β is computable, there exists a number <em>K</em> such that 1−φ<sub><em>n</em></sub>(<em>n</em>) = φ<sub><em>K</em></sub>(<em>n</em>) all <em>n</em>. Putting <em>n</em> = <em>K</em>, we have 1 = 2φ<sub><em>K</em></sub>(<em>K</em>), i.e. 1 is even. This is impossible. The computable sequences are therefore not enumerable".</p>
+
+<p class="para" id="s8-p3">The fallacy in this argument lies in the assumption that β is computable. It would be true if we could enumerate the computable sequences by finite means, but the problem of enumerating computable sequences is equivalent to the problem of finding out whether a given number is the D.N of a circle-free machine, and we have no general process for doing this in a finite number of steps.</p>
+
+<div class="margin-note" id="mn-s8-2">
+  <strong>The halting problem, in embryo.</strong> The diagonal argument fails because we cannot <em>mechanically</em> determine which machines are circle-free (i.e., which actually produce infinite sequences vs. getting stuck). If we could, we could build β, and reach a contradiction. Since contradictions are impossible, no such determination process can exist. This is equivalent to what we now call the <em>undecidability of the halting problem</em>.
+</div>
+
+<p class="para" id="s8-p4">In fact, by applying the diagonal process argument correctly, we can show that there cannot be any such general process.</p>
+
+<p class="para" id="s8-p5">The simplest and most direct proof of this is by showing that, if this general process exists, then there is a machine which computes β. This proof, although perfectly sound, has the disadvantage that it may leave the reader with a feeling that "there must be something wrong". The proof which I shall give has not this disadvantage, and gives a certain insight into the significance of the idea "circle-free". It depends not on constructing β, but on constructing β′, whose <em>n</em>-th figure is φ<sub><em>n</em></sub>(<em>n</em>).</p>
+
+<p class="para" id="s8-p6">Let us suppose that there is such a process; that is to say, that we can invent a machine 𝔇 which, when supplied with the S.D of any computing machine ℳ, will test this S.D and if ℳ is circular will mark the S.D with the symbol "<em>u</em>" and if it is circle-free will mark it with "<em>s</em>". By combining the machines 𝔇 and 𝔘 we could construct a machine ℍ to compute the sequence β′. We may suppose that it uses the <em>E</em>-squares beyond all symbols on <em>F</em>-squares, and that when it has reached its verdict all the rough work done by 𝔇 is erased.</p>
+
+<div class="margin-note" id="mn-s8-3">
+  <strong>The structure of the proof:</strong> Assume a "halting oracle" 𝔇 exists. Combine it with the universal machine 𝔘 to build ℍ, which computes β′ (the diagonal sequence). But then ask: what happens when ℍ encounters <em>its own</em> description number? Both possible answers ("s" and "u") lead to contradictions. Therefore 𝔇 cannot exist.
+</div>
+
+<p class="para" id="s8-p7">The machine ℍ has its motion divided into sections. In the first <em>N</em>−1 sections, among other things, the integers 1, 2, ..., <em>N</em>−1 have been written down and tested by the machine 𝔇. A certain number, say <em>R</em>(<em>N</em>−1), of them have been found to be the D.N's of circle-free machines. In the <em>N</em>-th section the machine 𝔇 tests the number <em>N</em>. If <em>N</em> is satisfactory, i.e., if it is the D.N of a circle-free machine, then <em>R</em>(<em>N</em>) = 1+<em>R</em>(<em>N</em>−1) and the first <em>R</em>(<em>N</em>) figures of the sequence of which a D.N is <em>N</em> are calculated. The <em>R</em>(<em>N</em>)-th figure of this sequence is written down as one of the figures of the sequence β′ computed by ℍ. If <em>N</em> is not satisfactory, then <em>R</em>(<em>N</em>) = <em>R</em>(<em>N</em>−1) and the machine goes on to the (<em>N</em>+1)-th section of its motion.</p>
+
+<p class="para" id="s8-p8">From the construction of ℍ we can see that ℍ is circle-free. Each section of the motion of ℍ comes to an end after a finite number of steps. For, by our assumption about 𝔇, the decision as to whether <em>N</em> is satisfactory is reached in a finite number of steps. If <em>N</em> is not satisfactory, then the <em>N</em>-th section is finished. If <em>N</em> is satisfactory, this means that the machine ℳ(<em>N</em>) whose D.N is <em>N</em> is circle-free, and therefore its <em>R</em>(<em>N</em>)-th figure can be calculated in a finite number of steps. When this figure has been calculated and written down as the <em>R</em>(<em>N</em>)-th figure of β′, the <em>N</em>-th section is finished. Hence ℍ is circle-free.</p>
+
+<p class="para" id="s8-p9">Now let <em>K</em> be the D.N of ℍ. What does ℍ do in the <em>K</em>-th section of its motion? It must test whether <em>K</em> is satisfactory, giving a verdict "<em>s</em>" or "<em>u</em>". Since <em>K</em> is the D.N of ℍ and since ℍ is circle-free, the verdict cannot be "<em>u</em>". On the other hand the verdict cannot be "<em>s</em>". For if it were, then in the <em>K</em>-th section of its motion ℍ would be bound to compute the first <em>R</em>(<em>K</em>−1)+1 = <em>R</em>(<em>K</em>) figures of the sequence computed by the machine with <em>K</em> as its D.N and to write down the <em>R</em>(<em>K</em>)-th as a figure of the sequence computed by ℍ. The computation of the first <em>R</em>(<em>K</em>)−1 figures would be carried out all right, but the instructions for calculating the <em>R</em>(<em>K</em>)-th would amount to "calculate the first <em>R</em>(<em>K</em>) figures computed by ℍ and write down the <em>R</em>(<em>K</em>)-th". This <em>R</em>(<em>K</em>)-th figure would never be found. I.e., ℍ is circular, contrary to what we have found in the last paragraph. Thus both verdicts are impossible and we conclude that there can be no machine 𝔇.</p>
+
+<div class="margin-note" id="mn-s8-4">
+  <strong>Q.E.D.</strong> This is one of the most beautiful proofs in mathematics. The machine ℍ, when examining its own description number, enters an infinite regress: to compute its <em>R</em>(<em>K</em>)-th output, it needs to simulate itself computing its <em>R</em>(<em>K</em>)-th output, which requires simulating itself again, ad infinitum. The assumption that 𝔇 exists leads to contradiction. Therefore: <em>there is no general process for determining whether a given machine will halt.</em>
+</div>
+
+<p class="para" id="s8-p10">We can show further that <em>there can be no machine</em> 𝔈 <em>which, when supplied with the S.D of an arbitrary machine</em> ℳ, <em>will determine whether</em> ℳ <em>ever prints a given symbol</em> (0 say).</p>
+
+<p class="para" id="s8-p11">Similarly there is a general process for determining whether a given machine ℳ prints 1 infinitely often. By a combination of these processes we have a process for determining whether ℳ prints an infinity of figures, i.e. we have a process for determining whether ℳ is circle-free. There can therefore be no machine 𝔈.</p>
+
+<p class="para" id="s8-p12">The expression "there is a general process for determining ..." has been used throughout this section as equivalent to "there is a machine which will determine ...". This usage can be justified if and only if we can justify our definition of "computable". For each of these "general process" problems can be expressed as a problem concerning a general process for determining whether a given integer <em>n</em> has a property <em>G</em>(<em>n</em>) [e.g. <em>G</em>(<em>n</em>) might mean "<em>n</em> is satisfactory" or "<em>n</em> is the Gödel representation of a provable formula"], and this is equivalent to computing a number whose <em>n</em>-th figure is 1 if <em>G</em>(<em>n</em>) is true and 0 if it is false.</p>
+
+<div class="margin-note" id="mn-s8-5">
+  <strong>End of Part 1.</strong> Turing has established: (1) a precise model of computation, (2) that all machines can be enumerated, (3) that a universal machine exists, and (4) that certain questions about machines are undecidable. In Part 2 (§§ 9–11), he applies this to show the Entscheidungsproblem — Hilbert's question of whether all mathematical truths are mechanically decidable — has a negative answer.
+</div>
+
+</section>
+
+</article>
+</div>
+
+<!-- ─── Text Selection Popup ──────────────────────────── -->
+<div id="fc-popup">
+  <button onclick="showAnnotationForm('question')">Question</button>
+  <button onclick="showAnnotationForm('note')">Note</button>
+  <button onclick="createFlashcard()">Flashcard</button>
+</div>
+
+<!-- ─── Annotation Input Form (appears after choosing question/note) -->
+<div id="ann-form" style="display:none">
+  <div class="ann-form-header">
+    <span id="ann-form-type"></span>
+    <button onclick="hideAnnotationForm()" style="background:none;border:none;color:var(--text);cursor:pointer">&times;</button>
+  </div>
+  <div class="ann-form-quote" id="ann-form-quote"></div>
+  <textarea id="ann-form-input" placeholder="Write your question or note..." rows="3"></textarea>
+  <div class="ann-form-meta">
+    <input id="ann-form-author" placeholder="Your name (optional)" value="">
+  </div>
+  <div class="ann-form-actions">
+    <button onclick="hideAnnotationForm()" class="tm-btn">Cancel</button>
+    <button onclick="submitAnnotation()" class="tm-btn" style="background:rgba(88,166,255,0.15);color:var(--accent)">Post</button>
+  </div>
+</div>
+
+<!-- ─── FAB ──────────────────────────────────────────── -->
+<button id="fc-fab" onclick="toggleDrawer()">
+  <span style="font-size:1.1em">&#9776;</span>
+  <span class="fc-badge" id="fc-count" style="display:none">0</span>
+</button>
+
+<!-- ─── Drawer (Annotations + Flashcards) ────────────── -->
+<div id="fc-drawer">
+  <div class="fc-drawer-header">
+    <div class="fc-drawer-tabs">
+      <button class="fc-tab active" data-tab="annotations" onclick="switchTab('annotations')">Annotations</button>
+      <button class="fc-tab" data-tab="flashcards" onclick="switchTab('flashcards')">Flashcards</button>
+    </div>
+    <button onclick="toggleDrawer()" style="background:none;border:none;color:var(--text);font-size:1.2em;cursor:pointer">&times;</button>
+  </div>
+  <div class="fc-drawer-body" id="drawer-body">
+    <!-- populated by JS -->
+  </div>
+  <div style="padding:0.8em;border-top:1px solid var(--border);display:flex;gap:0.5em">
+    <button onclick="exportAll()" class="tm-btn" style="flex:1">Export</button>
+    <button onclick="importData()" class="tm-btn" style="flex:1">Import</button>
+  </div>
+</div>
+
+<!-- ─── Scripts ──────────────────────────────────────── -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="turing-machine.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+// PARAGRAPH INDEX
+// ═══════════════════════════════════════════════════════
+
+const PARA_INDEX = [
+  { id: 'sec-intro', label: 'Introduction', heading: true },
+  { id: 'intro-p1', label: 'Computable numbers defined' },
+  { id: 'intro-p2', label: 'Scope of computable numbers' },
+  { id: 'intro-p3', label: 'Enumerable yet undecidable' },
+  { id: 'intro-p4', label: "Church's effective calculability" },
+  { id: 'sec1', label: '1. Computing machines', heading: true },
+  { id: 's1-p1', label: 'Calculable by finite means' },
+  { id: 's1-p2', label: 'The machine described' },
+  { id: 's1-p3', label: 'All operations included' },
+  { id: 'sec2', label: '2. Definitions', heading: true },
+  { id: 's2-p1', label: 'Automatic machines (a-machines)' },
+  { id: 's2-p2', label: 'Choice machines (c-machines)' },
+  { id: 's2-p3', label: 'Computing machines' },
+  { id: 's2-p4', label: 'Circular & circle-free' },
+  { id: 's2-p6', label: 'Computable sequences' },
+  { id: 'sec3', label: '3. Examples', heading: true },
+  { id: 's3-p1', label: 'Machine I: 010101…' },
+  { id: 's3-p3', label: 'Machine II: 001011011101111…' },
+  { id: 'sec4', label: '4. Abbreviated tables', heading: true },
+  { id: 's4-p1', label: 'Skeleton tables (subroutines)' },
+  { id: 's4-p4', label: 'm-configuration functions' },
+  { id: 'sec5', label: '5. Enumeration', heading: true },
+  { id: 's5-p1', label: 'Sequences from tables' },
+  { id: 's5-p2', label: 'Standard form' },
+  { id: 's5-p4', label: 'Standard description (S.D.)' },
+  { id: 's5-p5', label: 'Description numbers (D.N.)' },
+  { id: 's5-p6', label: 'Computable sequences enumerable' },
+  { id: 's5-p7', label: 'D.N. of Machine I' },
+  { id: 'sec6', label: '6. Universal machine', heading: true },
+  { id: 's6-p1', label: 'A single machine for all sequences' },
+  { id: 's6-p2', label: 'Writing complete configurations' },
+  { id: 's6-p4', label: 'Rules as exchangeable data' },
+  { id: 'sec7', label: '7. Detailed description', heading: true },
+  { id: 's7-p1', label: 'The table for 𝔘' },
+  { id: 's7-p3', label: 'Instruction format' },
+  { id: 'sec8', label: '8. Diagonal process', heading: true },
+  { id: 's8-p1', label: 'Reals vs. computables' },
+  { id: 's8-p2', label: 'Naïve diagonal argument' },
+  { id: 's8-p3', label: 'The fallacy exposed' },
+  { id: 's8-p6', label: 'Constructing machine ℍ' },
+  { id: 's8-p9', label: 'The self-reference contradiction' },
+  { id: 's8-p10', label: 'No general process exists' },
+];
+
+// Build sidebar
+const sidebar = document.getElementById('sidebar');
+PARA_INDEX.forEach(item => {
+  const a = document.createElement('a');
+  a.className = 'pi-item' + (item.heading ? ' pi-heading' : '');
+  a.textContent = item.label;
+  a.href = '#' + item.id;
+  a.dataset.id = item.id;
+  sidebar.appendChild(a);
+});
+
+// Scroll tracking
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      document.querySelectorAll('.pi-item.active').forEach(el => el.classList.remove('active'));
+      const link = sidebar.querySelector(`[data-id="${entry.target.id}"]`);
+      if (link) {
+        link.classList.add('active');
+        link.scrollIntoView({ block: 'nearest' });
+      }
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+
+PARA_INDEX.forEach(item => {
+  const el = document.getElementById(item.id);
+  if (el) observer.observe(el);
+});
+
+
+// ═══════════════════════════════════════════════════════
+// READING MODES
+// ═══════════════════════════════════════════════════════
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.body.className = 'mode-' + btn.dataset.mode;
+    localStorage.setItem('turing-mode', btn.dataset.mode);
+  });
+});
+
+// Restore saved mode
+const savedMode = localStorage.getItem('turing-mode');
+if (savedMode) {
+  document.body.className = 'mode-' + savedMode;
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === savedMode);
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════
+// TURING MACHINE WIDGETS
+// ═══════════════════════════════════════════════════════
+
+// Machine I
+const m1 = new TuringMachine(MACHINES.machine1);
+new TuringMachineWidget('#widget-machine1', m1);
+
+// Machine II
+const m2 = new TuringMachine(MACHINES.machine2);
+new TuringMachineWidget('#widget-machine2', m2);
+
+
+// ═══════════════════════════════════════════════════════
+// SUPABASE + ANNOTATION SYSTEM
+// ═══════════════════════════════════════════════════════
+
+const SUPABASE_URL = 'https://ryvvzykmjkxrozjugpod.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_RBafrbcyK3Q70_OuulTzZA_YHKWemG1';
+const PAPER_ID = 'turing-1936';
+
+const ANN_KEY = 'turing-paper-annotations';
+const CARD_KEY = 'turing-paper-flashcards';
+const AUTHOR_KEY = 'turing-paper-author';
+
+// Initialize Supabase client (fallback gracefully if unavailable)
+let sbClient = null;
+let useSupabase = false;
+try {
+  if (window.supabase?.createClient) {
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    useSupabase = true;
+    console.log('[Annotations] Supabase connected');
+  }
+} catch (e) {
+  console.warn('[Annotations] Supabase unavailable, using localStorage', e);
+}
+
+let annotations = JSON.parse(localStorage.getItem(ANN_KEY) || '[]');
+let flashcards = JSON.parse(localStorage.getItem(CARD_KEY) || '[]');
+let activeTab = 'annotations';
+let _annFormState = {};
+
+// ─── Supabase Storage Layer ───────────────────────────
+
+async function loadAnnotationsFromSupabase() {
+  if (!useSupabase) return;
+  try {
+    // Load annotations
+    const { data: anns, error: annErr } = await sbClient
+      .from('annotations')
+      .select('*')
+      .eq('paper_id', PAPER_ID)
+      .order('created_at', { ascending: true });
+
+    if (annErr) throw annErr;
+
+    // Load replies
+    const annIds = anns.map(a => a.id);
+    let replies = [];
+    if (annIds.length > 0) {
+      const { data: reps, error: repErr } = await sbClient
+        .from('replies')
+        .select('*')
+        .in('annotation_id', annIds)
+        .order('created_at', { ascending: true });
+      if (!repErr) replies = reps;
+    }
+
+    // Merge replies into annotations
+    const replyMap = {};
+    replies.forEach(r => {
+      if (!replyMap[r.annotation_id]) replyMap[r.annotation_id] = [];
+      replyMap[r.annotation_id].push({
+        id: r.id,
+        content: r.content,
+        author: r.author,
+        timestamp: r.created_at,
+      });
+    });
+
+    annotations = anns.map(a => ({
+      id: a.id,
+      type: a.type,
+      paragraphId: a.paragraph_id,
+      selectedText: a.selected_text,
+      content: a.content,
+      author: a.author,
+      timestamp: a.created_at,
+      replies: replyMap[a.id] || [],
+    }));
+
+    // Cache locally
+    localStorage.setItem(ANN_KEY, JSON.stringify(annotations));
+    updateBadge();
+    renderAnnotationDots();
+    if (activeTab === 'annotations') renderDrawerContent();
+    console.log(`[Annotations] Loaded ${annotations.length} from Supabase`);
+  } catch (e) {
+    console.warn('[Annotations] Failed to load from Supabase, using local cache', e);
+  }
+}
+
+async function saveAnnotationToSupabase(ann) {
+  if (!useSupabase) return;
+  try {
+    await sbClient.from('annotations').upsert({
+      id: ann.id,
+      paper_id: PAPER_ID,
+      paragraph_id: ann.paragraphId,
+      type: ann.type,
+      selected_text: ann.selectedText,
+      content: ann.content,
+      author: ann.author,
+      created_at: ann.timestamp,
+    });
+  } catch (e) {
+    console.warn('[Annotations] Failed to save to Supabase', e);
+  }
+}
+
+async function saveReplyToSupabase(annotationId, reply) {
+  if (!useSupabase) return;
+  try {
+    await sbClient.from('replies').upsert({
+      id: reply.id,
+      annotation_id: annotationId,
+      content: reply.content,
+      author: reply.author,
+      created_at: reply.timestamp,
+    });
+  } catch (e) {
+    console.warn('[Annotations] Failed to save reply to Supabase', e);
+  }
+}
+
+async function deleteAnnotationFromSupabase(id) {
+  if (!useSupabase) return;
+  try {
+    await sbClient.from('annotations').delete().eq('id', id);
+  } catch (e) {
+    console.warn('[Annotations] Failed to delete from Supabase', e);
+  }
+}
+
+// ─── Real-time Subscriptions ──────────────────────────
+
+function setupRealtimeSubscriptions() {
+  if (!useSupabase) return;
+
+  sbClient.channel('annotations-realtime')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'annotations',
+      filter: `paper_id=eq.${PAPER_ID}`,
+    }, () => {
+      // Reload all annotations when anything changes
+      loadAnnotationsFromSupabase();
+    })
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'replies',
+    }, () => {
+      loadAnnotationsFromSupabase();
+    })
+    .subscribe();
+
+  console.log('[Annotations] Real-time subscriptions active');
+}
+
+// ─── Save Functions (write to both local + Supabase) ──
+
+function saveAnnotations() {
+  localStorage.setItem(ANN_KEY, JSON.stringify(annotations));
+  updateBadge();
+  renderAnnotationDots();
+  if (activeTab === 'annotations') renderDrawerContent();
+}
+
+function saveFlashcards() {
+  localStorage.setItem(CARD_KEY, JSON.stringify(flashcards));
+  updateBadge();
+  if (activeTab === 'flashcards') renderDrawerContent();
+}
+
+function updateBadge() {
+  const badge = document.getElementById('fc-count');
+  const total = annotations.length + flashcards.length;
+  if (total > 0) {
+    badge.textContent = total;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// Find the nearest paragraph element to a text selection
+function findParagraph(node) {
+  let el = node.nodeType === 3 ? node.parentElement : node;
+  while (el && !el.classList?.contains('para')) {
+    el = el.parentElement;
+  }
+  return el;
+}
+
+// ─── Text Selection Popup ─────────────────────────────
+
+document.addEventListener('mouseup', (e) => {
+  const sel = window.getSelection();
+  const text = sel.toString().trim();
+  const popup = document.getElementById('fc-popup');
+  const annForm = document.getElementById('ann-form');
+
+  // Don't show popup if clicking inside form or drawer
+  if (annForm.contains(e.target) || document.getElementById('fc-drawer').contains(e.target)) return;
+
+  if (text.length > 3 && document.querySelector('.paper').contains(sel.anchorNode)) {
+    const para = findParagraph(sel.anchorNode);
+    _annFormState = {
+      selectedText: text,
+      paragraphId: para ? para.id : null,
+    };
+    popup.style.display = 'flex';
+    popup.style.left = e.pageX + 'px';
+    popup.style.top = (e.pageY - 40) + 'px';
+  } else if (!popup.contains(e.target)) {
+    popup.style.display = 'none';
+  }
+});
+
+// ─── Annotation Form ──────────────────────────────────
+
+function showAnnotationForm(type) {
+  document.getElementById('fc-popup').style.display = 'none';
+  _annFormState.type = type;
+
+  const form = document.getElementById('ann-form');
+  const typeLabel = document.getElementById('ann-form-type');
+  const quote = document.getElementById('ann-form-quote');
+  const input = document.getElementById('ann-form-input');
+  const authorInput = document.getElementById('ann-form-author');
+
+  typeLabel.textContent = type === 'question' ? 'Ask a Question' : 'Leave a Note';
+  quote.textContent = '"' + _annFormState.selectedText.slice(0, 120) + (_annFormState.selectedText.length > 120 ? '...' : '') + '"';
+  input.placeholder = type === 'question' ? 'What do you want to know about this?' : 'Your note or observation...';
+  input.value = '';
+  authorInput.value = localStorage.getItem(AUTHOR_KEY) || '';
+
+  form.style.display = 'block';
+  input.focus();
+}
+
+function hideAnnotationForm() {
+  document.getElementById('ann-form').style.display = 'none';
+  window.getSelection().removeAllRanges();
+}
+
+function submitAnnotation() {
+  const input = document.getElementById('ann-form-input');
+  const authorInput = document.getElementById('ann-form-author');
+  const content = input.value.trim();
+  if (!content) { input.focus(); return; }
+
+  const author = authorInput.value.trim() || 'Anonymous';
+  localStorage.setItem(AUTHOR_KEY, author);
+
+  const ann = {
+    id: Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+    type: _annFormState.type,
+    paragraphId: _annFormState.paragraphId,
+    selectedText: _annFormState.selectedText,
+    content: content,
+    author: author,
+    timestamp: new Date().toISOString(),
+    replies: [],
+  };
+
+  annotations.push(ann);
+  saveAnnotations();
+  saveAnnotationToSupabase(ann);
+  hideAnnotationForm();
+  renderInlineThread(ann.paragraphId);
+}
+
+// ─── Reply to annotation ─────────────────────────────
+
+function showReplyForm(annId) {
+  const ann = annotations.find(a => a.id === annId);
+  if (!ann) return;
+
+  _annFormState = {
+    selectedText: ann.selectedText,
+    paragraphId: ann.paragraphId,
+    type: 'reply',
+    replyToId: annId,
+  };
+
+  const form = document.getElementById('ann-form');
+  document.getElementById('ann-form-type').textContent = 'Reply';
+  document.getElementById('ann-form-quote').textContent = ann.content.slice(0, 120);
+  const input = document.getElementById('ann-form-input');
+  input.placeholder = 'Your reply...';
+  input.value = '';
+  document.getElementById('ann-form-author').value = localStorage.getItem(AUTHOR_KEY) || '';
+  form.style.display = 'block';
+  input.focus();
+
+  // Override submit for reply
+  const origSubmit = window.submitAnnotation;
+  window.submitAnnotation = function() {
+    const content = input.value.trim();
+    if (!content) { input.focus(); return; }
+    const author = document.getElementById('ann-form-author').value.trim() || 'Anonymous';
+    localStorage.setItem(AUTHOR_KEY, author);
+
+    const reply = {
+      id: Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      content: content,
+      author: author,
+      timestamp: new Date().toISOString(),
+    };
+    ann.replies.push(reply);
+
+    saveAnnotations();
+    saveReplyToSupabase(ann.id, reply);
+    hideAnnotationForm();
+    renderInlineThread(ann.paragraphId);
+    window.submitAnnotation = origSubmit;
+  };
+}
+
+// ─── Annotation Dots in Margin ────────────────────────
+
+function renderAnnotationDots() {
+  // Remove existing dots
+  document.querySelectorAll('.ann-dots').forEach(d => d.remove());
+
+  // Group annotations by paragraph
+  const byPara = {};
+  annotations.forEach(a => {
+    if (!a.paragraphId) return;
+    if (!byPara[a.paragraphId]) byPara[a.paragraphId] = [];
+    byPara[a.paragraphId].push(a);
+  });
+
+  Object.entries(byPara).forEach(([paraId, anns]) => {
+    const para = document.getElementById(paraId);
+    if (!para) return;
+
+    const dots = document.createElement('div');
+    dots.className = 'ann-dots';
+    dots.title = `${anns.length} annotation${anns.length > 1 ? 's' : ''} — click to view`;
+    dots.onclick = () => toggleInlineThread(paraId);
+
+    anns.forEach(a => {
+      const dot = document.createElement('div');
+      dot.className = 'ann-dot ann-' + a.type;
+      dots.appendChild(dot);
+      // Show dots for replies too
+      a.replies.forEach(() => {
+        const rd = document.createElement('div');
+        rd.className = 'ann-dot ann-reply';
+        dots.appendChild(rd);
+      });
+    });
+
+    para.appendChild(dots);
+  });
+}
+
+// ─── Inline Thread (below paragraph) ─────────────────
+
+function toggleInlineThread(paraId) {
+  const para = document.getElementById(paraId);
+  const existing = para.parentElement.querySelector(`.ann-thread[data-para="${paraId}"]`);
+  if (existing) {
+    existing.remove();
+  } else {
+    renderInlineThread(paraId);
+  }
+}
+
+function renderInlineThread(paraId) {
+  const para = document.getElementById(paraId);
+  if (!para) return;
+
+  // Remove existing thread for this paragraph
+  const existing = para.parentElement.querySelector(`.ann-thread[data-para="${paraId}"]`);
+  if (existing) existing.remove();
+
+  const anns = annotations.filter(a => a.paragraphId === paraId);
+  if (anns.length === 0) return;
+
+  const thread = document.createElement('div');
+  thread.className = 'ann-thread';
+  thread.dataset.para = paraId;
+
+  anns.forEach(a => {
+    thread.appendChild(renderAnnotationItem(a));
+    a.replies.forEach(r => {
+      const replyEl = renderAnnotationItem({ ...r, type: 'reply', selectedText: null }, true);
+      replyEl.style.paddingLeft = '1.8em';
+      replyEl.style.borderLeft = '2px solid var(--accent3)';
+      thread.appendChild(replyEl);
+    });
+  });
+
+  // Insert after the paragraph
+  para.after(thread);
+}
+
+function renderAnnotationItem(ann, isReply = false) {
+  const item = document.createElement('div');
+  item.className = 'ann-thread-item';
+
+  const time = ann.timestamp ? new Date(ann.timestamp).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+  }) : '';
+
+  item.innerHTML = `
+    <div class="ann-meta">
+      <span>
+        <span class="ann-author">${ann.author || 'Anonymous'}</span>
+        <span class="ann-type-tag ${ann.type}">${ann.type}</span>
+      </span>
+      <span class="ann-time">${time}</span>
+    </div>
+    ${ann.selectedText ? `<div class="ann-quote">"${ann.selectedText.slice(0, 80)}${ann.selectedText.length > 80 ? '...' : ''}"</div>` : ''}
+    <div class="ann-content">${ann.content}</div>
+    ${!isReply ? `<button class="ann-thread-reply-btn" onclick="showReplyForm('${ann.id}')">Reply</button>` : ''}
+  `;
+  return item;
+}
+
+// ─── Flashcard (Cloze) from selection ─────────────────
+
+function createFlashcard() {
+  const text = _annFormState.selectedText;
+  if (!text) return;
+
+  document.getElementById('fc-popup').style.display = 'none';
+
+  // Create a cloze card — blank out a key word
+  const words = text.split(/\s+/);
+  // Pick the last significant word for the blank
+  const blankIdx = Math.max(0, words.length - 1);
+  const front = words.map((w, i) => i === blankIdx ? '___' : w).join(' ');
+
+  flashcards.push({
+    id: Date.now(),
+    type: 'cloze',
+    front: front,
+    back: text,
+    paragraphId: _annFormState.paragraphId,
+    easeFactor: 2.5,
+    interval: 0,
+    repetitions: 0,
+    nextReview: 0,
+    created: Date.now(),
+  });
+
+  saveFlashcards();
+  window.getSelection().removeAllRanges();
+}
+
+// ─── Drawer ───────────────────────────────────────────
+
+function toggleDrawer() {
+  document.getElementById('fc-drawer').classList.toggle('open');
+  renderDrawerContent();
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.fc-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  renderDrawerContent();
+}
+
+function renderDrawerContent() {
+  const body = document.getElementById('drawer-body');
+
+  if (activeTab === 'annotations') {
+    if (annotations.length === 0) {
+      body.innerHTML = '<p style="color:var(--text-muted);font-size:0.85em;padding:0.5em">Select text in the paper, then choose <strong>Question</strong> or <strong>Note</strong> to start annotating.</p>';
+      return;
+    }
+    body.innerHTML = annotations.map((a, i) => `
+      <div class="fc-card-item" style="cursor:pointer" onclick="scrollToAnnotation('${a.paragraphId}')">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="ann-type-tag ${a.type}">${a.type}</span>
+          <span style="color:var(--text-muted);font-size:0.75em">${a.author || 'Anon'}</span>
+        </div>
+        <div class="ann-quote" style="margin:0.3em 0;font-size:0.8em">"${a.selectedText?.slice(0, 60) || ''}..."</div>
+        <div style="color:var(--text);font-size:0.9em">${a.content}</div>
+        ${a.replies.length ? `<div style="color:var(--accent3);font-size:0.8em;margin-top:0.3em">${a.replies.length} repl${a.replies.length === 1 ? 'y' : 'ies'}</div>` : ''}
+        <button onclick="event.stopPropagation();deleteAnnotation(${i})" style="margin-top:0.3em;background:none;border:none;color:#f85149;cursor:pointer;font-size:0.75em">Delete</button>
+      </div>
+    `).join('');
+  } else {
+    if (flashcards.length === 0) {
+      body.innerHTML = '<p style="color:var(--text-muted);font-size:0.85em;padding:0.5em">Select text and choose <strong>Flashcard</strong> to create cloze cards for spaced repetition.</p>';
+      return;
+    }
+    body.innerHTML = flashcards.map((c, i) => `
+      <div class="fc-card-item">
+        <div class="fc-card-type">cloze</div>
+        <div style="margin-bottom:0.3em">${c.front}</div>
+        <div style="color:var(--text-muted);font-size:0.85em">Answer: ${c.back}</div>
+        <button onclick="deleteFlashcard(${i})" style="margin-top:0.3em;background:none;border:none;color:#f85149;cursor:pointer;font-size:0.75em">Delete</button>
+      </div>
+    `).join('');
+  }
+}
+
+function deleteAnnotation(i) {
+  const ann = annotations[i];
+  const paraId = ann.paragraphId;
+  deleteAnnotationFromSupabase(ann.id);
+  annotations.splice(i, 1);
+  saveAnnotations();
+  // Remove inline thread if empty
+  if (paraId) {
+    const remaining = annotations.filter(a => a.paragraphId === paraId);
+    if (remaining.length === 0) {
+      const thread = document.querySelector(`.ann-thread[data-para="${paraId}"]`);
+      if (thread) thread.remove();
+    } else {
+      renderInlineThread(paraId);
+    }
+  }
+}
+
+function deleteFlashcard(i) {
+  flashcards.splice(i, 1);
+  saveFlashcards();
+}
+
+function scrollToAnnotation(paraId) {
+  if (!paraId) return;
+  const el = document.getElementById(paraId);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Flash highlight
+    el.style.background = 'rgba(88,166,255,0.1)';
+    setTimeout(() => el.style.background = '', 1500);
+    // Show thread
+    renderInlineThread(paraId);
+  }
+}
+
+// ─── Import / Export ──────────────────────────────────
+
+function exportAll() {
+  const data = { annotations, flashcards, exported: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'turing-paper-data.json';
+  a.click();
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const text = await file.text();
+    try {
+      const data = JSON.parse(text);
+      if (data.annotations) {
+        // Merge — avoid duplicates by id
+        const existingIds = new Set(annotations.map(a => a.id));
+        const newAnns = data.annotations.filter(a => !existingIds.has(a.id));
+        annotations.push(...newAnns);
+        saveAnnotations();
+      }
+      if (data.flashcards) {
+        const existingIds = new Set(flashcards.map(c => c.id));
+        const newCards = data.flashcards.filter(c => !existingIds.has(c.id));
+        flashcards.push(...newCards);
+        saveFlashcards();
+      }
+      renderDrawerContent();
+      alert(`Imported ${data.annotations?.length || 0} annotations, ${data.flashcards?.length || 0} flashcards`);
+    } catch (e) {
+      alert('Invalid JSON file');
+    }
+  };
+  input.click();
+}
+
+// ─── Initialize ───────────────────────────────────────
+updateBadge();
+renderAnnotationDots();
+
+// Load from Supabase (merges with any local data)
+loadAnnotationsFromSupabase();
+setupRealtimeSubscriptions();
+
+</script>
+</body>
+</html>

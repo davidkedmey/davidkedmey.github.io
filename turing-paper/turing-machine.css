@@ -1,0 +1,226 @@
+/* Turing Machine Widget Styles */
+/* Matches the dark theme of the interactive papers platform */
+
+.tm-widget {
+  background: var(--surface, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  padding: 1.2em;
+  margin: 1.5em 0;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 14px;
+  color: var(--text, #c9d1d9);
+}
+
+.tm-header {
+  margin-bottom: 1em;
+}
+
+.tm-name {
+  font-weight: 700;
+  color: var(--heading, #e6edf3);
+  font-size: 1.1em;
+}
+
+.tm-desc {
+  display: block;
+  margin-top: 0.3em;
+  color: var(--text-muted, #8b949e);
+  font-size: 0.9em;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* State display */
+.tm-state-display {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  margin-bottom: 1em;
+  padding: 0.6em 0.8em;
+  background: var(--bg, #0d1117);
+  border-radius: 6px;
+  font-size: 0.95em;
+}
+
+.tm-label {
+  color: var(--text-muted, #8b949e);
+  font-size: 0.85em;
+}
+
+.tm-state-value {
+  color: var(--accent, #58a6ff);
+  font-weight: 700;
+  font-size: 1.1em;
+}
+
+.tm-symbol-value {
+  color: #f0883e;
+  font-weight: 700;
+  font-size: 1.1em;
+}
+
+/* Tape */
+.tm-tape-container {
+  overflow-x: auto;
+  margin: 1em 0;
+  padding: 0.5em 0;
+  scrollbar-width: thin;
+  scrollbar-color: #30363d transparent;
+}
+
+.tm-tape {
+  display: flex;
+  min-width: min-content;
+  justify-content: center;
+}
+
+.tm-head-row {
+  display: flex;
+  min-width: min-content;
+  justify-content: center;
+}
+
+.tm-cell {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #30363d;
+  font-size: 1.1em;
+  font-weight: 600;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.tm-f-square {
+  background: rgba(88, 166, 255, 0.06);
+}
+
+.tm-e-square {
+  background: rgba(255, 255, 255, 0.02);
+  color: #8b949e;
+}
+
+.tm-cell.tm-head {
+  border-color: var(--accent, #58a6ff);
+  background: rgba(88, 166, 255, 0.15);
+  color: #e6edf3;
+  box-shadow: 0 0 8px rgba(88, 166, 255, 0.3);
+}
+
+.tm-marker {
+  width: 36px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.8em;
+  color: transparent;
+}
+
+.tm-head-marker {
+  color: var(--accent, #58a6ff) !important;
+}
+
+/* Output sequence */
+.tm-output {
+  margin: 0.8em 0;
+  padding: 0.5em 0.8em;
+  background: var(--bg, #0d1117);
+  border-radius: 6px;
+  font-size: 0.95em;
+}
+
+.tm-output-value {
+  color: #7ee787;
+  font-weight: 600;
+  font-size: 1.05em;
+  letter-spacing: 0.05em;
+}
+
+/* Controls */
+.tm-controls {
+  display: flex;
+  gap: 0.5em;
+  margin: 1em 0 0.5em;
+  flex-wrap: wrap;
+}
+
+.tm-btn {
+  background: #21262d;
+  color: var(--text, #c9d1d9);
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 0.4em 1em;
+  font-size: 0.9em;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tm-btn:hover:not(:disabled) {
+  background: #30363d;
+  border-color: #484f58;
+}
+
+.tm-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tm-btn.tm-active {
+  background: rgba(88, 166, 255, 0.15);
+  border-color: var(--accent, #58a6ff);
+  color: var(--accent, #58a6ff);
+}
+
+/* Step counter */
+.tm-counter {
+  color: var(--text-muted, #8b949e);
+  font-size: 0.85em;
+  margin-top: 0.3em;
+}
+
+/* State table display (for showing Turing's original tables alongside) */
+.tm-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.9em;
+}
+
+.tm-table th {
+  color: var(--text-muted, #8b949e);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.5em 0.8em;
+  border-bottom: 1px solid #30363d;
+  font-style: italic;
+}
+
+.tm-table td {
+  padding: 0.4em 0.8em;
+  border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+  color: var(--text, #c9d1d9);
+}
+
+.tm-table tr.tm-active-row {
+  background: rgba(88, 166, 255, 0.1);
+}
+
+.tm-table td:first-child {
+  color: var(--accent, #58a6ff);
+  font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .tm-widget { padding: 0.8em; font-size: 13px; }
+  .tm-cell { width: 28px; height: 28px; font-size: 1em; }
+  .tm-marker { width: 28px; }
+  .tm-controls { gap: 0.3em; }
+  .tm-btn { padding: 0.3em 0.7em; font-size: 0.85em; }
+}
