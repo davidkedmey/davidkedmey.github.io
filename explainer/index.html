@@ -91,25 +91,32 @@
 
     .container {
       width: 100%;
-      max-width: 1100px;
+      max-width: 900px;
       padding: 0 24px 40px;
-      flex: 1;
       display: flex;
-      gap: 20px;
+      flex-direction: column;
+      gap: 10px;
     }
 
-    .left-col {
+    .main-row {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .canvas-col {
       flex: 1;
       min-width: 0;
       display: flex;
       flex-direction: column;
     }
 
-    .right-col {
-      flex: 1;
-      min-width: 0;
+    .gene-col {
+      width: 280px;
+      flex-shrink: 0;
       display: flex;
       flex-direction: column;
+      gap: 0;
     }
 
     .canvas-wrap {
@@ -117,12 +124,11 @@
       border: 1px solid #2a3444;
       border-radius: 10px;
       padding: 20px;
-      margin-bottom: 16px;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 340px;
+      flex: 1;
     }
 
     .canvas-wrap canvas { display: block; }
@@ -131,71 +137,154 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-top: 12px;
     }
 
+    /* Gene dot rows */
     .sliders {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
       width: 100%;
     }
 
     .slider-row {
       display: flex;
       align-items: center;
-      gap: 6px;
-      background: #0a0e14;
-      border: 1px solid #2a3444;
-      border-radius: 6px;
-      padding: 6px 10px;
-      transition: border-color 0.3s, box-shadow 0.3s;
+      gap: 0;
+      height: 28px;
+      border-radius: 4px;
+      padding: 0 6px;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.3s;
+      position: relative;
     }
 
-    .slider-row.fresh {
-      border-color: #5aaa6a;
-      box-shadow: 0 0 12px rgba(100, 200, 120, 0.3);
-      animation: pulse-fresh 1.5s ease-in-out infinite;
+    .slider-row:hover { background: rgba(74,106,90,0.1); }
+
+    .slider-row.disabled {
+      opacity: 0.2;
+      pointer-events: none;
     }
 
-    @keyframes pulse-fresh {
-      0%, 100% { box-shadow: 0 0 8px rgba(100, 200, 120, 0.2); border-color: #5aaa6a; }
-      50% { box-shadow: 0 0 18px rgba(100, 200, 120, 0.45); border-color: #6abf7a; }
+    .slider-row.focused {
+      background: rgba(74,106,90,0.15);
+    }
+    .slider-row.focused .gene-dot {
+      background: #7aca8a;
+      box-shadow: 0 0 6px rgba(100,200,120,0.5);
+    }
+
+    .slider-row.fresh .gene-dot {
+      background: #7aca8a;
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { box-shadow: 0 0 4px rgba(100,200,120,0.3); }
+      50% { box-shadow: 0 0 10px rgba(100,200,120,0.6); }
     }
 
     .slider-row label {
       font-family: "SF Mono", "Fira Code", monospace;
       font-size: 0.7rem;
-      color: #6a7a8a;
-      min-width: 56px;
+      color: #5a6a7a;
+      width: 70px;
+      text-align: left;
+      flex-shrink: 0;
     }
 
     .slider-row input[type="range"] {
-      width: 80px;
-      accent-color: #4a6a5a;
+      display: none;
+    }
+
+    .gene-pegs {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 1;
+      margin: 0 5px;
+    }
+
+    .gene-peg {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #1a2430;
+      border: 1px solid #2a3444;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s, transform 0.15s;
+      cursor: pointer;
+    }
+
+    .gene-peg.active {
+      background: #4a8a5a;
+      border-color: #5aaa6a;
+      transform: scale(1.3);
+    }
+
+    .slider-row.focused .gene-peg.active {
+      background: #7aca8a;
+      border-color: #8adf9a;
+      box-shadow: 0 0 4px rgba(100,200,120,0.5);
+    }
+
+    .slider-row.disabled .gene-peg {
+      border-color: #1a2430;
     }
 
     .slider-row .val {
       font-family: "SF Mono", "Fira Code", monospace;
       font-size: 0.8rem;
-      color: #c8e6c8;
-      min-width: 24px;
+      color: #6a8a7a;
+      width: 30px;
       text-align: right;
+      flex-shrink: 0;
+    }
+    .gene-label {
+      position: relative;
+      cursor: help;
+    }
+    .gene-label:hover::after {
+      content: attr(data-hint);
+      position: absolute;
+      left: 0;
+      bottom: 100%;
+      background: #1a2028;
+      border: 1px solid #3a4a5a;
+      color: #aab8c8;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 400;
+      white-space: normal;
+      width: max-content;
+      max-width: 200px;
+      margin-bottom: 4px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .slider-row.gene-separator {
+      margin-top: 8px;
     }
 
+    .button-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+      margin-top: 4px;
+      width: 100%;
+    }
     .toggle-row {
       display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content: center;
-      margin-top: 8px;
-      width: 100%;
+      gap: 4px;
+      flex-wrap: nowrap;
+      margin-left: auto;
     }
 
     .toggle-btn {
       font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 0.72rem;
+      font-size: 0.75rem;
       padding: 5px 12px;
       border: 1px solid #2a3444;
       border-radius: 5px;
@@ -209,15 +298,20 @@
     .toggle-btn.active { border-color: #4a6a5a; color: #c8e6c8; background: rgba(74,106,90,0.15); }
 
     .text-panel {
+      text-align: center;
+      padding: 8px 0;
+    }
+
+    .body-row {
       background: #12161e;
       border: 1px solid #2a3444;
       border-left: 3px solid #4a6a5a;
       border-radius: 10px;
-      padding: 20px 24px;
-      margin-bottom: 16px;
-      height: 340px;
-      overflow-y: auto;
+      padding: 14px 20px;
+      text-align: center;
     }
+    .body-row .step-text { text-align: left; display: inline-block; max-width: 700px; }
+    .body-row:empty { display: none; }
 
     .step-title {
       font-family: "SF Mono", "Fira Code", monospace;
@@ -308,7 +402,7 @@
 
     .btn {
       font-size: 0.8rem;
-      padding: 6px 16px;
+      padding: 5px 14px;
       border: 1px solid #2a3444;
       border-radius: 5px;
       background: transparent;
@@ -316,7 +410,6 @@
       cursor: pointer;
       font-family: inherit;
       transition: all 0.15s;
-      margin-top: 8px;
     }
 
     .btn:hover {
@@ -324,53 +417,21 @@
       color: #c8e6c8;
     }
 
-    .hint-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 1px solid #3a4a5a;
-      color: #5a6a7a;
-      font-size: 0.6rem;
-      cursor: help;
-      position: relative;
-      flex-shrink: 0;
-    }
 
-    .hint-icon:hover::after {
-      content: attr(data-hint);
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #1a2028;
-      border: 1px solid #3a4a5a;
-      color: #aab8c8;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 0.75rem;
-      white-space: normal;
-      width: max-content;
-      max-width: 200px;
-      margin-bottom: 6px;
-      z-index: 10;
-    }
+    /* hint-icon removed — tooltips are now on gene labels */
 
     @media (max-width: 768px) {
-      .container { flex-direction: column; max-width: 640px; }
       .header { max-width: 640px; }
+      .container { max-width: 640px; }
     }
 
     @media (max-width: 500px) {
       .header { padding: 16px 16px 8px; }
       .header h1 { font-size: 0.95rem; }
       .container { padding: 0 16px 32px; }
-      .canvas-wrap { padding: 14px; height: 260px; }
-      .text-panel { height: 260px; }
-      .text-panel { padding: 16px 18px; }
-      .slider-row input[type="range"] { width: 60px; }
+      .canvas-wrap { padding: 14px; }
+      .text-panel { padding: 4px 16px; }
+      .body-row { padding: 10px 14px; }
     }
   </style>
 </head>
@@ -390,14 +451,17 @@
   </div>
 
   <div class="container">
-    <div class="left-col">
-      <div class="text-panel" id="text-panel"></div>
-      <div id="left-extra"></div>
+    <div class="text-panel" id="text-panel"></div>
+    <div class="main-row">
+      <div class="canvas-col">
+        <div class="canvas-wrap" id="canvas-wrap"></div>
+      </div>
+      <div class="gene-col">
+        <div class="controls-area" id="controls-area"></div>
+      </div>
     </div>
-    <div class="right-col">
-      <div class="canvas-wrap" id="canvas-wrap"></div>
-      <div class="controls-area" id="controls-area"></div>
-    </div>
+    <div class="body-row" id="body-row"></div>
+    <div id="left-extra"></div>
   </div>
 
 <script type="module">
@@ -1148,71 +1212,157 @@ function draw() {
 }
 
 // ── Slider management ──
-let currentHints = {};
+// Hints are now permanent on each gene label
+let activeLessonIndices = [];
+let focusedSliderIdx = -1; // which slider has keyboard focus
+
+// Build all 13 gene dot rows once (always visible)
+const GENE_HINTS = [
+  'Direction vector 1 — controls stem height',
+  'Direction vector 2 — controls branch spread',
+  'Direction vector 3 — tilts branches',
+  'Direction vector 4 — inner branch angle',
+  'Direction vector 5 — mid-level shape',
+  'Direction vector 6 — outer branch angle',
+  'Direction vector 7 — fine tip detail',
+  'Direction vector 8 — trunk / tail / root',
+  'Recursion depth — how many levels of branching',
+  'Number of body segments',
+  'Distance between segments',
+  'Gradient 1 — taper from segment to segment',
+  'Gradient 2 — second taper axis',
+];
+
+function buildAllSliders() {
+  for (let li = 0; li < 13; li++) {
+    const gIdx = GENE_MAP[li];
+    const row = document.createElement('div');
+    row.className = 'slider-row disabled';
+    if (li === 8) row.classList.add('gene-separator');
+    row.dataset.li = li;
+    // Label with hover tooltip
+    const lbl = document.createElement('label');
+    lbl.textContent = GENE_LABELS[li];
+    lbl.setAttribute('data-hint', GENE_HINTS[li]);
+    lbl.className = 'gene-label';
+    row.appendChild(lbl);
+    // Hidden range input (still used for value/range tracking)
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = GENE_MINS[li];
+    input.max = GENE_MAXS[li];
+    input.value = genes[gIdx];
+    input.tabIndex = -1;
+    input.style.display = 'none';
+    row.appendChild(input);
+    // Peg container
+    const pegsContainer = document.createElement('div');
+    pegsContainer.className = 'gene-pegs';
+    row.appendChild(pegsContainer);
+    // Value display
+    const valSpan = document.createElement('span');
+    valSpan.className = 'val';
+    valSpan.textContent = genes[gIdx];
+    row.appendChild(valSpan);
+    // Build/update pegs
+    let pegs = [];
+    function buildPegs() {
+      pegsContainer.innerHTML = '';
+      pegs = [];
+      const mn = parseInt(input.min), mx = parseInt(input.max);
+      for (let v = mn; v <= mx; v++) {
+        const peg = document.createElement('div');
+        peg.className = 'gene-peg';
+        if (v === genes[gIdx]) peg.classList.add('active');
+        peg.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (autoplayTimer) stopAutoplay();
+          if (!activeLessonIndices.includes(li)) return;
+          genes[gIdx] = v;
+          input.value = v;
+          updateDot();
+          if (useTrace && traceSliderIndices && traceSliderIndices.includes(li)) startTrace(200, traceSkipCount);
+          else if (useCoordAnim) startCoordAnim();
+          else { traceAnim = null; draw(); }
+          setSliderFocus(li);
+        });
+        pegsContainer.appendChild(peg);
+        pegs.push(peg);
+      }
+    }
+    function updateDot() {
+      const mn = parseInt(input.min);
+      pegs.forEach((p, i) => p.classList.toggle('active', (mn + i) === genes[gIdx]));
+      valSpan.textContent = genes[gIdx];
+    }
+    buildPegs();
+    // Click to focus
+    row.addEventListener('click', () => {
+      if (!activeLessonIndices.includes(li)) return;
+      setSliderFocus(li);
+    });
+    $sliders.appendChild(row);
+    sliderEls[li] = { input, valSpan, row, updateDot, buildPegs };
+  }
+}
+
+function setSliderFocus(li) {
+  // Remove old focus
+  for (const s of Object.values(sliderEls)) s.row.classList.remove('focused');
+  focusedSliderIdx = li;
+  if (li >= 0 && sliderEls[li]) {
+    sliderEls[li].row.classList.add('focused');
+  }
+}
 
 function showSliders(lessonIndices, freshLessonIndex, rangeOverrides) {
   const ov = rangeOverrides || {};
-  for (const li of Object.keys(sliderEls)) {
-    if (!lessonIndices.includes(parseInt(li))) {
-      sliderEls[li].row.remove();
-      delete sliderEls[li];
-    }
-  }
-  for (const li of lessonIndices) {
+  activeLessonIndices = lessonIndices;
+
+  // Determine visible tier
+  const geneCount = lessonIndices.length === 0 ? 0
+    : Math.max(...lessonIndices) >= 11 ? 13
+    : Math.max(...lessonIndices) >= 9 ? 11
+    : 9;
+
+  for (let li = 0; li < 13; li++) {
+    const el = sliderEls[li];
     const gIdx = GENE_MAP[li];
+    const isVisible = li < geneCount;
+    const isActive = lessonIndices.includes(li);
+
+    // Show/hide based on tier
+    el.row.style.display = isVisible ? '' : 'none';
+
+    // Enable/disable
+    el.row.classList.toggle('disabled', !isActive);
+    el.input.disabled = !isActive;
+    el.input.tabIndex = isActive ? -1 : -1; // keyboard handled manually
+
+    // Update range and value
     const mn = ov[li]?.min ?? GENE_MINS[li];
     const mx = ov[li]?.max ?? GENE_MAXS[li];
-    if (!sliderEls[li]) {
-      const row = document.createElement('div');
-      row.className = 'slider-row';
-      const lbl = document.createElement('label');
-      lbl.textContent = GENE_LABELS[li];
-      row.appendChild(lbl);
-      const input = document.createElement('input');
-      input.type = 'range';
-      input.min = mn;
-      input.max = mx;
-      input.value = genes[gIdx];
-      row.appendChild(input);
-      const valSpan = document.createElement('span');
-      valSpan.className = 'val';
-      valSpan.textContent = genes[gIdx];
-      row.appendChild(valSpan);
-      input.addEventListener('input', () => {
-        genes[gIdx] = parseInt(input.value);
-        valSpan.textContent = genes[gIdx];
-        // Per-slider behavior: only retrace for specific genes
-        if (useTrace && traceSliderIndices && traceSliderIndices.includes(li)) startTrace(200, traceSkipCount);
-        else if (useCoordAnim) startCoordAnim();
-        else { traceAnim = null; draw(); }
-      });
-      $sliders.appendChild(row);
-      sliderEls[li] = { input, valSpan, row, hintEl: null };
-    } else {
-      sliderEls[li].input.min = mn;
-      sliderEls[li].input.max = mx;
-      sliderEls[li].input.value = genes[gIdx];
-      sliderEls[li].valSpan.textContent = genes[gIdx];
-    }
-    // Update hint icon
-    const hintText = currentHints[li];
-    if (hintText && !sliderEls[li].hintEl) {
-      const hint = document.createElement('span');
-      hint.className = 'hint-icon';
-      hint.textContent = '?';
-      hint.setAttribute('data-hint', hintText);
-      sliderEls[li].row.appendChild(hint);
-      sliderEls[li].hintEl = hint;
-    } else if (hintText && sliderEls[li].hintEl) {
-      sliderEls[li].hintEl.setAttribute('data-hint', hintText);
-    } else if (!hintText && sliderEls[li].hintEl) {
-      sliderEls[li].hintEl.remove();
-      sliderEls[li].hintEl = null;
-    }
+    el.input.min = mn;
+    el.input.max = mx;
+    el.input.value = genes[gIdx];
+    el.valSpan.textContent = genes[gIdx];
+    if (el.buildPegs) el.buildPegs();
+    if (el.updateDot) el.updateDot();
+
+    // Fresh highlight
+    el.row.classList.toggle('fresh', li === freshLessonIndex);
+
+    // Hints are now permanent — built in buildAllSliders()
   }
-  for (const li of lessonIndices) $sliders.appendChild(sliderEls[li].row);
-  for (const li of lessonIndices)
-    sliderEls[li].row.classList.toggle('fresh', li === freshLessonIndex);
+
+  // Auto-focus the fresh slider or first active
+  if (freshLessonIndex != null && lessonIndices.includes(freshLessonIndex)) {
+    setSliderFocus(freshLessonIndex);
+  } else if (lessonIndices.length > 0) {
+    setSliderFocus(lessonIndices[0]);
+  } else {
+    setSliderFocus(-1);
+  }
 }
 
 function showToggles(config) {
@@ -1234,6 +1384,121 @@ function showToggles(config) {
     });
     $toggles.appendChild(btn);
   }
+}
+
+// ── Autoplay ──
+let autoplayTimer = null;
+let autoplaySequence = [];
+let autoplayIdx = 0;
+let autoplayBaseGenes = null;
+
+function generateAutoplaySequence(activeIndices) {
+  const seq = [];
+  const n = activeIndices.length;
+  if (n === 0) return seq;
+
+  if (n === 1) {
+    // Sweep all values for the single gene
+    const li = activeIndices[0];
+    const mn = parseInt(sliderEls[li].input.min);
+    const mx = parseInt(sliderEls[li].input.max);
+    for (let v = mn; v <= mx; v++) {
+      const entry = {};
+      entry[li] = v;
+      seq.push(entry);
+    }
+  } else if (n === 2) {
+    // Sweep gene A, then gene B, then diagonal
+    const [a, b] = activeIndices;
+    const mnA = parseInt(sliderEls[a].input.min), mxA = parseInt(sliderEls[a].input.max);
+    const mnB = parseInt(sliderEls[b].input.min), mxB = parseInt(sliderEls[b].input.max);
+    // Sweep A
+    for (let v = mnA; v <= mxA; v++) seq.push({ [a]: v });
+    // Reset A, sweep B
+    seq.push({ [a]: autoplayBaseGenes[GENE_MAP[a]] });
+    for (let v = mnB; v <= mxB; v++) seq.push({ [b]: v });
+    // Diagonal: both change together
+    const stepsCount = Math.max(mxA - mnA, mxB - mnB) + 1;
+    for (let i = 0; i < stepsCount; i++) {
+      const t = i / (stepsCount - 1);
+      seq.push({
+        [a]: Math.round(mnA + t * (mxA - mnA)),
+        [b]: Math.round(mnB + t * (mxB - mnB)),
+      });
+    }
+  } else {
+    // Latin hypercube sampling for 3+ genes
+    const sampleCount = Math.min(50, Math.max(30, n * 6));
+    const ranges = activeIndices.map(li => ({
+      li,
+      mn: parseInt(sliderEls[li].input.min),
+      mx: parseInt(sliderEls[li].input.max),
+    }));
+    // Create shuffled band indices per gene
+    const bandArrays = ranges.map(r => {
+      const count = r.mx - r.mn + 1;
+      const bands = [];
+      for (let s = 0; s < sampleCount; s++) {
+        bands.push(r.mn + Math.floor((s / sampleCount) * count));
+      }
+      // Fisher-Yates shuffle
+      for (let i = bands.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bands[i], bands[j]] = [bands[j], bands[i]];
+      }
+      return bands;
+    });
+    for (let s = 0; s < sampleCount; s++) {
+      const entry = {};
+      ranges.forEach((r, gi) => { entry[r.li] = bandArrays[gi][s]; });
+      seq.push(entry);
+    }
+  }
+  return seq;
+}
+
+function startAutoplay() {
+  if (autoplayTimer) stopAutoplay();
+  autoplayBaseGenes = [...genes];
+  autoplaySequence = generateAutoplaySequence(activeLessonIndices);
+  if (autoplaySequence.length === 0) return;
+  autoplayIdx = 0;
+  stepAutoplay();
+}
+
+function stepAutoplay() {
+  if (autoplayIdx >= autoplaySequence.length) {
+    stopAutoplay();
+    return;
+  }
+  const entry = autoplaySequence[autoplayIdx];
+  // Apply only the genes specified in this entry; keep others at base
+  for (const li of activeLessonIndices) {
+    const gIdx = GENE_MAP[li];
+    if (li in entry) {
+      genes[gIdx] = entry[li];
+    }
+  }
+  // Update all active sliders
+  for (const li of activeLessonIndices) {
+    const el = sliderEls[li];
+    el.input.value = genes[GENE_MAP[li]];
+    if (el.updateDot) el.updateDot();
+  }
+  draw();
+  autoplayIdx++;
+  autoplayTimer = setTimeout(stepAutoplay, 400);
+}
+
+function stopAutoplay() {
+  if (autoplayTimer) {
+    clearTimeout(autoplayTimer);
+    autoplayTimer = null;
+  }
+  autoplaySequence = [];
+  // Update autoplay button text
+  const apBtn = $buttonBar.querySelector('.autoplay-btn');
+  if (apBtn) apBtn.textContent = 'Autoplay';
 }
 
 // ── Index sets ──
@@ -1322,7 +1587,7 @@ const steps = [
         traceAnim = null;
         draw();
       });
-      $ca.appendChild(btn);
+      $buttonBar.prepend(btn);
     },
   },
 
@@ -1363,7 +1628,7 @@ const steps = [
         traceAnim = null;
         draw();
       });
-      $ca.appendChild(btn);
+      $buttonBar.prepend(btn);
     },
   },
 
@@ -1597,17 +1862,6 @@ const steps = [
       </div>
     `,
     extra() {
-      const btn = document.createElement('button');
-      btn.className = 'btn';
-      btn.textContent = 'Random creature';
-      btn.addEventListener('click', () => {
-        genes = randomInteresting(4);
-        if (genes.length < 13) genes = [...genes, ...new Array(13 - genes.length).fill(0)];
-        genes[9] = Math.max(genes[9], 3);
-        showSliders(L_GRADS, null);
-        draw();
-      });
-      $ca.appendChild(btn);
       const links = document.createElement('div');
       links.className = 'links-row';
       links.innerHTML = `
@@ -1628,7 +1882,7 @@ function goTo(step) {
   $prev.disabled = step === 0;
   $next.disabled = step === steps.length - 1;
   $dots.querySelectorAll('.step-dot').forEach((d, i) => d.classList.toggle('active', i === step));
-  $ca.querySelectorAll('.btn, .extra-row').forEach(b => b.remove());
+  $buttonBar.querySelectorAll('.btn, .extra-row').forEach(b => b.remove());
   document.getElementById('left-extra').innerHTML = '';
   turtleAnim = null;
   traceAnim = null;
@@ -1639,11 +1893,59 @@ function goTo(step) {
   branchIntroAnim = null;
   useCoordAnim = false;
   showAllMode = null;
-  currentHints = steps[step].hint || {};
+  // Hints are permanent on labels now
   steps[step].setup();
   draw();
-  $tp.innerHTML = steps[step].text;
+  // Split step text: title goes to top, body goes to bottom
+  const tmp = document.createElement('div');
+  tmp.innerHTML = steps[step].text;
+  const titleEl = tmp.querySelector('.step-title');
+  const bodyEl = tmp.querySelector('.step-text');
+  $tp.innerHTML = titleEl ? titleEl.outerHTML : '';
+  document.getElementById('body-row').innerHTML = bodyEl ? bodyEl.outerHTML : '';
   if (steps[step].extra) steps[step].extra();
+  // Add autoplay + random buttons if there are active genes
+  stopAutoplay();
+  if (activeLessonIndices.length > 0) {
+    // Random creature button
+    const randBtn = document.createElement('button');
+    randBtn.className = 'btn';
+    randBtn.textContent = 'Random';
+    randBtn.addEventListener('click', (e) => {
+      e.target.blur();
+      if (autoplayTimer) stopAutoplay();
+      // Pick mode based on which genes are active
+      const maxLi = Math.max(...activeLessonIndices);
+      const mode = maxLi >= 11 ? 4 : maxLi >= 9 ? 3 : 2;
+      genes = randomInteresting(mode);
+      if (genes.length < 13) genes = [...genes, ...new Array(13 - genes.length).fill(0)];
+      if (mode >= 3) genes[9] = Math.max(genes[9], 3);
+      showSliders(activeLessonIndices, null);
+      draw();
+    });
+    $buttonBar.prepend(randBtn);
+
+    // Autoplay button
+    const apBtn = document.createElement('button');
+    apBtn.className = 'btn autoplay-btn';
+    apBtn.textContent = 'Autoplay';
+    apBtn.addEventListener('click', (e) => {
+      e.target.blur();
+      if (autoplayTimer) {
+        stopAutoplay();
+      } else {
+        apBtn.textContent = 'Stop';
+        startAutoplay();
+      }
+    });
+    $buttonBar.prepend(apBtn);
+  }
+  // Show button bar if it has any visible content
+  const hasToggles = $toggles.style.display !== 'none';
+  const hasButtons = $buttonBar.querySelector('.btn');
+  $buttonBar.style.display = (hasToggles || hasButtons) ? 'flex' : 'none';
+  // On intro steps (0, 1), hide gene column; show on all others
+  document.querySelector('.gene-col').style.display = step <= 1 ? 'none' : '';
 }
 
 for (let i = 0; i < steps.length; i++) {
@@ -1653,17 +1955,67 @@ for (let i = 0; i < steps.length; i++) {
   $dots.appendChild(dot);
 }
 
-$prev.addEventListener('click', () => goTo(currentStep - 1));
-$next.addEventListener('click', () => goTo(currentStep + 1));
+$prev.addEventListener('click', () => { goTo(currentStep - 1); $prev.blur(); });
+$next.addEventListener('click', () => { goTo(currentStep + 1); $next.blur(); });
 document.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'ArrowLeft') goTo(currentStep - 1);
-  if (e.key === 'ArrowRight') goTo(currentStep + 1);
+  if (e.target.tagName === 'INPUT' && e.target.type === 'text') return;
+  if (autoplayTimer) { stopAutoplay(); return; }
+
+  // Up/Down: move between active sliders
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    if (activeLessonIndices.length === 0) return;
+    e.preventDefault();
+    const dir = e.key === 'ArrowDown' ? 1 : -1;
+    const curPos = activeLessonIndices.indexOf(focusedSliderIdx);
+    let nextPos;
+    if (curPos === -1) {
+      nextPos = dir === 1 ? 0 : activeLessonIndices.length - 1;
+    } else {
+      nextPos = (curPos + dir + activeLessonIndices.length) % activeLessonIndices.length;
+    }
+    setSliderFocus(activeLessonIndices[nextPos]);
+    return;
+  }
+
+  // Left/Right: if a slider is focused, adjust its value; otherwise navigate steps
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    if (focusedSliderIdx >= 0 && activeLessonIndices.includes(focusedSliderIdx)) {
+      e.preventDefault();
+      const el = sliderEls[focusedSliderIdx];
+      const gIdx = GENE_MAP[focusedSliderIdx];
+      const delta = e.key === 'ArrowRight' ? 1 : -1;
+      const mn = parseInt(el.input.min), mx = parseInt(el.input.max);
+      genes[gIdx] = Math.max(mn, Math.min(mx, genes[gIdx] + delta));
+      el.input.value = genes[gIdx];
+      el.valSpan.textContent = genes[gIdx];
+      if (el.updateDot) el.updateDot();
+      if (useTrace && traceSliderIndices && traceSliderIndices.includes(focusedSliderIdx)) startTrace(200, traceSkipCount);
+      else if (useCoordAnim) startCoordAnim();
+      else { traceAnim = null; draw(); }
+    } else {
+      if (e.key === 'ArrowLeft') goTo(currentStep - 1);
+      if (e.key === 'ArrowRight') goTo(currentStep + 1);
+    }
+    return;
+  }
+
+  // Escape: unfocus slider (so left/right navigate steps again)
+  if (e.key === 'Escape') {
+    setSliderFocus(-1);
+    return;
+  }
 });
 
 $cw.appendChild(canvas);
 $ca.appendChild($sliders);
-$ca.appendChild($toggles);
+const $canvasCol = document.querySelector('.canvas-col');
+const $buttonBar = document.createElement('div');
+$buttonBar.className = 'button-bar';
+$buttonBar.style.display = 'none';
+$canvasCol.appendChild($buttonBar);
+$buttonBar.appendChild($toggles);
+buildAllSliders();
+
 goTo(0);
 
 </script>
