@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Constructor Theory — David Deutsch (2012)</title>
+
+<!-- Shared styles -->
+<link rel="stylesheet" href="../../lib/ip-theme.css">
+<link rel="stylesheet" href="../../lib/ip-auth.css">
+<link rel="stylesheet" href="../../lib/ip-reading-modes.css">
+<link rel="stylesheet" href="../../lib/ip-paragraph-index.css">
+<link rel="stylesheet" href="../../lib/ip-flashcards.css">
+
+<style>
+  /* Paper-specific: equation display */
+  .equation {
+    display: block;
+    text-align: center;
+    margin: 20px 0;
+    font-style: italic;
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+  .equation .eq-num {
+    float: right;
+    color: var(--text-dim);
+  }
+  /* Subsection headings */
+  h3 {
+    font-size: 0.95rem;
+    color: var(--heading);
+    font-style: italic;
+    margin: 28px 0 12px;
+  }
+  /* Table for classification */
+  .ct-table {
+    margin: 20px auto;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  .ct-table th, .ct-table td {
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    text-align: center;
+  }
+  .ct-table th {
+    background: var(--surface);
+    color: var(--heading);
+    font-weight: 600;
+  }
+  .ct-table caption {
+    caption-side: bottom;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin-top: 8px;
+    font-style: italic;
+  }
+  /* Mode visibility: hide margin annotations in clean mode */
+  body.mode-clean .margin-note { display: none; }
+</style>
+</head>
+<body class="mode-enhanced">
+
+<!-- Top bar: reading modes + index controls -->
+<div id="top-bar">
+  <div class="mode-toggle" role="tablist" aria-label="Reading mode">
+    <button class="mode-btn" data-mode="clean" role="tab">Clean</button>
+    <button class="mode-btn active" data-mode="enhanced" role="tab">Enhanced</button>
+    <button class="mode-btn" data-mode="multimedia" role="tab">Multimedia</button>
+  </div>
+  <button class="para-picker-btn" aria-label="Paragraph picker" title="Paragraph picker">&#182;</button>
+  <div class="para-picker"></div>
+  <button class="settings-gear" aria-label="Index settings" title="Index settings">&#9881;</button>
+  <div class="settings-menu">
+    <div class="sm-group-title">Summary style</div>
+    <label><input type="radio" name="pi_summary" value="word"> Word</label>
+    <label><input type="radio" name="pi_summary" value="phrase"> Phrase</label>
+    <label><input type="radio" name="pi_summary" value="thread" checked> Thread</label>
+    <div class="sm-group-title">Options</div>
+    <label><input type="checkbox" id="pi-tracking-cb"> Scroll tracking</label>
+    <label><input type="checkbox" id="pi-guides-cb"> Debug guides</label>
+  </div>
+</div>
+
+<!-- Paragraph index sidebar -->
+<nav id="para-index" aria-label="Paragraph index">
+  <div class="pi-inner"></div>
+</nav>
+
+<!-- Paper content -->
+<article>
+<header>
+  <h1>Constructor Theory</h1>
+  <p class="author">David Deutsch</p>
+  <p class="author" style="font-style: normal; font-size: 0.85rem; margin-top: 8px;">Centre for Quantum Computation, The Clarendon Laboratory, University of Oxford<br>and Future of Humanity Institute, University of Oxford</p>
+  <p class="author" style="font-size: 0.82rem; margin-top: 8px;">September 2012 (Revised December 2012)</p>
+</header>
+
+<!-- Abstract -->
+<section>
+<p id="p1">Constructor theory seeks to express all fundamental scientific theories in terms of a dichotomy between <em>possible</em> and <em>impossible</em> physical transformations &ndash; those that can be caused to happen and those that cannot. This is a departure from the prevailing conception of fundamental physics which is to predict what <em>will happen</em> from initial conditions and laws of motion. Several converging motivations for expecting constructor theory to be a fundamental branch of physics are discussed. Some principles of the theory are suggested and its potential for solving various problems and achieving various unifications is explored. These include providing a theory of information underlying classical and quantum information; generalising the theory of computation to include all physical transformations; unifying formal statements of conservation laws with the stronger operational ones (such as the ruling-out of perpetual motion machines); expressing the principles of testability and of the computability of nature (currently deemed methodological and metaphysical respectively) as laws of physics; allowing exact statements of emergent laws (such as the second law of thermodynamics); and expressing certain apparently anthropocentric attributes such as knowledge in physical terms.</p>
+</section>
+
+<!-- 1. Introduction -->
+<section>
+<h2 id="sec-intro">1. Introduction</h2>
+
+<h3 id="sec-1-1">1.1 Construction tasks</h3>
+
+<p id="p2">Consider an automated factory for producing goods to a particular specification. Though its purpose may only be to <em>produce</em> those goods, the laws of physics imply that it must <em>transform</em> something into them and, typically, also use other resources and produce waste products. Very few such transformations happen spontaneously; that is to say, almost all require a <em>constructor</em>, which I shall define as anything that can cause transformations in physical systems without undergoing any net change in its ability to do so. I shall call those physical systems the constructor&rsquo;s <em>substrates</em>:</p>
+
+<div class="equation">input state of substrate(s) &xrarr;<sup>constructor</sup> output state of substrate(s). <span class="eq-num">(1)</span></div>
+
+<p id="p3">A transformation, regarded as being caused by a constructor, I call a <em>construction</em>.</p>
+
+<p id="p4">Constructors appear under various names in physics and other fields. For instance, in thermodynamics, a heat engine is a constructor because of the condition that it be capable of &lsquo;operating in a cycle&rsquo;. But they do not currently appear in <em>laws</em> of physics. Indeed, there is no possible role for them in what I shall call the <em>prevailing conception</em> of fundamental physics, which is roughly as follows: everything physical is composed of elementary constituents such as particles, fields and spacetime; there is an initial state of those constituents; and laws of motion determine how the state evolves continuously thereafter. In contrast, a construction (1) is characterised only by its inputs and outputs, and involves subsystems (the constructor and the substrate), playing different roles, and most constructors are themselves composite objects. So, in the prevailing conception, no law of physics could possibly mention them: the whole continuous process of interaction between constructor and substrate is already determined by the universal laws governing their constituents.</p>
+
+<p id="p5">However, the constructor theory that I shall propose in this paper is not primarily the theory of constructions or constructors, as the prevailing conception would require it to be. It is the theory of which <em>transformations</em></p>
+
+<div class="equation">input state of substrates &rarr; output state of substrates <span class="eq-num">(2)</span></div>
+
+<p id="p6"><em>can be caused</em> and which cannot, and why. As I shall explain, the idea is that the fundamental questions of physics can all be expressed in terms of those issues, and that the answers do not depend on what the constructor is, so it can be abstracted away, leaving transformations (2) as the basic subject matter of the theory. I shall argue that we should expect such a theory to constitute a fundamental branch of physics with new, universal laws, and to provide a powerful new language for expressing other theories. I shall guess what some of those laws may be, and explore the theory&rsquo;s potential for solving various problems and achieving various unifications between disparate branches of physics and beyond, and propose a notation that may be useful in developing it.</p>
+
+<p id="p7">Causation is widely regarded by philosophers as being at best a useful fiction having no possible role in fundamental science. Hume (1739) argued that we cannot observe causation and therefore can never have evidence of its existence. But here I shall, with Popper (1959, 1963), regard scientific theories as conjectured explanations, not as inferences from evidence, and observation not as a means of validating them, but only of testing them. So Hume&rsquo;s argument does not apply. Nor does the argument (e.g. by Russell 1913) that the fundamental laws of physics make no reference to causes &ndash; for that is merely an attribute of a particular way of formulating those laws (namely, the prevailing conception) not of the laws themselves. Moreover, the prevailing conception itself is not consistent about that issue, for the idea of a universal law is part of it too, and the empirical content of such a law is in what it <em>forbids</em> by way of testable outcomes (Popper 1959, &sect;31 &amp; &sect;35) &ndash; in other words in what transformations it denies <em>can be caused</em> to happen, including to measuring instruments in any possible laboratories. Explanatory theories with such counter&shy;factual implications are more fundamental than predictions of what <em>will</em> happen. For example, consider the difference between saying that a purported perpetual motion machine <em>cannot be made</em> to work as claimed &lsquo;because that would violate a conservation law&rsquo; and that it <em>won&rsquo;t</em> work &lsquo;because that axle exerts too small a torque on the wheel&rsquo;. Both explanations are true, but the former rules out much more, and an inventor who understood only the latter might waste much more time trying to cause the transformation in question by modifying the machine.</p>
+
+<p id="p8">I provisionally define a <em>construction task</em> (or &lsquo;task&rsquo;, for short) as a set of pairs such as (2), each designating a <em>legitimate input state</em> for the task and associating that with a <em>legitimate output state</em> for that input. (So constructor theory might be more accurately called <em>construction task theory</em>, but I think the shorter name is preferable.) A constructor is <em>capable of performing</em> a task if, whenever it is presented with substrates in a legitimate input state, it transforms them to one of the output states that the task associates with that input.</p>
+
+<p id="p9">Presumably no perfect constructors can exist in nature. A factory is only an approximation to one, as are some of its constituents such as robots and conveyor belts, because of their non-zero error rates (producing something other than the specified output), and because in the absence of maintenance they gradually deteriorate. A task is <em>possible</em> if the laws of nature impose no limit, short of perfection, on how accurately it could be performed, nor on how well things that are capable of approximately performing it could retain their ability to do so. Otherwise it is <em>impossible</em>.</p>
+
+<p id="p10">It may be that construction tasks are the primitive entities in terms of which the laws of nature are expressed. In that case, a &lsquo;set of ordered pairs of states&rsquo; would be only a provisional way of conceiving of tasks: ultimately substrates, states and transformations would be understood in terms of tasks, not vice versa.</p>
+
+<p id="p11">A construction task specifies only intrinsic attributes of its substrates, not extrinsic ones such as the name or location of a particular instance. So, converting the Eiffel Tower into a billion toy models of itself is not a construction task, but converting a structure with that specification into such models, plus waste products, using a specified source of energy, is.</p>
+
+<p id="p12">The specification of a task includes all its necessary inputs and unavoidable outputs, hence the need to specify such things as what energy sources and waste products are permitted. Thus, a constructor is characterised by the effect it would have if it and its substrates jointly constituted a closed system. For instance, a device connected to an external power supply should not qualify as a perpetual motion machine.</p>
+
+<p id="p13">The definition of a constructor for a task requires it to be a constructor for that task again after performing an instance of it. Its other attributes may change, but what the user must do in order to cause it to perform the task must remain the same. (The term &lsquo;user&rsquo; here is not intended to have any anthropomorphic connotation; the user is whatever presents the constructor with its substrates, causing it to perform its task.) If a machine stops being capable of performing a task after its <em>N</em>&rsquo;th run because its battery has run down, then it is not a constructor for that task after the (<em>N</em>&minus;1)&rsquo;th run either, because the <em>N</em>&rsquo;th run does not end with it being such a constructor &ndash; and so it follows by induction that it never was one. However, the same machine excluding the battery could still be a constructor for a related task whose substrates include a battery whose legitimate input states specify enough charge to perform the task at least once.</p>
+
+<h3 id="sec-1-2">1.2 Composition of tasks</h3>
+
+<p id="p14">A candidate formalism for constructor theory is the <em>algebra of tasks</em>. The <em>parallel composition</em> of tasks A and B is the task of achieving the effect of performing A on one substrate and B on another. But performing A&otimes;B need not involve actually performing A or B. Indeed, A&otimes;B may be possible even when neither A nor B is &ndash; for instance, when they violate a conservation law by equal and opposite amounts. The same holds for the <em>serial composition</em> AB, which is defined such that in cases where every legitimate output state of B is a legitimate input state of A, AB is the task of achieving the net effect of performing B and then immediately performing A on the same substrate. (Other cases will not concern us in this paper.) We can also define tasks as networks of sub-tasks, with the outputs of some connected to the inputs of others. A <em>regular network</em> is one in which the legitimate outputs of the task at the beginning of each link are the legitimate inputs of the task at its end. This formalism makes it natural to conjecture &ndash; and here we come to our first constructor-theoretic law of physics, which I shall call the <em>composition principle</em> &ndash; that <em>every regular network of possible tasks is a possible task</em>.</p>
+
+<p id="p15">However, networks of <em>possible</em> tasks are not the only subject-matter of constructor theory. A possible task can be composed of impossible ones, as in the case of conservation laws that I have just mentioned. In this respect constructor theory differs from the theory of computation, which it generalises (Section 2.7 below), and from other extensions of the idea of computation, such as modal logics. Those all deal with how to compose <em>constructions</em>, which are processes in which constructors perform possible tasks.</p>
+
+<p id="p16">Nor is constructor theory intended to implement a positivist or operationalist program of excluding from science everything but statements of which tasks are possible or impossible. On the contrary, even a complete set of such statements, if uninterpreted by explanation, would be unintelligible as a theory about nature. That is why I characterised constructor theory above as the theory of which transformations can or cannot be caused <em>and why</em>. Science in the constructor-theoretic conception remains primarily explanatory, as all science should be (Deutsch 2011, ch. 1). Far from excluding anything, I expect constructor theory to permit a wider class of explanations than the prevailing conception (as, for instance, in Section 2.2 below).</p>
+
+<h3 id="sec-1-3">1.3 Constructor theory would underlie all other scientific theories</h3>
+
+<p id="p17">The theory of relativity is the theory of the arena (spacetime) in which all physical processes take place. Thus, by its explanatory structure, it claims to <em>underlie</em> all other scientific theories, known and unknown, in that requires them to be expressible in terms of tensor fields on spacetime, and constrains what they can say about the motion of those fields. For example, any theory postulating a new particle that was unaffected by gravity (i.e. by the curvature of spacetime) would contradict the general theory of relativity. Another theory that inherently claims to underlie all others is quantum theory, which requires all observable quantities to be expressible in terms of quantum-mechanical operators obeying certain commutation laws. And so, for example, no theory claiming that some physical variable and its time derivative are simultaneously measurable with arbitrary accuracy can be consistent with quantum theory. Constructor theory would, in this sense, underlie all other theories including relativity and quantum theory. The logic of the relationship would be as follows: Other theories specify what substrates and tasks exist, and provide the multiplication tables for serial and parallel composition of tasks, and state that some of the tasks are impossible, and explain why. Constructor theory provides a unifying formalism in which other theories can do this, and its principles constrain their laws, and in particular, require certain types of task to be possible. I shall call all scientific theories other than constructor theory <em>subsidiary theories</em>.</p>
+
+<p id="p18">In this paper I guess some principles of constructor theory. Some of these guesses (such as the composition principle in Section 1.2 above and the interoperability principle in Section 2.6 below) are natural given the formalism I am proposing, which is itself natural if constructor theory is regarded as a generalisation of the theory of computation (Section 2.7). Others are principles that are already known but not widely regarded as laws of physics, such as the principle of testability (Section 2.11) and what I have called the Turing principle (Section 2.8). If the thesis of this paper is true, then others may emerge from the explicit integration of subsidiary theories, especially quantum theory and relativity, and by guessing improvements to falsified guesses (Section 2.10).</p>
+</section>
+
+<!-- 2. Motivations -->
+<section>
+<h2 id="sec-motivations">2. Motivations</h2>
+
+<h3 id="sec-2-1">2.1 Catalysis</h3>
+
+<p id="p19">A <em>catalyst</em> is a substance that increases the rate of a chemical reaction without undergoing any net chemical change itself. Chemical equations describing catalysis are written like this:</p>
+
+<div class="equation">n<sub>1</sub>R<sup>(1)</sup> + n<sub>2</sub>R<sup>(2)</sup> + &hellip; &xrarr;<sup>C</sup> m<sub>1</sub>P<sup>(1)</sup> + m<sub>2</sub>P<sup>(2)</sup> + &hellip;, <span class="eq-num">(3)</span></div>
+
+<p id="p20">which conforms to the pattern (1) with the catalyst C as the constructor. Since a catalyst changes only the rate of a reaction, not the position of equilibrium, it is sometimes deemed a mistake to regard catalysts as <em>causing</em> reactions. However, that argument would deny that anything causes anything. Even without a factory, the components of a car do spontaneously assemble themselves at a very low rate, due to Brownian motion, but this happens along with countless other competing processes, some of them (such as rusting away) much faster than that self-assembly, and all of them much slower than the assembly effected by the factory. Hence a car is overwhelmingly unlikely to appear unless a suitable constructor is present. So if causation is meaningful at all, catalysts and other constructors do indeed cause their characteristic constructions.</p>
+
+<p id="p21">When one is not specifically discussing the catalyst, one usually omits it, describing the reaction as a construction task instead:</p>
+
+<div class="equation">n<sub>1</sub>R<sup>(1)</sup> + n<sub>2</sub>R<sup>(2)</sup> + &hellip; &rarr; m<sub>1</sub>P<sup>(1)</sup> + m<sub>2</sub>P<sup>(2)</sup> + &hellip;. <span class="eq-num">(4)</span></div>
+
+<p id="p22">This is convenient because most laws of chemistry are only about the reagents; that is to say, they hold regardless of what the catalyst may be, and hence assert nothing about the catalyst. For example, the <em>law of definite proportions</em> requires the coefficients n<sub>1</sub>, n<sub>2</sub>&hellip; and m<sub>1</sub>, m<sub>2</sub>&hellip; in (3) or (4) to be integers, depending only on the chemical identities of the reagents and products. It says that <em>any</em> catalyst capable of catalysing (4) can do so only for integer values of the coefficients. Similarly, (4) has to balance (expressing the fact that chemical processes cannot create or destroy atoms); it has to scale (be the same whether the terms refer to molecules, moles or any other measure proportional to those); the free energy of the products must not exceed that of the reagents; and so on. All these laws hold whatever causes the reaction while remaining unchanged in its ability to do so.</p>
+
+<p id="p23">Imposing the prevailing conception of fundamental physics on chemistry would entail treating the catalyst as another reagent. One would rewrite (3) as</p>
+
+<div class="equation"><em>k</em>C + n<sub>1</sub>R<sup>(1)</sup> + n<sub>2</sub>R<sup>(2)</sup> + &hellip; &rarr; <em>k</em>C + m<sub>1</sub>P<sup>(1)</sup> + m<sub>2</sub>P<sup>(2)</sup> + &hellip; <span class="eq-num">(5)</span></div>
+
+<p id="p24">for some <em>k</em>. But then the catalyst violates the law of definite proportions: since each catalyst molecule may be re-used, (5) can proceed for a huge range of values of <em>k</em>. Nor does (5) scale: the minimum number of catalyst molecules for which it outpaces competing reactions is some k<sub>0</sub>, but for <em>x</em> times the number of reagent molecules, the minimum number may be much lower than <em>x</em>k<sub>0</sub>, and will depend on non-chemical factors such as the size of the container, again contrary to the law of definite proportions.</p>
+
+<p id="p25">The customary distinction between catalysts and other reagents therefore correctly reflects the fact that they are treated differently by laws of nature &ndash; in this case, laws of chemistry. But there is no significant distinction between catalysts and other <em>constructors</em>. For example, the synthesis of ammonia, 3H<sub>2</sub>+2N<sub>2</sub> &xrarr;<sup>Fe</sup> 2NH<sub>3</sub>, will not happen in empty space, because at near-zero pressure the process of diffusing away is much faster than the chemical reaction. Hence a container or equivalent constructor is among the conditions required in addition to the catalyst. Indeed, some catalysts work by <em>being</em> microscopic containers for the reagents.</p>
+
+<p id="p26">Chemical catalysis has natural generalisations. Carbon nuclei are catalysts for nuclear reactions in stars. A living organism is both a constructor and a product of the construction that is its life-cycle which, for single-celled photosynthesising organisms, is simply:</p>
+
+<div class="equation">small molecules + light &xrarr;<sup>cell</sup> cell + waste products. <span class="eq-num">(6)</span></div>
+
+<p id="p27">Inside cells, proteins are manufactured by ribosomes, which are constructors consisting of several large molecules. They function with the help of smaller catalysts (enzymes) and water, using ATP as fuel. I mention this reaction in particular because the RNA plays a different role from the other catalysts. It specifies, in a code, which protein shall be the product on a given occasion. Thus, the catalysts excluding the RNA constitute a <em>programmable constructor</em>. Constructor theory is the ultimate generalisation of the idea of catalysis.</p>
+
+<h3 id="sec-2-2">2.2 Constructor-independent laws of physics</h3>
+
+<p id="p28">In physics, too, most laws are about substrates only: they hold for all possible constructors. But the prevailing conception disguises that. For example, one way of formulating a conservation law in the prevailing conception is that for every isolated physical system <strong>S</strong>, a certain quantity Q(<strong>S</strong>) never changes. But since an isolated system never deviates from a particular trajectory, almost all its attributes (namely, all deviations from that trajectory) remain unchanged, not just conserved quantities. For instance, the total energy of the atoms of an isolated crystal remains unchanged, but so does their arrangement, and only the former invariance is due to a conservation law. In constructor-theoretic terms, the arrangement could be changed by a constructor while the energy could not.</p>
+
+<p id="p29">More generally, what makes the attributes that we call &lsquo;conserved quantities&rsquo; significant is not that they cannot change when a system is isolated, but that they cannot <em>be changed</em>, <em>whether or not</em> the system is isolated, without depleting some external resource. In the prevailing conception, one addresses this by considering additive conserved quantities (ones for which Q(<strong>S</strong><sub>1</sub>&oplus;<strong>S</strong><sub>2</sub>) = Q(<strong>S</strong><sub>1</sub>) + Q(<strong>S</strong><sub>2</sub>), where <strong>S</strong><sub>1</sub>&oplus;<strong>S</strong><sub>2</sub> denotes the composite system of <strong>S</strong><sub>1</sub> and <strong>S</strong><sub>2</sub>). Then if <strong>S</strong><sub>1</sub>&oplus;<strong>S</strong><sub>2</sub> is isolated, the conservation law says that regardless of how <strong>S</strong><sub>1</sub> and <strong>S</strong><sub>2</sub> may interact, Q(<strong>S</strong><sub>2</sub>) cannot change unless Q(<strong>S</strong><sub>1</sub>) changes by an equal and opposite amount. But that is not enough to imply the most interesting property of conserved quantities, namely that this balancing act cannot continue indefinitely. Thus, for each conserved quantity <em>Q</em> the prevailing conception conceals a deeper regularity &ndash; a stronger conservation law &ndash; which can be succinctly expressed in constructor theory and holds whether <em>Q</em> is additive or not: <em>every task that would change the (overall) Q of its substrates is impossible</em>.</p>
+
+<h3 id="sec-2-3">2.3 Irreversibility</h3>
+
+<p id="p30">All the laws of thermodynamics have informal constructor-theoretic versions (i.e. versions saying that certain tasks are impossible), but for the second law, <em>only</em> informal or approximate versions currently exist. That is because of its notorious <em>prima facie</em> conflict with the reversibility of all known laws of motion, and hence with the prevailing conception. All existing proposals for resolving this depend, explicitly or implicitly, on ensemble-averaging or coarse-graining to define entropy and heat, which makes the connection with physical states vague and arbitrary. A similar problem exists for equilibrium, referred to by the zeroth law. Expressing those laws in terms of tasks may make all the difference, because in the prevailing conception, the reversibility of a composite process follows logically from that of its constituent processes, and hence we cannot expect the second law to be an exact law of nature at all. But in constructor theory there is no reason why a possible task, such as converting work entirely into heat, should not have an impossible transpose. So it seems reasonable to hope that the informal statements of all the laws of thermodynamics, as well as concepts analogous to heat, entropy and equilibrium, could be made precise within constructor theory by formalising existing informal statements such as &lsquo;it is impossible to build a perpetual motion machine of the second kind&rsquo;.</p>
+
+<p id="p31">Similarly, quantum decoherence is not a property of the exact quantum state of the universe but only of coarse-grained approximations. Yet it is fundamental to the structure of the multiverse (Deutsch 2002) and is related to thermodynamics in imperfectly understood ways. It, too, may eventually be understood as an exact attribute of tasks &ndash; for example as a statement of the impossibility of tasks that would transmit information (Section 2.6 below) between universes.</p>
+
+<h3 id="sec-2-4">2.4 Von Neumann&rsquo;s approach</h3>
+
+<p id="p32">Before the discovery of the structure of DNA, von Neumann (1948) wondered how organisms can possibly reproduce themselves faithfully and evolve complex adaptations for doing so. He realised that an organism must be a <em>programmable</em> constructor operating in two stages, namely copying its program and executing it to build another instance. He tried to model this using simplified laws of physics &ndash; thus founding the field of cellular automata &ndash; but without success: it was too complicated. He also introduced an important constructor-theoretic idea, namely that of a universal constructor (3.11 below), but he made no further progress in constructor theory because, by retreating to cellular automata, he had locked himself into the prevailing conception and also abstracted away all connections between his theory and physics.</p>
+
+<h3 id="sec-2-5">2.5 What is the initial state?</h3>
+
+<p id="p33">The prevailing conception regards the initial state of the physical world as a fundamental part of its constitution, and we therefore hope and expect that state to be specified by some fundamental, elegant law of physics. But at present there are no exact theories of what the initial state was. Thermodynamics suggests that it was a &lsquo;zero-entropy state&rsquo;, but as I said, we have no exact theory of what that means. Cosmology suggests that it was homogeneous and isotropic, but whether the observed inhomogeneities (such as galaxies) could have evolved from quantum fluctuations in a homogeneous initial state is controversial.</p>
+
+<p id="p34">In the constructor-theoretic conception, the initial state is not fundamental. It is an emergent consequence of the fundamental truths that laws of physics specify, namely which tasks are or are not possible. For example, given a set of laws of motion, what exactly is implied about the initial state by the practical feasibility of building (good approximations to) a universal computer several billion years later may be inelegant and intractably complex to state explicitly, yet may follow logically from elegant constructor-theoretic laws about information and computation (see Sections 2.6 and 2.8 below).</p>
+
+<p id="p35">The intuitive appeal of the prevailing conception may be nothing more than a legacy from an earlier era of philosophy: First, the idea that the <em>initial</em> state is fundamental corresponds to the ancient idea of divine creation happening at the beginning of time. And second, the idea that the initial state might be a logical consequence of anything deeper raises a spectre of teleological explanation, which is anathema because it resembles explanation through divine intentions. But neither of those (somewhat contradictory) considerations could be a substantive objection to a fruitful constructor theory, if one could be developed.</p>
+
+<h3 id="sec-2-6">2.6 Information</h3>
+
+<p id="p36">Since all known laws of motion are logically reversible (the initial state of any isolated system is entailed by its final state, as well as vice versa), an irreversible computational task on a computer&rsquo;s memory <strong>M</strong> is a reversible one on some <strong>M</strong>&oplus;<strong>W</strong>, where <strong>W</strong> is an additional substrate that carries away waste information. So for present purposes we can confine attention to <em>reversible computers</em>, namely constructors some of whose substrates are interpreted as <em>reversible information-processing media</em>. Such a medium can be defined in purely constructor-theoretic terms: it is a substrate with a set <em>S</em> of at least two states such that for all permutations (i.e. reversible computations) &Pi; on <em>S</em>, the task of performing that permutation is possible. Implicitly, defining such media defines information itself.</p>
+
+<p id="p37">Theories of information and computation exist in their own right, independently of theories of particular physical systems, because there exist substrate-independent truths about the physical world &ndash; which, again, have their natural expression in constructor theory. The <em>interoperability principle for information</em> is one: If <strong>S</strong><sub>1</sub> and <strong>S</strong><sub>2</sub> are reversible information-carrying media satisfying the definition above with <em>S</em> = <em>S</em><sub>1</sub> and <em>S</em> = <em>S</em><sub>2</sub> respectively, then <strong>S</strong><sub>1</sub>&oplus;<strong>S</strong><sub>2</sub> is a reversible information-carrying medium with <em>S</em> as the set of all ordered pairs {(<em>p</em>,<em>q</em>) | <em>p</em> &isin; <em>S</em><sub>1</sub>, <em>q</em> &isin; <em>S</em><sub>2</sub>}. In particular, this implies that for any medium, if its states are used to store information, copying that information to (a blank instance of) any other medium of the same or greater capacity is a possible task.</p>
+
+<h3 id="sec-2-7">2.7 Generalising computation</h3>
+
+<p id="p38">Other construction tasks involving information are <em>measurement</em> (in which a physical system is an input and the desired output is information about the system) and <em>preparation</em> (in which the desired output is a physical system meeting a criterion specified in the input). So we have the following classification:</p>
+
+<table class="ct-table">
+  <caption>Table 1: A classification of constructions</caption>
+  <tr><th></th><th colspan="2">Output</th></tr>
+  <tr><th></th><th>Abstract</th><th>Physical</th></tr>
+  <tr><th>Abstract</th><td>Computation</td><td>Preparation</td></tr>
+  <tr><th>Physical</th><td>Measurement</td><td>Other construction</td></tr>
+</table>
+
+<p id="p39">While three of the four phenomena in Table 1 have been extensively studied, the lower-right one has received scant attention. It is therefore natural to try to unify all four under a single theory: constructor theory.</p>
+
+<h3 id="sec-2-8">2.8 The computability of nature</h3>
+
+<p id="p40">The theory of computation was originally intended only as a mathematical technique for studying proof (Turing 1936), not a branch of physics. Then, as now, there was a widespread assumption &ndash; which I shall call the <em>mathematicians&rsquo; misconception</em> &ndash; that what the rules of logical inference are, and hence what constitutes a proof, are <em>a priori</em> logical issues, independent of the laws of physics. This is analogous to Kant&rsquo;s (1781) misconception that he knew with certainty what the geometry of space is. In fact proof and computation are, like geometry, attributes of the physical world. Different laws of physics would in general make different functions computable and therefore different mathematical assertions provable.</p>
+
+<p id="p41">Another way of exhibiting the mathematicians&rsquo; misconception is to pick some formal system that human brains are capable of instantiating to a good approximation (say, the theory of Turing machines), and then to designate certain entities within that system as the only genuine proofs. In that case, if the laws of physics were such that a physical system existed whose motion could be exploited to establish the truth of a Turing-unprovable proposition, the proposition would still not count as having been genuinely proved. Such conceptions of proof are essentialist (since they assign the attribute &lsquo;genuine&rsquo; by fiat), and anthropocentric (since they require us to draw different conclusions from the outcomes of computations according to whether they can be instantiated in human brains). But if the angles of your formal system&rsquo;s &lsquo;triangles&rsquo; always sum to two right angles, it does not follow that those of physical triangles do. And if your system classifies a problem as &lsquo;intractable&rsquo;, it may still be easily soluble, even if not by human brains. In those ways and others, Turing&rsquo;s intuitions about computation, like Kant&rsquo;s about geometry, did not match reality.</p>
+
+<p id="p42">They are contradicted by the quantum theory of computation and the general theory of relativity respectively, both of which are branches of physics. Even if they had been true, they would still have been claims about the laws of physics, not <em>a priori</em> truths.</p>
+
+<p id="p43">The fundamental status of general relativity is reflected in the mathematical formalism of physics. For instance, laws of motion are expressed in terms of tensor fields on spacetime. But computability is an even more pervasive regularity in nature: every physical system is described by mathematical functions drawn from the same infinitesimally small class. Yet that regularity is not explicit in any current formulation of the laws of physics. Under the mathematicians&rsquo; misconception, it was mistaken for a (meta-)mathematical principle, the <em>Church&ndash;Turing conjecture</em>, namely that the universal Turing machine (an abstract object) is a <em>universal computer</em>: one whose <em>repertoire</em> (the set of all computations it can be programmed to be capable of performing) includes that of every other computer. But without adducing laws of physics one cannot prove or disprove that conjecture or even state it precisely, because there is no <em>a priori</em> (physics-free) way of characterising &lsquo;every other computer&rsquo;.</p>
+
+<p id="p44">Furthermore, if some Turing machine can simulate a world <strong>W</strong>, that does not imply that <strong>W</strong>&rsquo;s laws of physics would be computable by anything inside <strong>W</strong>; yet <em>that</em> is the regularity that we have discovered in our world. If &lsquo;computability&rsquo; is to express that regularity, and if its theory is to serve as the foundation of proof theory, it must refer to what physical computers can do, not abstract ones. The principle of the computability of nature must be that a computer capable of simulating any physical system <em>is physically possible</em>. (This is a slightly improved version of what I have called the <em>Turing principle</em> (Deutsch 1985).) Because computers are complex, composite entities, this principle has no natural expression in the prevailing conception. But it has one in terms of tasks, namely that for programmable computers, <em>the union of all possible repertoires</em> (as defined in 3.7 below) <em>is a possible repertoire</em>.</p>
+
+<h3 id="sec-2-9">2.9 Why the theory of computation isn&rsquo;t the whole of physics</h3>
+
+<p id="p45">There is a sense in which the top-left cell of Table 1 (computation) contains the whole table (the whole of physics), namely: for every possible motion of every object permitted by the laws of physics, there exist virtual-reality renderings in which the simulated object mimics all the observable properties of the real one with arbitrary accuracy short of perfection. Thus any physically possible process corresponds to some set of computer programs; moreover every program, when running, is a physical process. Does the theory of computation therefore coincide with physics, the study of all possible physical objects and their motions?</p>
+
+<p id="p46">It does not, because the theory of computation does not specify <em>which</em> physical system a particular program renders, and to what accuracy. That requires additional knowledge of the laws of physics. In particular, most programs, if regarded as virtual-reality renderings of physical objects, only render other computers running an equivalent program, and only their computational variables at that. So the theory of computation is only a branch of physics, not vice versa, and constructor theory is the ultimate generalisation of the theory of computation.</p>
+
+<h3 id="sec-2-10">2.10 Laws and principles</h3>
+
+<p id="p47">The deepest known laws of nature, sometimes called &lsquo;principles&rsquo;, are meta-laws, constraining other laws rather than the behaviour of physical objects directly. For example, the principle of the conservation of energy does not say what forms of energy exist, nor what the energy of any particular system is. Rather, it asserts that for any system <strong>S</strong>, the object-level laws (those governing <strong>S</strong> and its interactions with other systems) define a quantity that has the usual properties of energy.</p>
+
+<p id="p48">Principles purport to constrain all true laws, known and unknown. But there is no way of deducing such an implication from laws expressed in the prevailing conception. At most one can add it informally, or prove that existing laws conform to the principle. But all laws of constructor theory are principles; and when they call a task possible, that rules out the existence of insuperable obstacles to performing it, even from unknown laws.</p>
+
+<h3 id="sec-2-11">2.11 The principle of testability</h3>
+
+<p id="p49">It is sometimes claimed that principles are untestable. An object-level theory is testable if it makes predictions which, if the theory were false, could be contradicted by the outcome of some possible observation, which is then said to <em>falsify</em> the theory. Now, mathematics alone determines whether an object-level law <em>L</em> obeys a principle <em>P</em>. But if it does (so the argument goes), the experimental falsification of <em>L</em> would not falsify <em>P</em>, because it would not rule out that some unknown law <em>L</em>&rsquo; conforming to <em>P</em> might be true. And if <em>L</em> violates <em>P</em>, the experimental corroboration of <em>L</em> would not falsify <em>P</em> either, because then some alternative explanation might still satisfy <em>P</em>.</p>
+
+<p id="p50">But this supposed deficiency is shared by all scientific theories: Tests always depend on <em>background knowledge</em> &ndash; assumptions about other laws and about how measuring instruments work (Popper 1963, ch. 10 &sect;4). Logically, should any theory fail a test, one always has the option of retaining it by denying one of those assumptions. Indeed, this has been used as a critique of the very idea of testability (Putnam 1974). But scientific theories are not merely predictions. They are, primarily, <em>explanations</em>: claims about what is there in the physical world and how it behaves. And the negation of an explanation is not an explanation; so a claim such as &lsquo;there could be an undetected particle carrying off the energy&rsquo; is not a scientific theory. Nor is &lsquo;perhaps energy is not conserved&rsquo;. Those are research proposals, not explanations. Consequently the methodology of science includes the rule that any proposal to modify a background-knowledge assumption <em>must itself be a good explanation</em>. So, if the only explanatory implication of Pauli&rsquo;s suggestion had been to save the principle of the conservation of energy, both would have been abandoned (as the principle of parity invariance <em>was</em> abandoned as a result of other experiments on beta decay). In the event, it was soon used to account for other observations and became indispensable in the understanding of nuclear phenomena, while no good explanation contradicting energy conservation was found.</p>
+
+<p id="p51">Quite generally: if there is a phenomenon for which there is a good explanation that violates a principle <em>P</em>, and the phenomenon falsifies all known object-level explanations conforming to <em>P</em>, then the methodology of science mandates rejecting <em>P</em>. Thus <em>P</em> is just as exposed to falsification by experiment as any object-level theory.</p>
+
+<p id="p52">Another claim that is made in principled opposition to principles is that they are inherently less fundamental than object-level theories because they do not explain what brings about the regularities that they describe (Brown &amp; Timpson 2006). Einstein once believed (1908) that the special theory of relativity, which he had expressed in terms of principles such as that of the constancy of the speed of light, could only be made &lsquo;definitive&rsquo; and &lsquo;satisfactory&rsquo; if it was supplemented by a theory of how interatomic forces make rods contract and clocks slow as the theory predicts. This is an error in its own right &ndash; the same error, in four dimensions instead of three, as expecting interatomic forces to be responsible for the apparent smallness of a distant object. But again, object-level theories have the same alleged deficiency: no theory can explain everything it refers to. And, perversely, the more a principle expresses true, fundamental, constraints on as-yet-unknown laws, the less &lsquo;definitive&rsquo; and &lsquo;satisfactory&rsquo; it is in Einstein&rsquo;s 1908 view. In practice, principles are indispensable in the discovery of new laws precisely because they express truths about nature that are missing from object-level theories.</p>
+
+<p id="p53">Singling out principles as illegitimate is again reminiscent of the archaic conception of laws of nature as divine commands: it is easier to imagine invisible angels being commanded to enforce local equations than to ensure that the net effect of their efforts will conform to particular principles. Similarly, in the prevailing conception, principles are obeyed only &lsquo;because&rsquo; local laws of motion are. But there is no such chain of command in reality. Events may cause other events, but principles neither cause object-level laws nor vice versa. And while principles can explain why laws are as they are, object-level laws cannot possibly explain principles. So, if you reject principles on principle, then regardless of how well the hopes expressed here may eventually be vindicated, you will regard constructor theory as mere commentary on the laws of nature, its own laws mere coincidence. You may thereby be denying yourself, on principle, the solutions to some longstanding problems at the foundations of physics. It <em>that</em> principle self-consistent?</p>
+
+<p id="p54">It has become a standard methodological rule in science (Popper 1959 &sect;10) to consider only testable explanations of physical phenomena. This is equivalent to assuming that the laws of nature do not make their own testing, or each other&rsquo;s, an impossible task. And that is itself a principle of nature: the <em>principle of testability</em>. It is as universal as the Turing principle, and at least as alien to the prevailing conception, since experimental tests require complex constructors such as measuring instruments and computers.</p>
+
+<p id="p55">And again, testability fits naturally into the constructor-theoretic conception: every experimental test is of some prediction that performing certain transformations on given substrates is an impossible task. The principle of testability, like all the other principles of constructor theory that I suggest in this paper, is itself testable in the same sense as existing principles of physics (2.9 above).</p>
+
+<h3 id="sec-2-12">2.12 The set of all conceivable transformations</h3>
+
+<p id="p56">Consider any two physical objects, and imagine one being transformed into the other. Most such conceivable transformations are forbidden by laws of physics, and so the prevailing conception has no role for them. Yet the empirical content of a scientific theory is in what it forbids (and the explanatory content consists of explaining why).</p>
+
+<p id="p57">In the prevailing conception, constructions are untypical events; most of what happens in the world is spontaneous, while in the constructor-theoretic conception, it is spontaneous transformations that are untypical. They are the ones that can be &lsquo;caused&rsquo; by a timer alone (3.12 below). Moreover, the simpler the task is (in terms of physical states or transformations), the more complex a constructor for it typically has to be (in terms of physical objects). For instance, the simplest constructor that would produce one Higgs particle starting from hydrogen atoms may well be a particle accelerator kilometres across. Thus, the constructor-theoretic conception regards physically simple things as simple, while the prevailing conception typically regards them as side-effects of very complex ones. In practice, we do usually abstract away that complexity, and when we do, we are departing from the prevailing conception and thinking in constructor-theoretic terms.</p>
+
+<h3 id="sec-2-13">2.13 Counterfactual possibility</h3>
+
+<p id="p58">When an engineering study concludes that a proposed structure <em>would</em> collapse if it were built, we regard this as meaningful whether the structure is built or not. Indeed, if it is never built, that very prediction may be the reason. &lsquo;Counterfactual&rsquo; predictions of that kind seem to be essential in science and everyday life, and even in the idea of a law of physics, as I mentioned in Section 1.1. Yet what, in reality, do they mean? That is part of a more general <em>problem of counterfactuals</em>.</p>
+
+<p id="p59">I have previously suggested (Deutsch 1997, ch. 11) that this problem is solved in the Everett interpretation of quantum theory, where propositions like &lsquo;it would have happened&rsquo; can be understood as &lsquo;it happened in another universe&rsquo;. However, this only works for events that do happen somewhere in the multiverse. It does not work for laws of physics. For example, the principle of testability is doubly counterfactual: it is that a certain task (the test, resulting in a falsifying outcome) must be <em>possible</em> if the theory <em>is false</em>, but theories expressing actual laws of nature &ndash; the very theories to which the principle primarily applies &ndash; are not false anywhere in the multiverse.</p>
+
+<p id="p60">Computability is another counterfactual attribute: a computable function <em>f</em> is one for which a universal computer <em>could</em> be programmed to evaluate <em>f</em>(<em>i</em>) for any integer input <em>i</em>, even if no such program ever runs, or if there are integers that will never be its input. Correspondingly, a universal computer is defined in terms of its <em>ability</em> to perform a class of tasks, whether it ever does so or not. Counterfactuals are central to constructor theory: not only is every assertion that a task is possible or impossible counterfactual, constructor theory requires subsidiary theories to provide characterisations of <em>impossible</em> tasks (Section 3.6 below) and hence of impossible events and processes. Moreover, it seems that all counterfactual assertions that are essential in science or everyday life are expressible in terms of the possibilities of tasks.</p>
+
+<h3 id="sec-2-14">2.14 Abstract constructors</h3>
+
+<p id="p61">The classic philosophical puzzle of the &lsquo;ship of Theseus&rsquo; concerns the legend that after Theseus&rsquo;s adventure in Crete, the Athenians made his ship a monument, replacing any plank that decayed. Eventually, none of the original planks were left. Was it still the same ship, and if not, when did it stop being so?</p>
+
+<p id="p62">Though the original puzzle has little substance (being hardly more than an essentialist exercise about the meaning of &lsquo;same&rsquo;), it does illustrate a fact about the physical world which, in the prevailing conception, is counter-intuitive. Let us approximate the ship as a substrate on which a constructor, the city of Athens, is repeatedly performing the task of restoring it to its original state. To prevent it from gradually changing shape with successive renovations, some blueprint must exist, specifying the correct shape. So Athens must be a <em>programmable</em> constructor, with the blueprint in a program whose physical representation (say, on a scroll) is an additional substrate that Athens must keep from deteriorating. Another part of the program would be the <em>ideas</em> that cause generations of Athenians to keep doing that. And since different Athenians perform the task in each generation, they, too, are among the substrates on which the task is being repeatedly performed.</p>
+
+<p id="p63">So, since the ship, the scroll, and Athens are all substrates, what is the constructor? By hypothesis, none of the physical objects effecting the repair survives unchanged for many generations. Only the program does: the abstract information expressed in the scroll and the ideas. So that information meets the definition of a constructor more closely than anything else in the situation. It is an abstract constructor.</p>
+
+<p id="p64">There seem to be constructor-theoretic laws, such as the interoperability principle for information (Section 2.6 above), that refer directly to abstract constructors. If there are such laws, then abstract constructors cannot be omitted from fundamental physics in the constructor-theoretic conception.</p>
+
+<h3 id="sec-2-15">2.15 Knowledge</h3>
+
+<p id="p65">The most important kind of abstract constructor is <em>knowledge</em>. Knowledge is information which, once it is physically instantiated in a suitable environment, tends to cause itself to remain so: it survives criticism, testing, random noise, and error-correction. (Here I am adopting Popper&rsquo;s (1972) conception of knowledge, in which there need be no knowing subject.) For example, the knowledge encoded in an organism&rsquo;s DNA consists of abstract genes that cause raw materials to transform into another instance of the organism, and thereby to keep those abstract genes, and not mutations or other variants of them, physically instantiated, despite the mutation and natural selection that keep happening.</p>
+
+<p id="p66">Now consider again the set of all physically possible transformations. For almost every such transformation, the story of how it could happen is the story of how knowledge might be created and applied to cause it. Part of that story is, in almost all cases, the story of how <em>people</em> (intelligent beings) would create that knowledge, and of why they would retain the proposal to apply it in that way while rejecting or amending rival proposals (so a significant determinant is <em>moral</em> knowledge). Hence, from the constructor-theoretic perspective, physics is almost entirely the theory of the effects that knowledge (abstract constructors) can have on the physical world, via people. But again, the prevailing conception conceals this.</p>
+
+<h3 id="sec-2-16">2.16 Emergent and scale-independent laws</h3>
+
+<p id="p67">Almost all physical processes involving large numbers of elementary particles are intractably complex. But for a tiny but important minority, that complexity resolves itself into simplicity at a higher level &ndash; a phenomenon known as <em>emergence</em>. Specifically, certain sets of collective phenomena can be explained in terms of emergent laws relating them only to each other, without reference to the underlying particles and laws.</p>
+
+<p id="p68">Some forms of emergence are unproblematic under the prevailing conception because their laws follow logically from low-level laws, either as well-defined approximations (such as the gas laws) or exactly (such as the law of motion of a centre of mass). But in some cases an exact emergent law appears to exist, yet not to follow from lower-level laws. The principle of testability and the second law of thermodynamics are examples. These do conflict with the prevailing conception. It could be that they are exactly true at all scales but that, as with the laws of chemistry, that is only manifest if they are expressed in constructor-theoretic terms &ndash; the former as a principle of constructor theory and the latter within a subsidiary theory, thermodynamics, in a constructor-theoretic formulation.</p>
+
+<p id="p69">In this paper I use the term &lsquo;laws of nature&rsquo; instead of &lsquo;laws of physics&rsquo; where I want to stress the inclusion of emergent laws. If the constructor-theoretic approach were to result in scale-independent emergent laws, the two concepts would be unified. However, not all sciences dealing in emergent phenomena seek <em>laws</em> of nature. For example, historians trying to understand (say) the effect of Gutenberg&rsquo;s invention on the Enlightenment will not necessarily ever do so by deducing it from the dichotomy between possible and impossible historical transformations &ndash; just as today they do not necessarily seek a law of motion for intellectual movements. So even complete success in discovering scale-invariant <em>laws</em> would not in principle reduce all sciences to constructor-theoretic physics.</p>
+
+<h3 id="sec-2-17">2.17 Complexity theory</h3>
+
+<p id="p70">The theory of computation draws a qualitative distinction between computable and non-computable, but it has an additional, quantitative branch, complexity theory, which is about the resources required to perform computable tasks. Its usefulness is limited by the fact that it cannot address physical resources (such as mass and time) but only abstract proxies (such as memory capacity and number of computational steps), and then only asymptotically in the &lsquo;size&rsquo; of the input, and only up to an unknown polynomial function.</p>
+
+<p id="p71">So there is scope for a &lsquo;construction complexity theory&rsquo; that generalises computational complexity theory to cover all construction tasks, and is in principle capable of addressing physical resource requirements accurately. Remarkably, that theory is none other than constructor theory itself. This natural unification of complexity with computability when they are both generalised suggests that a deeper theory exists along the lines that I am advocating.</p>
+
+<h3 id="sec-2-18">2.18 Pragmatic considerations</h3>
+
+<p id="p72">Disputes about whether certain simply-defined construction tasks are possible or impossible are common. Examples are: building a universal quantum computer (Landauer 1995); achieving controlled fusion; immortality (de Grey 2007); &lsquo;molecular assemblers&rsquo; (Drexler 1995); and the issue of how long Moore&rsquo;s law can continue to hold. The possibility of nuclear power and of aeroplanes were once similarly controversial. To date, such disputes have never been grounded in fundamental theory; they are more about the participants&rsquo; intuitions than science. But a valid argument that a particular task is impossible must ultimately rely on some law of nature; and any argument that a particular task is possible when no constructor for it is yet known must be appealing to some constructor-theoretic principle, at least implicitly, for while the prevailing conception can rule out tasks (given existing laws), it cannot rule them in until after a constructor for them has been designed.</p>
+</section>
+
+<!-- 3. Development of the theory -->
+<section>
+<h2 id="sec-development">3. Development of the theory</h2>
+
+<h3 id="sec-3-1">3.1 Pharaonic tasks</h3>
+
+<p id="p73">Imagine a task for which the laws of nature would permit (good approximations to) a constructor to continue to exist if one already existed, but would not allow one to be constructed from naturally-occurring resources. That would not imply the task impossible, no less than if there were a limit on how accurately the transformations specified by it could be achieved. Yet, what I have called &lsquo;performing&rsquo; the task does not include constructing the constructor, nor obtaining the resources required to construct it. Let me call the task that includes all those preliminaries the <em>pharaonic</em> version of the task. Performing it requires other constructors, whose construction must in turn be possible (in the sense defined in Section 1.1). To avoid an infinite regress, the possibility of a task must imply that every chain of transformations contributing to the construction of a constructor for it begins with naturally-occurring constructors and substrates.</p>
+
+<p id="p74">What resources are &lsquo;naturally occurring&rsquo; depends partly on local conditions, so the possibility of a pharaonic task does too. Yet for ordinary tasks it must depend only on laws of nature. The principles of constructor theory imply that any such dependence must be entirely implicit &ndash; i.e. due to physical variables, such as pressure or spacetime curvature, of local systems, and not to time as such. Those systems would be substrates of the relevant tasks, and the possibilities of those tasks would be timeless truths, as required.</p>
+
+<p id="p75">Now, the idea of constructor theory is that the set of all truths about which tasks are possible and impossible, and why, encompasses the whole of physics, including all facts about which transformations could take place during each cosmological epoch. In other words, the theory of pharaonic tasks must in principle follow entirely from that of ordinary tasks. How can it?</p>
+
+<h3 id="sec-3-2">3.2 The possible-impossible dichotomy</h3>
+
+<p id="p76">Impossible tasks cannot be effected regardless of what knowledge is brought to bear. But if the right knowledge is applied, any possible task can necessarily be effected with arbitrary accuracy short of perfection, for the following reason: If, in the event, nothing will ever perform the task with better than a particular accuracy, that may just be an accidental regularity and so would not contradict the task being possible. But if it were an obstacle that <em>must</em> remain insuperable regardless of what knowledge may be brought to bear, then a statement that that was so would express a law of nature. And that would contradict the task being possible. So there cannot be such an obstacle. That is the motivation for calling anything that is not forbidden by laws of nature &lsquo;possible&rsquo;.</p>
+
+<h3 id="sec-3-3">3.3 Impossible states</h3>
+
+<p id="p77">Similarly, impossible <em>substrates</em>, or impossible states of substrates, are those that are forbidden by laws of nature. The task of transforming a possible state into an impossible one is of course impossible, but impossible states may nevertheless appear in the formalism of subsidiary theories, and transforming one impossible state into another may well be a possible task. For example, Maxwell&rsquo;s electrodynamics denies the existence of magnetic monopoles, but also predicts how, if they existed, they would interact with electromagnetic fields. This allows the construction of monopole-detecting instruments, which are constructors capable of testing the prediction that no monopoles exist.</p>
+
+<h3 id="sec-3-4">3.4 Towards a purely task-based constructor theory</h3>
+
+<p id="p78">Consider a subsidiary theory about a certain substrate. Among the facts that this theory presents to constructor theory might be a set of tasks parameterised by the set of all 3&times;3 matrices <em>R</em>, with the property that for any such matrices <em>R</em><sub>1</sub> and <em>R</em><sub>2</sub>, the serial composition of their tasks equals the task for their product, and the transpose task equals the task for the inverse. From this constructor-theoretic information, we could deduce that these tasks represent some sort of linear transformation of physical parameters of the substrate. In this way, the algebra of tasks and their partition into possible and impossible would implicitly include information about properties of the substrate&rsquo;s states.</p>
+
+<p id="p79">Similarly, they could encode information about the laws governing the substrates. For example, suppose that the substrates are subject to an additive conservation law. That law will prohibit a certain class of tasks. Different patterns of possible and impossible tasks result from different types of laws.</p>
+
+<h3 id="sec-3-5">3.5 Distinguishing law from accidental regularity</h3>
+
+<p id="p80">There is a longstanding philosophical controversy about how, or whether, laws of nature differ from mere summaries of factual regularities (Swartz 1995). Constructor theory&rsquo;s fundamental distinction between impossible and possible is between tasks that are forbidden by laws of nature and tasks that are not, even if they are never performed. So constructor theory is incompatible with the position that laws of nature are just summaries of what happens.</p>
+
+<h3 id="sec-3-6">3.6 A central role for the impossible</h3>
+
+<p id="p81">Much of physics in the constructor-theoretic conception is about impossible tasks, and tasks on impossible states (Section 3.3). This central role for the impossible is not only a formal implementation of the Popperian idea that the content of a scientific theory is in what it forbids. It is also an important difference between the constructor-theoretic conception of the physical world and the prevailing one: what <em>actually</em> happens is seen as an emergent consequence of what <em>could</em> happen, rather than vice-versa.</p>
+
+<h3 id="sec-3-7">3.7 Repertoires of programmable constructors</h3>
+
+<p id="p82">In order to evaluate a computable function of a particular input, a computer needs enough working memory to store the intermediate results. Since, in reversible computations, those results are erased by the time the output is delivered, that memory is not depleted by the computation and can be re-used, so it is both a substrate and a constructor. We may call non-programmable constructors that are used as substrates of other constructors <em>ancillas</em>, generalising the existing use of the term in the theory of computation.</p>
+
+<p id="p83">Hence the repertoire of a programmable constructor <strong>P</strong> can be defined as the set of tasks that <strong>P</strong> can be programmed to be capable of performing, <em>up to a constant amount of naturally-occurring resources</em>. More precisely, the overhead of programming <strong>P</strong> to be capable of performing a task is a constant <em>c</em>(<strong>P</strong>, the task), independent of how often <strong>P</strong> will then be called upon to perform the task, and which inputs for it are given.</p>
+
+<h3 id="sec-3-8">3.8 Universal constructors</h3>
+
+<p id="p84">A <em>universal constructor</em> is a programmable constructor whose repertoire is the union of all repertoires of all possible programmable constructors. It seems plausible that a universal constructor can exist. Consider, first, any constructor that human engineers could be instructed how to build. Those instructions could presumably be translated into a program for programmable robots with humanoid manipulative abilities. And since any such robot <strong>R</strong> could be programmed to build any other, it would be a constructor whose repertoire included all human-achievable tasks.</p>
+
+<p id="p85">Plausibility arguments aside, I conjecture that the existence of a universal constructor can be proved from independently-motivated principles of constructor theory.</p>
+
+<p id="p86">A universal constructor will typically perform a task by first constructing a more specialised constructor. That constructor may do the same. Define the <em>n</em>&rsquo;th-level repertoire of a constructor as the set of tasks it can perform without causing more than <em>n</em> levels of constructor to be built. For each universal constructor, this induces a classification of all possible tasks, according to which level of the constructor&rsquo;s repertoire it is in. Presumably all universal constructors reach universality at a finite level; I conjecture that there is a universal upper bound on that level.</p>
+
+<h3 id="sec-3-9">3.9 Wealth</h3>
+
+<p id="p87">In constructor theory it is natural to define the <em>wealth</em> of an entity in a non-anthropocentric way as the set of transformations that the entity would be capable of performing without generating new knowledge. Wealth has always consisted fundamentally of knowledge, even though it has been limited by the capacity of relatively fixed installations for harnessing naturally occurring resources. Once universal constructors exist, it will consist almost entirely of knowledge.</p>
+
+<h3 id="sec-3-10">3.10 Locality</h3>
+
+<p id="p88">The requirement (Section 1.1) that a construction task specify only intrinsic properties of the substrate has an important consequence that is already known in existing physics, namely Einstein&rsquo;s <em>principle of locality</em> (1949): for any two spatially separated physical systems <strong>S</strong><sub>1</sub> and <strong>S</strong><sub>2</sub>, &lsquo;the real factual situation of the system <strong>S</strong><sub>2</sub> is independent of what is done with the system <strong>S</strong><sub>1</sub>&rsquo;. This is a necessary condition for tasks to be composable into networks as envisaged in Section 1.2.</p>
+
+<p id="p89">The principle of locality holds unproblematically in classical physics but quantum entanglement is often claimed to violate it. However, there exist formally local formulations of quantum theory (Deutsch &amp; Hayden 2000; Deutsch 2012), which are compatible with constructor theory.</p>
+
+<h3 id="sec-3-11">3.11 Interoperability principles</h3>
+
+<p id="p90">In 2.8 I mentioned two branches of physics &ndash; geometry and computation &ndash; whose fundamental laws were once mistaken for self-evident truths. That happened because the true laws are, in both cases, nearly substrate-independent. In Euclid&rsquo;s geometry, the sum of the angles of a triangle is 180&deg; whether the vertices are marked by candles or lasers. In Euclid&rsquo;s highest-common-factor algorithm, one obtains the same sequence of remainders whether one executes it with beads or electrons. When a class of substitutions of substrates leaves the possibilities of all the tasks in a certain class unchanged, a statement of that substrate-independence is an <em>interoperability law</em> or principle. In 2.6 I discussed the interoperability principle for information. My speculation about thermodynamics in 2.3 suggests that there are interoperability principles for work and heat.</p>
+
+<h3 id="sec-3-12">3.12 Time</h3>
+
+<p id="p91">In both quantum theory and general relativity, time is treated anomalously. The problem in both theories is that time is not among the entities to which the theory attributes objective existence (namely quantum observables and geometrical objects respectively), yet those entities change with time. So there is widespread agreement that there must be a way of treating time &lsquo;intrinsically&rsquo; (i.e. as emerging from the relationships between physical objects such as clocks) rather than &lsquo;extrinsically&rsquo; (as an unphysical parameter on which physical quantities somehow depend). But this is difficult to accommodate in the prevailing conception. In the constructor-theoretic conception, it is both natural and unavoidable to treat both time and space intrinsically: they do not appear in the foundations of the theory but are emergent properties of classes of tasks whose substrates include &lsquo;rods&rsquo; and &lsquo;timers&rsquo;.</p>
+
+<h3 id="sec-3-13">3.13 Halting and synchronisation</h3>
+
+<p id="p92">For a computer to perform a computational task, it must not only place the right information into some memory register, it must give some positive indication that it has done so. Otherwise, a program that ignored its input and simply counted indefinitely would qualify as computing any integer-valued function of the input, computable or not. The same holds for constructions: a constructor must give such an indication, otherwise the user does not have the information necessary to avoid taking the cake out of the oven before it is cooked (i.e. the construction is still under way), or when it is burnt or stale (i.e. the substrate has changed after being in its correct output state). Giving this indication is usually called &lsquo;halting&rsquo;, but in the case of networks of constructions (not tasks) it is more appropriately called <em>synchronisation</em>.</p>
+
+<h3 id="sec-3-14">3.14 Imperfect constructors</h3>
+
+<p id="p93">As I remarked in 1.1, no perfect constructor can exist in nature. If nothing else, thermal noise causes random transitions, so there is always a non-zero probability that the wrong transformation will happen or that the device will undergo a change large enough to destroy its functionality, thus disqualifying it from being a constructor. So that raises the question: constructor theory expresses <em>laws</em> of physics in terms of the possibilities of tasks, but how could one describe actual physical processes (i.e. imperfect constructions) in constructor-theoretic terms?</p>
+
+<h3 id="sec-3-15">3.15 Are we universal constructors?</h3>
+
+<p id="p94">I guess that neither a typical human nor human civilisation as a whole approximates a universal constructor &ndash; not because we are something less but because, I hope, we are something more: we cannot be programmed &ndash; and especially not programmed to carry out arbitrary instructions for an arbitrarily long time &ndash; because we may not want to.</p>
+
+<p id="p95">Since we do not have hardware to upload arbitrary information into our brains as programs, the issue comes down to this: for each possible task, does there exist <em>information</em> such that if we received a message instantiating it, from space, followed by the substrates of the task in a legitimate input state, and a supply of naturally-occurring raw materials, we would reliably transform the substrates to the corresponding output states, and then be ready to do so again for another possible task? What would that information have to say, to cause us to do this?</p>
+
+<p id="p96">If a universal constructor is possible, there must be a smallest one. It would be interesting to know what it is, and how it works. Is it at the scale of molecules? If so, it may become the centrepiece of nanotechnology. If it is much larger, then general-purpose nanotechnology will never be independent of macroscopic control and support systems. Will it just be a curiosity (like the simplest Turing machine)? Or will it rapidly become the commonest pattern of matter in the universe, the vehicle by which knowledge comes to dominate everything that happens?</p>
+</section>
+
+<!-- 4. Conclusion -->
+<section>
+<h2 id="sec-conclusion">4. Conclusion</h2>
+
+<p id="p97">The principles of constructor theory that I have proposed may be false. For instance, the composition principle, in the form stated in Section 1.2, may only be an approximation. But if the idea as a whole is false, something else will have to remedy the deficiencies of the prevailing conception. Something else will unify emergent-level laws such as the Turing principle and the principle of testability with the other laws of nature. Something else will provide an exact statement of the second law of thermodynamics, and a full statement of the content of conservation laws. A different approach will generalise the theory of computation and von Neumann&rsquo;s constructor theory, and support laws about substrate-independent quantities such as information. And incorporate into fundamental physics the fact that the most significant quantity affecting whether physical transformations happen or not is knowledge.</p>
+</section>
+
+<!-- Acknowledgements -->
+<section>
+<h2 id="sec-ack" style="text-transform: none; font-size: 1rem;">Acknowledgements</h2>
+<p id="p98" style="font-size: 0.9rem;">I am grateful to Simon Benjamin for pointing out some subtleties including the non-existence of a universal classical constructor, to him and Mark Probst for illuminating conversations on the themes of this paper, to Alan Forrester and two anonymous referees for numerous useful suggestions, and especially to Chiara Marletto for incisive criticism of earlier versions of the theory and of earlier drafts of this paper.</p>
+</section>
+
+<!-- References -->
+<section class="references">
+<h2 id="sec-refs" style="text-transform: none; font-size: 1rem;">References</h2>
+<p>Barbour, J. 1999 <em>The End of Time</em>, Weidenfeld and Nicolson.</p>
+<p>Barbour, J. 2012 <em>Shape Dynamics. An Introduction</em> in <em>Quantum Field Theory and Gravity</em>, Finster, F. et al. (eds) Birkh&auml;user, Basel.</p>
+<p>Brown, H.R. &amp; Timpson, C.G., 2006 in <em>Physical Theory and Its Interpretation: Essays in Honor of Jeffrey Bub</em>, W. Demopoulos &amp; I. Pitowsky (eds.), Springer; pp. 29-41.</p>
+<p>de Grey, A. 2007 in Rae, M. (ed.) <em>Ending Aging</em> St. Martin&rsquo;s Press, New York.</p>
+<p>Deutsch, D. 1985 <em>Quantum theory, the Church-Turing principle and the universal quantum computer</em> Proc. R. Soc. <strong>A400</strong> 97-117</p>
+<p>Deutsch, D. 1997 <em>The Fabric of Reality</em> Allen Lane The Penguin Press, London.</p>
+<p>Deutsch, D. 2002 <em>The structure of the multiverse</em> Proc. R. Soc. <strong>A458</strong>, 2911-23.</p>
+<p>Deutsch, D. 2011 <em>The Beginning of Infinity</em>. Allen Lane, The Penguin Press, London.</p>
+<p>Deutsch, D. 2012 <em>Vindication of quantum locality</em> Proc. R. Soc. <strong>A468</strong> 531-44.</p>
+<p>Deutsch, D. &amp; Hayden, P. 2000 <em>Information flow in entangled quantum systems</em> Proc. R. Soc. <strong>A456</strong> 1759-74.</p>
+<p>Drexler, K.E. 1995 <em>Molecular manufacturing: perspectives on the ultimate limits of fabrication</em> Phil. Trans. R. Soc. <strong>A353</strong> 323-31.</p>
+<p>Einstein, A. 1908 Letter to Arnold Sommerfeld, Document 73 in The Collected Papers of Albert Einstein, Vol. 5.</p>
+<p>Einstein, A. 1949 quoted in <em>Albert Einstein: Philosopher, Scientist</em>, P.A. Schilpp, Ed., Library of Living Philosophers, Evanston, 3rd edition (1970), p85.</p>
+<p>Hume, D. 1739 <em>A Treatise of Human Nature</em> Clarendon Press, Oxford (2007).</p>
+<p>Kant, I. 1781 <em>Transcendental Exposition of the Concept of Space</em> in <em>Critique of Pure Reason</em>.</p>
+<p>Landauer, R. 1995 <em>Is Quantum Mechanics Useful?</em> Phil. Trans. R. Soc. <strong>A353</strong> 367-76.</p>
+<p>Page, D.N. &amp; Wootters, W. 1983 <em>Evolution without evolution: Dynamics described by stationary observables</em> Phys. Rev. <strong>D27</strong> 12, 2885-892.</p>
+<p>Popper, K.R. 1959 <em>The Logic of Scientific Discovery</em>, Routledge.</p>
+<p>Popper, K.R. 1963 <em>Conjectures and refutations</em>, Routledge.</p>
+<p>Popper, K.R. 1972 <em>Epistemology Without a Knowing Subject</em> in <em>Objective Knowledge: An Evolutionary Approach</em> ch. 3, Oxford University Press.</p>
+<p>Putnam, H. 1974, <em>The &lsquo;Corroboration&rsquo; of Theories</em> in Schilpp, P.A. 1974, <em>The Philosophy of Karl Popper</em> 1 221, Open Court, La Salle, Illinois.</p>
+<p>Quine, W.V.O. 1960, <em>Word and Object</em> p189 MIT Press.</p>
+<p>Russell, B. 1913, <em>On the Notion of Cause</em> Proc. Aristotelian Soc. New Series <strong>13</strong> (1912-1913) 1-26.</p>
+<p>Swartz, N. 1995, <em>A Neo-Humean Perspective: Laws as Regularities</em>, Cambridge University Press.</p>
+<p>Turing, A.M. 1936, <em>On Computable Numbers, with an Application to the Entscheidungsproblem</em> Proc. Lond. Math. Soc. 2 <strong>42</strong> (1) 230&ndash;65.</p>
+<p>von Neumann, J., 1948 <em>The General and Logical Theory of Automata</em>, Hixon Symposium, September 20, 1948, Pasadena, California.</p>
+</section>
+
+<div class="article-footer">
+  <p>David Deutsch, &ldquo;Constructor Theory,&rdquo; <em>Synthese</em> 190, 4331&ndash;4359 (2013).</p>
+  <p>arXiv:1210.7439 [quant-ph]</p>
+</div>
+</article>
+
+<!-- Shared modules -->
+<script>
+var PARA_INDEX = [
+  { id: 'p1', label: 'Abstract: possible vs impossible', s2: 'Possible vs impossible', s1: 'Abstract' },
+  { id: 'sec-intro', label: 'INTRODUCTION', heading: true },
+  { id: 'sec-1-1', label: '1.1 Construction tasks', heading: true },
+  { id: 'p2', label: 'Factory: constructor defined', s2: 'Constructor defined', s1: 'Constructor' },
+  { id: 'p3', label: 'Construction = caused transformation', s2: 'Construction', s1: 'Construction' },
+  { id: 'p4', label: 'Prevailing conception vs constructors', s2: 'Prevailing conception', s1: 'Prevailing' },
+  { id: 'p5', label: 'Theory of which transformations', s2: 'Which transformations', s1: 'Transformations' },
+  { id: 'p6', label: 'Can be caused and why', s2: 'Caused and why', s1: 'Caused' },
+  { id: 'p7', label: 'Causation is real, not fiction', s2: 'Causation is real', s1: 'Causation' },
+  { id: 'p8', label: 'Construction task: set of pairs', s2: 'Task = set of pairs', s1: 'Tasks' },
+  { id: 'p9', label: 'Possible vs impossible tasks', s2: 'Possible/impossible', s1: 'Possible' },
+  { id: 'p10', label: 'Tasks may be primitive entities', s2: 'Tasks as primitives', s1: 'Primitives' },
+  { id: 'p11', label: 'Only intrinsic attributes', s2: 'Intrinsic attributes', s1: 'Intrinsic' },
+  { id: 'p12', label: 'Closed system requirement', s2: 'Closed system', s1: 'Closed' },
+  { id: 'p13', label: 'Constructor must persist', s2: 'Must persist', s1: 'Persist' },
+  { id: 'sec-1-2', label: '1.2 Composition of tasks', heading: true },
+  { id: 'p14', label: 'Algebra of tasks; composition principle', s2: 'Composition principle', s1: 'Composition' },
+  { id: 'p15', label: 'Possible from impossible parts', s2: 'Impossible parts', s1: 'Parts' },
+  { id: 'p16', label: 'Not positivist; still explanatory', s2: 'Still explanatory', s1: 'Explanatory' },
+  { id: 'sec-1-3', label: '1.3 Underlies all theories', heading: true },
+  { id: 'p17', label: 'Underlies relativity and quantum', s2: 'Underlies all', s1: 'Underlies' },
+  { id: 'p18', label: 'Guessing principles', s2: 'Guessing principles', s1: 'Guessing' },
+  { id: 'sec-motivations', label: 'MOTIVATIONS', heading: true },
+  { id: 'sec-2-1', label: '2.1 Catalysis', heading: true },
+  { id: 'p19', label: 'Catalyst as constructor', s2: 'Catalyst = constructor', s1: 'Catalyst' },
+  { id: 'p20', label: 'Catalysts do cause reactions', s2: 'Catalysts cause', s1: 'Cause' },
+  { id: 'p21', label: 'Omit catalyst; task notation', s2: 'Task notation', s1: 'Notation' },
+  { id: 'p22', label: 'Laws are about reagents, not catalyst', s2: 'Laws about reagents', s1: 'Reagents' },
+  { id: 'p23', label: 'Prevailing conception breaks chemistry', s2: 'Breaks chemistry', s1: 'Breaks' },
+  { id: 'p24', label: 'Catalyst violates definite proportions', s2: 'Violates proportions', s1: 'Violates' },
+  { id: 'p25', label: 'Catalysts = constructors (containers)', s2: 'Containers too', s1: 'Containers' },
+  { id: 'p26', label: 'Cells, ribosomes, organisms', s2: 'Biological constructors', s1: 'Biology' },
+  { id: 'p27', label: 'Programmable constructor; RNA', s2: 'Programmable', s1: 'Programmable' },
+  { id: 'sec-2-2', label: '2.2 Constructor-independent laws', heading: true },
+  { id: 'p28', label: 'Conservation: cannot be changed', s2: 'Cannot be changed', s1: 'Conservation' },
+  { id: 'p29', label: 'Stronger conservation law', s2: 'Stronger law', s1: 'Stronger' },
+  { id: 'sec-2-3', label: '2.3 Irreversibility', heading: true },
+  { id: 'p30', label: 'Second law as impossible transpose', s2: 'Impossible transpose', s1: 'Irreversibility' },
+  { id: 'p31', label: 'Decoherence as task impossibility', s2: 'Decoherence', s1: 'Decoherence' },
+  { id: 'sec-2-4', label: '2.4 Von Neumann', heading: true },
+  { id: 'p32', label: 'Von Neumann: programmable replicator', s2: 'Programmable replicator', s1: 'Von Neumann' },
+  { id: 'sec-2-5', label: '2.5 Initial state', heading: true },
+  { id: 'p33', label: 'No exact theory of initial state', s2: 'No exact theory', s1: 'Initial' },
+  { id: 'p34', label: 'Initial state is emergent', s2: 'State is emergent', s1: 'Emergent' },
+  { id: 'p35', label: 'Legacy of divine creation idea', s2: 'Divine creation legacy', s1: 'Legacy' },
+  { id: 'sec-2-6', label: '2.6 Information', heading: true },
+  { id: 'p36', label: 'Information-processing media defined', s2: 'Media defined', s1: 'Information' },
+  { id: 'p37', label: 'Interoperability principle', s2: 'Interoperability', s1: 'Interop' },
+  { id: 'sec-2-7', label: '2.7 Generalising computation', heading: true },
+  { id: 'p38', label: 'Measurement, preparation, construction', s2: 'Four types', s1: 'Types' },
+  { id: 'p39', label: 'Unify under constructor theory', s2: 'Unify all four', s1: 'Unify' },
+  { id: 'sec-2-8', label: '2.8 Computability of nature', heading: true },
+  { id: 'p40', label: "Mathematicians' misconception", s2: "Math misconception", s1: 'Misconception' },
+  { id: 'p41', label: 'Proof depends on physics', s2: 'Proof = physics', s1: 'Proof' },
+  { id: 'p42', label: 'Claims about physics, not a priori', s2: 'Not a priori', s1: 'A priori' },
+  { id: 'p43', label: 'Church-Turing needs physics', s2: 'Needs physics', s1: 'Church-Turing' },
+  { id: 'p44', label: 'Turing principle: union of repertoires', s2: 'Turing principle', s1: 'Turing' },
+  { id: 'sec-2-9', label: '2.9 Computation not all of physics', heading: true },
+  { id: 'p45', label: 'VR renderings contain physics', s2: 'VR renderings', s1: 'VR' },
+  { id: 'p46', label: 'Computation is branch, not whole', s2: 'Branch not whole', s1: 'Branch' },
+  { id: 'sec-2-10', label: '2.10 Laws and principles', heading: true },
+  { id: 'p47', label: 'Principles are meta-laws', s2: 'Meta-laws', s1: 'Principles' },
+  { id: 'p48', label: 'All CT laws are principles', s2: 'All CT laws', s1: 'CT laws' },
+  { id: 'sec-2-11', label: '2.11 Testability', heading: true },
+  { id: 'p49', label: 'Are principles untestable?', s2: 'Untestable?', s1: 'Untestable?' },
+  { id: 'p50', label: 'Background knowledge; explanation', s2: 'Background knowledge', s1: 'Background' },
+  { id: 'p51', label: 'Principles are testable', s2: 'Testable', s1: 'Testable' },
+  { id: 'p52', label: 'Einstein 1908 error on principles', s2: 'Einstein error', s1: 'Einstein' },
+  { id: 'p53', label: 'No chain of command in reality', s2: 'No chain of command', s1: 'No chain' },
+  { id: 'p54', label: 'Principle of testability', s2: 'Testability principle', s1: 'Testability' },
+  { id: 'p55', label: 'Testability fits CT naturally', s2: 'Fits CT', s1: 'Fits' },
+  { id: 'sec-2-12', label: '2.12 Conceivable transformations', heading: true },
+  { id: 'p56', label: 'Empirical content = what is forbidden', s2: 'What is forbidden', s1: 'Forbidden' },
+  { id: 'p57', label: 'Simpler task, more complex constructor', s2: 'Simpler = more complex', s1: 'Simpler' },
+  { id: 'sec-2-13', label: '2.13 Counterfactuals', heading: true },
+  { id: 'p58', label: 'Counterfactual predictions are real', s2: 'Counterfactuals real', s1: 'Counterfactual' },
+  { id: 'p59', label: 'Everett solves some, not all', s2: 'Everett partial', s1: 'Everett' },
+  { id: 'p60', label: 'CT handles counterfactuals', s2: 'CT handles them', s1: 'Handles' },
+  { id: 'sec-2-14', label: '2.14 Abstract constructors', heading: true },
+  { id: 'p61', label: 'Ship of Theseus', s2: 'Ship of Theseus', s1: 'Theseus' },
+  { id: 'p62', label: 'Athens as programmable constructor', s2: 'Athens = constructor', s1: 'Athens' },
+  { id: 'p63', label: 'Information is the constructor', s2: 'Info = constructor', s1: 'Abstract' },
+  { id: 'p64', label: 'Laws refer to abstract constructors', s2: 'Laws refer to abstract', s1: 'Laws' },
+  { id: 'sec-2-15', label: '2.15 Knowledge', heading: true },
+  { id: 'p65', label: 'Knowledge: self-preserving information', s2: 'Self-preserving info', s1: 'Knowledge' },
+  { id: 'p66', label: 'Physics = effects of knowledge via people', s2: 'Effects via people', s1: 'People' },
+  { id: 'sec-2-16', label: '2.16 Emergent laws', heading: true },
+  { id: 'p67', label: 'Emergence: complexity resolves to simplicity', s2: 'Emergence', s1: 'Emergence' },
+  { id: 'p68', label: 'Exact emergent laws via CT', s2: 'Exact emergent', s1: 'Exact' },
+  { id: 'p69', label: 'Not all sciences reduce to CT', s2: 'Not all reduce', s1: 'Reduce' },
+  { id: 'sec-2-17', label: '2.17 Complexity theory', heading: true },
+  { id: 'p70', label: 'Computation complexity limited', s2: 'Complexity limited', s1: 'Complexity' },
+  { id: 'p71', label: 'Construction complexity = CT', s2: 'Construction complexity', s1: 'Unify' },
+  { id: 'sec-2-18', label: '2.18 Pragmatic considerations', heading: true },
+  { id: 'p72', label: 'Grounding possibility disputes', s2: 'Possibility disputes', s1: 'Disputes' },
+  { id: 'sec-development', label: 'DEVELOPMENT', heading: true },
+  { id: 'sec-3-1', label: '3.1 Pharaonic tasks', heading: true },
+  { id: 'p73', label: 'Pharaonic: includes building constructor', s2: 'Pharaonic tasks', s1: 'Pharaonic' },
+  { id: 'p74', label: 'Possibility is timeless', s2: 'Timeless truths', s1: 'Timeless' },
+  { id: 'p75', label: 'Pharaonic follows from ordinary', s2: 'Follows from ordinary', s1: 'Follows' },
+  { id: 'sec-3-2', label: '3.2 Possible-impossible dichotomy', heading: true },
+  { id: 'p76', label: 'No insuperable obstacle if possible', s2: 'No insuperable obstacle', s1: 'Obstacle' },
+  { id: 'sec-3-3', label: '3.3 Impossible states', heading: true },
+  { id: 'p77', label: 'Impossible states in formalism', s2: 'Impossible states', s1: 'Impossible' },
+  { id: 'sec-3-4', label: '3.4 Task-based CT', heading: true },
+  { id: 'p78', label: 'Algebra encodes substrate properties', s2: 'Algebra encodes', s1: 'Algebra' },
+  { id: 'p79', label: 'Patterns encode laws', s2: 'Patterns encode', s1: 'Patterns' },
+  { id: 'sec-3-5', label: '3.5 Law vs regularity', heading: true },
+  { id: 'p80', label: 'Laws differ from mere regularities', s2: 'Not just regularities', s1: 'Regularities' },
+  { id: 'sec-3-6', label: '3.6 Central role for impossible', heading: true },
+  { id: 'p81', label: 'What happens emerges from what could', s2: 'Emerges from could', s1: 'Could' },
+  { id: 'sec-3-7', label: '3.7 Repertoires', heading: true },
+  { id: 'p82', label: 'Ancillas; memory as constructor', s2: 'Ancillas', s1: 'Ancillas' },
+  { id: 'p83', label: 'Repertoire defined', s2: 'Repertoire defined', s1: 'Repertoire' },
+  { id: 'sec-3-8', label: '3.8 Universal constructors', heading: true },
+  { id: 'p84', label: 'Universal constructor plausible', s2: 'UC plausible', s1: 'Universal' },
+  { id: 'p85', label: 'Provable from principles', s2: 'Provable', s1: 'Provable' },
+  { id: 'p86', label: 'N-th level repertoire', s2: 'N-th level', s1: 'Levels' },
+  { id: 'sec-3-9', label: '3.9 Wealth', heading: true },
+  { id: 'p87', label: 'Wealth = transformations without new knowledge', s2: 'Wealth defined', s1: 'Wealth' },
+  { id: 'sec-3-10', label: '3.10 Locality', heading: true },
+  { id: 'p88', label: 'Einstein locality from intrinsic tasks', s2: 'Einstein locality', s1: 'Locality' },
+  { id: 'p89', label: 'Quantum locality compatible', s2: 'Quantum compatible', s1: 'Quantum' },
+  { id: 'sec-3-11', label: '3.11 Interoperability', heading: true },
+  { id: 'p90', label: 'Substrate-independence laws', s2: 'Substrate-independence', s1: 'Interop' },
+  { id: 'sec-3-12', label: '3.12 Time', heading: true },
+  { id: 'p91', label: 'Time emerges from tasks', s2: 'Time emerges', s1: 'Time' },
+  { id: 'sec-3-13', label: '3.13 Halting', heading: true },
+  { id: 'p92', label: 'Halting and synchronisation', s2: 'Halting', s1: 'Halting' },
+  { id: 'sec-3-14', label: '3.14 Imperfect constructors', heading: true },
+  { id: 'p93', label: 'How to describe imperfection', s2: 'Imperfection', s1: 'Imperfect' },
+  { id: 'sec-3-15', label: '3.15 Are we universal?', heading: true },
+  { id: 'p94', label: 'Humans are more than UC', s2: 'More than UC', s1: 'Humans' },
+  { id: 'p95', label: 'Could a message make us constructors?', s2: 'Message from space', s1: 'Message' },
+  { id: 'p96', label: 'Smallest universal constructor', s2: 'Smallest UC', s1: 'Smallest' },
+  { id: 'sec-conclusion', label: 'CONCLUSION', heading: true },
+  { id: 'p97', label: 'Something must remedy prevailing conception', s2: 'Must be remedied', s1: 'Conclusion' },
+];
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../../lib/ip-core.js"></script>
+<script>
+InteractivePaper.init({
+  id: 'constructor-theory-2012',
+  title: 'Constructor Theory',
+  supabase: {
+    url: 'https://ryvvzykmjkxrozjugpod.supabase.co',
+    anonKey: 'sb_publishable_RBafrbcyK3Q70_OuulTzZA_YHKWemG1'
+  },
+  readingModes: { default: 'enhanced' },
+  paragraphIndex: { data: PARA_INDEX, summaryTiers: true, picker: true },
+  flashcards: { enabled: true, marginDots: true, studyMode: true, seedUrl: 'seed-cards.json' }
+});
+</script>
+<script src="../../lib/ip-auth.js"></script>
+<script src="../../lib/ip-reading-modes.js"></script>
+<script src="../../lib/ip-paragraph-index.js"></script>
+<script src="../../lib/ip-flashcards.js"></script>
+
+</body>
+</html>

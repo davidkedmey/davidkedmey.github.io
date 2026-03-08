@@ -1,0 +1,97 @@
+/* ip-auth.css — Login screen and auth gate styles */
+
+/* ── Auth gate: hide content until authenticated ── */
+body:not(.ip-authed) article,
+body:not(.ip-authed) header,
+body:not(.ip-authed) #top-bar,
+body:not(.ip-authed) #para-index,
+body:not(.ip-authed) .fc-fab,
+body:not(.ip-authed) .fc-overlay,
+body:not(.ip-authed) .fc-drawer,
+body:not(.ip-authed) .references,
+body:not(.ip-authed) .article-footer {
+  display: none !important;
+}
+
+/* ── Login screen ── */
+.ip-login-screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg, #0d1117);
+  z-index: 9999;
+}
+
+.ip-login-card {
+  text-align: center;
+  max-width: 380px;
+  padding: 48px 32px;
+}
+
+.ip-login-title {
+  font-size: 1.6rem;
+  color: var(--heading, #e6edf3);
+  margin-bottom: 12px;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.ip-login-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-dim, #8b949e);
+  line-height: 1.6;
+  margin-bottom: 32px;
+}
+
+.ip-login-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ip-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  cursor: pointer;
+  border: 1px solid var(--border, #30363d);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ip-login-github {
+  background: var(--surface, #161b22);
+  color: var(--text, #c9d1d9);
+}
+.ip-login-github:hover {
+  background: var(--surface2, #1c2128);
+  border-color: var(--text-dim, #8b949e);
+}
+
+.ip-login-google {
+  background: #fff;
+  color: #3c4043;
+  border-color: #dadce0;
+}
+.ip-login-google:hover {
+  background: #f8f9fa;
+  border-color: #c6c6c6;
+}
+
+.ip-login-footer {
+  margin-top: 32px;
+  font-size: 0.75rem;
+  color: var(--text-dim, #8b949e);
+}
+.ip-login-footer a {
+  color: var(--accent, #58a6ff);
+  text-decoration: none;
+}
+.ip-login-footer a:hover {
+  text-decoration: underline;
+}

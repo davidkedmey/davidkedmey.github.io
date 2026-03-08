@@ -1,0 +1,182 @@
+/* ip-paragraph-index.css — Sidebar + scroll tracking + picker styles */
+
+/* ── Sidebar container ── */
+#para-index {
+  position: fixed;
+  top: 40px;
+  left: calc(50vw - 360px - 204px);
+  width: 180px;
+  height: calc(100vh - 40px);
+  pointer-events: none;
+  z-index: 100;
+}
+.pi-inner {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 100%;
+  overflow-y: auto;
+  pointer-events: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.pi-inner::-webkit-scrollbar { display: none; }
+
+/* Expanded mode: entries positioned at paragraph offsets */
+.pi-inner.pi-expanded { overflow: hidden; }
+.pi-inner.pi-expanded .pi-entry {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  will-change: transform;
+}
+
+/* ── Entry base ── */
+.pi-entry {
+  display: block;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.2;
+  color: var(--text);
+  text-decoration: none;
+  padding: 0 8px;
+  cursor: pointer;
+}
+.pi-entry:hover {
+  color: var(--text);
+}
+.pi-page {
+  opacity: 0.35;
+  font-size: 0.5rem;
+  margin-left: 4px;
+}
+.pi-entry.pi-heading {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 10px;
+  color: var(--accent);
+  opacity: 0.7;
+}
+
+/* ── Settings gear ── */
+.settings-gear, .para-picker-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-dim);
+  font-size: 1rem;
+  padding: 3px 8px;
+  cursor: pointer;
+  line-height: 1;
+  position: relative;
+}
+.settings-gear:hover, .para-picker-btn:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+/* ── Paragraph picker ── */
+.para-picker {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  z-index: 300;
+  width: max-content;
+  max-width: 280px;
+}
+.para-picker.open { display: block; }
+.pp-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 3px;
+}
+.pp-section {
+  grid-column: 1 / -1;
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  padding: 6px 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pp-section:first-child { padding-top: 0; }
+.pp-cell {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+.pp-cell:hover { background: var(--border); color: var(--text); }
+.pp-cell.pp-active { background: var(--accent); color: #fff; }
+
+/* ── Settings menu ── */
+.settings-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  z-index: 300;
+  min-width: 170px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.settings-menu.open { display: block; }
+.settings-menu label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text);
+  padding: 3px 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.settings-menu .sm-group-title {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin-top: 8px;
+  margin-bottom: 2px;
+}
+.settings-menu .sm-group-title:first-child { margin-top: 0; }
+.settings-menu input[type="radio"],
+.settings-menu input[type="checkbox"] {
+  margin-right: 6px;
+  accent-color: var(--accent);
+}
+
+/* ── Debug guides ── */
+.pi-inner.pi-debug .pi-entry {
+  outline: 1px dashed rgba(255,60,60,0.5);
+}
+.pi-inner.pi-debug .pi-heading {
+  outline-color: rgba(60,120,255,0.5);
+}
+
+/* ── Hide on narrow screens ── */
+@media (max-width: 1100px) {
+  #para-index { display: none; }
+}

@@ -1,0 +1,28 @@
+/* ip-reading-modes.css — Mode toggle button styles */
+
+.mode-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.mode-btn {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.78rem;
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+.mode-btn:hover {
+  background: #21262d;
+  color: var(--text);
+}
+.mode-btn.active {
+  background: var(--accent);
+  color: #0d1117;
+  border-color: var(--accent);
+}

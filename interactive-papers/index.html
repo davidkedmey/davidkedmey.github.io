@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interactive Papers</title>
+<link rel="stylesheet" href="lib/ip-theme.css">
+<link rel="stylesheet" href="lib/ip-auth.css">
+<style>
+  body { padding-top: 40px; }
+  .ip-toc { margin-top: 40px; }
+  .ip-toc-card {
+    display: block;
+    text-decoration: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .ip-toc-card:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+  .ip-toc-title {
+    font-size: 1.1rem;
+    color: var(--heading);
+    margin-bottom: 4px;
+  }
+  .ip-toc-author {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-bottom: 8px;
+  }
+  .ip-toc-desc {
+    font-size: 0.85rem;
+    color: var(--text);
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+  .ip-toc-stats {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .ip-toc-stats span {
+    margin-right: 16px;
+  }
+  .ip-user-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 40px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    z-index: 100;
+  }
+  .ip-user-bar-title {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    font-family: Georgia, "Times New Roman", serif;
+  }
+  .ip-user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .ip-user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+  }
+  .ip-logout-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    cursor: pointer;
+  }
+  .ip-logout-btn:hover {
+    border-color: var(--text-dim);
+    color: var(--text);
+  }
+</style>
+</head>
+<body>
+
+<div class="ip-user-bar" style="display:none" id="user-bar">
+  <span class="ip-user-bar-title">Interactive Papers</span>
+  <span class="ip-user-info">
+    <span id="user-name"></span>
+    <img id="user-avatar" class="ip-user-avatar" alt="" style="display:none">
+    <button class="ip-logout-btn" id="logout-btn">Sign out</button>
+  </span>
+</div>
+
+<header style="display:none" id="main-header">
+  <h1>Interactive Papers</h1>
+  <p class="author">Study tools, flashcards, and community annotations for foundational papers</p>
+</header>
+
+<div class="ip-toc" style="display:none" id="toc"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="lib/ip-core.js"></script>
+<script>
+InteractivePaper.init({
+  supabase: {
+    url: 'https://ryvvzykmjkxrozjugpod.supabase.co',
+    anonKey: 'sb_publishable_RBafrbcyK3Q70_OuulTzZA_YHKWemG1'
+  }
+});
+</script>
+<script src="lib/ip-auth.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var PAPERS = [
+    {
+      id: 'constructor-theory-2012',
+      title: 'Constructor Theory',
+      author: 'David Deutsch',
+      year: 2012,
+      path: 'papers/constructor-theory/',
+      description: 'Expressing all fundamental scientific theories in terms of a dichotomy between possible and impossible physical transformations.'
+    }
+  ];
+
+  function render() {
+    var user = InteractivePaper._user;
+    if (!user) return;
+
+    // Show UI
+    document.getElementById('user-bar').style.display = '';
+    document.getElementById('main-header').style.display = '';
+    document.getElementById('toc').style.display = '';
+
+    // User info
+    document.getElementById('user-name').textContent = user.displayName;
+    if (user.avatarUrl) {
+      var av = document.getElementById('user-avatar');
+      av.src = user.avatarUrl;
+      av.style.display = '';
+    }
+    document.getElementById('logout-btn').addEventListener('click', function () {
+      InteractivePaper.logout();
+    });
+
+    // Render paper cards
+    var toc = document.getElementById('toc');
+    toc.innerHTML = '';
+
+    PAPERS.forEach(function (paper) {
+      var a = document.createElement('a');
+      a.href = paper.path;
+      a.className = 'ip-toc-card';
+      a.innerHTML =
+        '<div class="ip-toc-title">' + paper.title + '</div>' +
+        '<div class="ip-toc-author">' + paper.author + ' (' + paper.year + ')</div>' +
+        '<div class="ip-toc-desc">' + paper.description + '</div>' +
+        '<div class="ip-toc-stats"><span id="stat-' + paper.id + '">Loading...</span></div>';
+      toc.appendChild(a);
+
+      // Fetch card count from Supabase
+      var sb = InteractivePaper._supabase;
+      if (sb) {
+        sb.from('cards').select('id', { count: 'exact', head: true }).eq('paper_id', paper.id)
+          .then(function (res) {
+            var stat = document.getElementById('stat-' + paper.id);
+            if (stat) stat.textContent = (res.count || 0) + ' study cards';
+          });
+      }
+    });
+  }
+
+  // Wait for auth
+  if (InteractivePaper._user) {
+    render();
+  } else {
+    window.addEventListener('ip:auth:ready', render);
+  }
+})();
+</script>
+</body>
+</html>
