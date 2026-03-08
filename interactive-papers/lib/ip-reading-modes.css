@@ -18,12 +18,12 @@
   font-weight: 500;
 }
 .mode-btn:hover {
-  background: #21262d;
+  background: var(--btn-hover);
   color: var(--text);
 }
 .mode-btn.active {
   background: var(--accent);
-  color: #0d1117;
+  color: var(--btn-active-text);
   border-color: var(--accent);
 }
 .mode-btn.disabled {
@@ -49,4 +49,18 @@ body.mode-clean .fc-drawer,
 body.mode-clean .fc-overlay,
 body.mode-clean .margin-note {
   display: none !important;
+}
+
+/* ── Tap-to-blank cloze (Clean mode) ── */
+.cloze-blank {
+  background: var(--border);
+  color: transparent;
+  border-radius: 3px;
+  padding: 1px 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.cloze-blank:hover {
+  background: var(--blank-hover);
 }
