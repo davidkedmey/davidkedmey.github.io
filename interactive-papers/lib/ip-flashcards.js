@@ -2670,9 +2670,8 @@
       initUI();
       subscribeRealtime();
     });
-  } else if (!sb) {
-    // No Supabase — use seed fallback
-    loadSeedIfEmpty();
+  } else {
+    if (!sb) loadSeedIfEmpty();
     // Listen for auth:ready in case auth loads later
     window.addEventListener('ip:auth:ready', function () {
       sb = IP._supabase;
