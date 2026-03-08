@@ -183,9 +183,14 @@ section { position: relative; }
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 8px;
   padding: 0 16px;
+}
+#top-bar .mode-toggle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 /* ── Paragraph numbers in margin ── */
@@ -204,8 +209,6 @@ p[data-pnum]::before {
 
 /* ── Theme toggle ── */
 .ip-theme-toggle {
-  position: absolute;
-  right: 16px;
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 50%;
