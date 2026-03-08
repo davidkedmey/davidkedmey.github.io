@@ -27,9 +27,16 @@
   // Set initial mode
   setMode(current);
 
+  // Disable multimedia button (not yet implemented)
+  document.querySelectorAll('.mode-btn[data-mode="multimedia"]').forEach(function (btn) {
+    btn.classList.add('disabled');
+    btn.setAttribute('title', 'Coming soon');
+  });
+
   // Bind clicks
   document.querySelectorAll('.mode-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {
+      if (btn.classList.contains('disabled')) return;
       setMode(btn.getAttribute('data-mode'));
     });
   });

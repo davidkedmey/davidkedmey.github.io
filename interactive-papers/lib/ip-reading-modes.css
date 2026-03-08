@@ -26,3 +26,27 @@
   color: #0d1117;
   border-color: var(--accent);
 }
+.mode-btn.disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ── Clean mode: just the paper ── */
+body.mode-clean #para-index,
+body.mode-clean .para-picker-btn,
+body.mode-clean .settings-gear,
+body.mode-clean .settings-menu,
+body.mode-clean .fc-fab,
+body.mode-clean .fc-popup,
+body.mode-clean .fc-dot,
+body.mode-clean .fc-study-toggle,
+body.mode-clean .fc-quiz-toggle,
+body.mode-clean .fc-author-toggle,
+body.mode-clean .fc-anno-nav-btn,
+body.mode-clean .fc-anno-nav,
+body.mode-clean .fc-drawer,
+body.mode-clean .fc-overlay,
+body.mode-clean .margin-note {
+  display: none !important;
+}
