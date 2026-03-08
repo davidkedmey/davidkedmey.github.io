@@ -67,13 +67,47 @@
   // Alias for backward compat — most UI code calls save()
   function save() { saveToCache(); }
 
+  // Clone seed cards (author_id IS NULL) into the user's personal deck
+  function cloneSeedCards() {
+    if (!sb || !currentUser) return Promise.resolve();
+    return sb.from('cards').select('*').eq('paper_id', paperId).is('author_id', null)
+      .then(function (res) {
+        var seeds = res.data || [];
+        if (seeds.length === 0) return;
+        var copies = seeds.map(function (s) {
+          return {
+            id: currentUser.id.slice(0, 8) + '_' + s.id,
+            paper_id: s.paper_id,
+            paragraph_id: s.paragraph_id,
+            type: s.type,
+            source: s.source,
+            anchor: s.anchor,
+            front: s.front,
+            back: s.back || '',
+            author_id: currentUser.id,
+            author_name: s.author_name
+          };
+        });
+        return sb.from('cards').upsert(copies, { onConflict: 'id' });
+      });
+  }
+
   function loadFromSupabase() {
     if (!sb || !currentUser) return Promise.resolve();
-    return Promise.all([
-      sb.from('cards').select('*').eq('paper_id', paperId),
-      sb.from('card_progress').select('*').eq('user_id', currentUser.id),
-      sb.from('card_replies').select('*')
-    ]).then(function (results) {
+    // Check if user has any cards for this paper; if not, clone seed cards first
+    return sb.from('cards').select('id', { count: 'exact', head: true })
+      .eq('paper_id', paperId).eq('author_id', currentUser.id)
+      .then(function (res) {
+        if ((res.count || 0) === 0) return cloneSeedCards();
+      })
+      .then(function () {
+        return Promise.all([
+          sb.from('cards').select('*').eq('paper_id', paperId).eq('author_id', currentUser.id),
+          sb.from('card_progress').select('*').eq('user_id', currentUser.id),
+          sb.from('card_replies').select('*')
+        ]);
+      })
+      .then(function (results) {
       var cardRows = (results[0].data || []);
       var progressRows = (results[1].data || []);
       var replyRows = (results[2].data || []);
