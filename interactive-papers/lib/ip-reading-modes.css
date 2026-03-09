@@ -57,6 +57,9 @@ body.mode-clean .fc-hl {
   color: inherit !important;
 }
 
+/* ── Prevent scroll anchoring during cloze DOM changes ── */
+body.mode-clean article { overflow-anchor: none; }
+
 /* ── Tap-to-blank cloze (Clean mode) ── */
 .cloze-blank {
   background: var(--border);

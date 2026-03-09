@@ -300,21 +300,35 @@
     var state = { bar: bar, activeIdx: -1, patterns: patterns, dots: dots, label: label, paraEl: paraEl, saveBtn: saveBtn, clearBtn: clearBtn };
     activeBars[pid] = state;
 
+    function lockScroll(fn) {
+      var y = window.scrollY;
+      fn();
+      window.scrollTo(0, y);
+      requestAnimationFrame(function () {
+        window.scrollTo(0, y);
+        requestAnimationFrame(function () { window.scrollTo(0, y); });
+      });
+    }
+
     function selectPattern(idx) {
       if (idx < 0 || idx >= patterns.length) return;
-      state.activeIdx = idx;
-      dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
-      label.textContent = patterns[idx].label;
-      applyPattern(paraEl, patterns[idx].blanks);
+      lockScroll(function () {
+        state.activeIdx = idx;
+        dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
+        label.textContent = patterns[idx].label;
+        applyPattern(paraEl, patterns[idx].blanks);
+      });
       saveBtn.style.display = 'none';
       clearBtn.style.display = '';
     }
 
     function deselect() {
-      state.activeIdx = -1;
-      dots.forEach(function (d) { d.classList.remove('active'); });
-      label.textContent = '';
-      paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
+      lockScroll(function () {
+        state.activeIdx = -1;
+        dots.forEach(function (d) { d.classList.remove('active'); });
+        label.textContent = '';
+        paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
+      });
       clearBtn.style.display = 'none';
     }
 
@@ -381,9 +395,11 @@
     if (current !== 'clean') return;
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
 
-    // Find which paragraph bar is closest to viewport center / has focus
     var pids = Object.keys(activeBars);
     if (!pids.length) return;
+
+    // Always prevent default scroll when bars exist in clean mode
+    e.preventDefault();
 
     // Use the first bar that's in view
     var best = null;
@@ -396,9 +412,8 @@
         best = pid;
       }
     });
-    if (!best) return;
+    if (!best) best = pids[0];
 
-    e.preventDefault();
     var state = activeBars[best];
     var n = state.patterns.length;
     if (!n) return;
@@ -410,13 +425,8 @@
       idx = state.activeIdx <= 0 ? n - 1 : state.activeIdx - 1;
     }
 
-    // Activate the pattern
-    state.activeIdx = idx;
-    state.dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
-    state.label.textContent = state.patterns[idx].label;
-    applyPattern(state.paraEl, state.patterns[idx].blanks);
-    state.saveBtn.style.display = 'none';
-    state.clearBtn.style.display = '';
+    // Use the bar's selectPattern which handles scroll locking
+    state.dots[idx].click();
   });
 
   // Update save button visibility on blank/reveal actions
