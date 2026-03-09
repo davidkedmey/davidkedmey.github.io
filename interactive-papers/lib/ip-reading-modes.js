@@ -138,23 +138,41 @@
   var paperId = (window.InteractivePaper && window.InteractivePaper._config &&
                  window.InteractivePaper._config.id) || 'default';
   var PATTERNS_KEY = 'ip_patterns_' + paperId;
+  var seedPatterns = (cfg && cfg.seedPatterns) || {};
 
-  function loadPatterns() {
+  function loadUserPatterns() {
     try { return JSON.parse(localStorage.getItem(PATTERNS_KEY)) || {}; }
     catch (e) { return {}; }
   }
 
-  function savePatterns(patterns) {
+  function saveUserPatterns(patterns) {
     localStorage.setItem(PATTERNS_KEY, JSON.stringify(patterns));
   }
 
-  // Extract blank positions from a paragraph (relative to its textContent)
+  // Merge seed + user patterns for a paragraph
+  function getAllPatterns(pid) {
+    var seeds = (seedPatterns[pid] || []).map(function (p) {
+      return { label: p.label, blanks: p.blanks, seed: true };
+    });
+    var user = loadUserPatterns();
+    var userPats = (user[pid] || []).map(function (p, i) {
+      return { label: p.label || ('My pattern ' + (i + 1)), blanks: p.blanks, seed: false };
+    });
+    return seeds.concat(userPats);
+  }
+
+  // Which paragraphs have patterns?
+  function parasWithPatterns() {
+    var pids = {};
+    Object.keys(seedPatterns).forEach(function (k) { if (seedPatterns[k].length) pids[k] = true; });
+    var user = loadUserPatterns();
+    Object.keys(user).forEach(function (k) { if (user[k].length) pids[k] = true; });
+    return Object.keys(pids);
+  }
+
+  // Extract blank positions from a paragraph
   function extractBlanks(paraEl) {
     var blanks = [];
-    var spans = paraEl.querySelectorAll('.cloze-blank');
-    if (!spans.length) return blanks;
-    // Temporarily reveal all to get clean textContent positions
-    // Instead, walk the DOM and track character position
     var pos = 0;
     function walk(node) {
       if (node.nodeType === 3) {
@@ -163,25 +181,18 @@
         blanks.push({ word: node.dataset.word, charIndex: pos });
         pos += node.dataset.word.length;
       } else {
-        for (var i = 0; i < node.childNodes.length; i++) {
-          walk(node.childNodes[i]);
-        }
+        for (var i = 0; i < node.childNodes.length; i++) walk(node.childNodes[i]);
       }
     }
     walk(paraEl);
     return blanks;
   }
 
-  // Apply a saved pattern to a paragraph
+  // Apply a pattern to a paragraph
   function applyPattern(paraEl, blanks) {
-    // First clear any existing blanks in this paragraph
     paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
-    // Get the full text and find each blank by charIndex
-    var text = paraEl.textContent;
-    // Apply blanks in reverse order so char positions stay valid
     var sorted = blanks.slice().sort(function (a, b) { return b.charIndex - a.charIndex; });
     sorted.forEach(function (b) {
-      // Find the text node and offset for this charIndex
       var pos = 0;
       var walker = document.createTreeWalker(paraEl, NodeFilter.SHOW_TEXT);
       var node;
@@ -190,7 +201,6 @@
         if (b.charIndex >= pos && b.charIndex < nodeEnd) {
           var localStart = b.charIndex - pos;
           var localEnd = localStart + b.word.length;
-          // Verify the text matches
           if (node.textContent.slice(localStart, localEnd) === b.word) {
             var range = document.createRange();
             range.setStart(node, localStart);
@@ -204,155 +214,247 @@
     });
   }
 
-  // ── Save / Clear buttons (appear when blanks exist) ──
-  var btnWrap = document.createElement('div');
-  btnWrap.className = 'cloze-btn-wrap';
-  btnWrap.style.display = 'none';
+  // ── Pattern bar (horizontal dots above paragraph) ──
+  var activeBars = {}; // pid → { bar, activeIdx }
 
-  var saveBtn = document.createElement('button');
-  saveBtn.className = 'cloze-save-btn';
-  saveBtn.textContent = 'Save pattern';
+  function buildPatternBar(pid) {
+    var paraEl = document.getElementById(pid);
+    if (!paraEl) return;
+    var patterns = getAllPatterns(pid);
+    if (!patterns.length) return;
 
-  var clearBtn = document.createElement('button');
-  clearBtn.className = 'cloze-save-btn';
-  clearBtn.textContent = 'Clear';
-
-  btnWrap.appendChild(saveBtn);
-  btnWrap.appendChild(clearBtn);
-  document.body.appendChild(btnWrap);
-
-  var saveBtnPara = null; // which paragraph the buttons are anchored to
-
-  function updateSaveBtn() {
-    if (current !== 'clean') { btnWrap.style.display = 'none'; return; }
-    // Find a paragraph with active blanks
-    var paras = document.querySelectorAll('article p[id^="p"]');
-    var found = null;
-    for (var i = 0; i < paras.length; i++) {
-      if (paras[i].querySelector('.cloze-blank')) { found = paras[i]; break; }
+    // Remove old bar if any
+    if (activeBars[pid] && activeBars[pid].bar.parentNode) {
+      activeBars[pid].bar.parentNode.removeChild(activeBars[pid].bar);
     }
-    if (!found) { btnWrap.style.display = 'none'; saveBtnPara = null; return; }
-    saveBtnPara = found;
-    var rect = found.getBoundingClientRect();
-    btnWrap.style.display = '';
-    btnWrap.style.position = 'fixed';
-    btnWrap.style.left = (rect.right + 12) + 'px';
-    btnWrap.style.top = (rect.top) + 'px';
-  }
 
-  saveBtn.addEventListener('click', function (e) {
-    e.stopPropagation();
-    if (!saveBtnPara) return;
-    var pid = saveBtnPara.id;
-    var blanks = extractBlanks(saveBtnPara);
-    if (!blanks.length) return;
+    var bar = document.createElement('div');
+    bar.className = 'cloze-bar';
+    bar.dataset.para = pid;
 
-    var patterns = loadPatterns();
-    if (!patterns[pid]) patterns[pid] = [];
-    patterns[pid].push({ blanks: blanks, created: Date.now() });
-    savePatterns(patterns);
+    // Left arrow
+    var leftArr = document.createElement('button');
+    leftArr.className = 'cloze-bar-arrow';
+    leftArr.textContent = '\u25C0';
+    leftArr.setAttribute('aria-label', 'Previous pattern');
+    bar.appendChild(leftArr);
 
-    // Flash confirmation
-    saveBtn.textContent = 'Saved!';
-    setTimeout(function () { saveBtn.textContent = 'Save pattern'; }, 1200);
-
-    renderPatternDots();
-  });
-
-  clearBtn.addEventListener('click', function (e) {
-    e.stopPropagation();
-    clearAllBlanks();
-    updateSaveBtn();
-  });
-
-  // ── Pattern dots in margin ──
-  var dotContainer = document.createElement('div');
-  dotContainer.className = 'cloze-pattern-dots';
-  document.body.appendChild(dotContainer);
-
-  function renderPatternDots() {
-    dotContainer.innerHTML = '';
-    if (current !== 'clean') return;
-    var patterns = loadPatterns();
-    Object.keys(patterns).forEach(function (pid) {
-      var paraEl = document.getElementById(pid);
-      if (!paraEl || !patterns[pid].length) return;
-      var group = document.createElement('div');
-      group.className = 'cloze-dot-group';
-      group.dataset.para = pid;
-      patterns[pid].forEach(function (pat, idx) {
-        var dot = document.createElement('button');
-        dot.className = 'cloze-dot';
-        dot.textContent = idx + 1;
-        dot.title = 'Pattern ' + (idx + 1);
-        dot.addEventListener('click', function (e) {
-          e.stopPropagation();
-          applyPattern(paraEl, pat.blanks);
-          updateSaveBtn();
-        });
-        // Long-press / right-click to delete
+    // Dots
+    var dotWrap = document.createElement('div');
+    dotWrap.className = 'cloze-bar-dots';
+    var dots = [];
+    patterns.forEach(function (pat, idx) {
+      var dot = document.createElement('button');
+      dot.className = 'cloze-bar-dot' + (pat.seed ? '' : ' cloze-bar-dot-user');
+      dot.title = pat.label;
+      dot.dataset.idx = idx;
+      // Right-click user patterns to delete
+      if (!pat.seed) {
         dot.addEventListener('contextmenu', function (e) {
           e.preventDefault();
           e.stopPropagation();
-          patterns[pid].splice(idx, 1);
-          if (!patterns[pid].length) delete patterns[pid];
-          savePatterns(patterns);
-          renderPatternDots();
+          var user = loadUserPatterns();
+          var seedCount = (seedPatterns[pid] || []).length;
+          var userIdx = idx - seedCount;
+          if (user[pid]) {
+            user[pid].splice(userIdx, 1);
+            if (!user[pid].length) delete user[pid];
+            saveUserPatterns(user);
+          }
+          renderAllBars();
         });
-        group.appendChild(dot);
-      });
-      dotContainer.appendChild(group);
+      }
+      dotWrap.appendChild(dot);
+      dots.push(dot);
     });
-    positionDotGroups();
-  }
+    bar.appendChild(dotWrap);
 
-  function positionDotGroups() {
-    var groups = dotContainer.querySelectorAll('.cloze-dot-group');
-    groups.forEach(function (g) {
-      var paraEl = document.getElementById(g.dataset.para);
-      if (!paraEl) return;
-      var rect = paraEl.getBoundingClientRect();
-      g.style.position = 'fixed';
-      g.style.left = (rect.left - 28) + 'px';
-      g.style.top = rect.top + 'px';
-    });
-  }
+    // Right arrow
+    var rightArr = document.createElement('button');
+    rightArr.className = 'cloze-bar-arrow';
+    rightArr.textContent = '\u25B6';
+    rightArr.setAttribute('aria-label', 'Next pattern');
+    bar.appendChild(rightArr);
 
-  // Update positions on scroll
-  window.addEventListener('scroll', function () {
-    if (current === 'clean') {
-      positionDotGroups();
-      updateSaveBtn();
+    // Label
+    var label = document.createElement('span');
+    label.className = 'cloze-bar-label';
+    bar.appendChild(label);
+
+    // Save + Clear buttons
+    var saveBtn = document.createElement('button');
+    saveBtn.className = 'cloze-bar-btn';
+    saveBtn.textContent = 'Save';
+    saveBtn.style.display = 'none';
+    bar.appendChild(saveBtn);
+
+    var clearBtn = document.createElement('button');
+    clearBtn.className = 'cloze-bar-btn';
+    clearBtn.textContent = 'Clear';
+    clearBtn.style.display = 'none';
+    bar.appendChild(clearBtn);
+
+    // Insert bar above the paragraph
+    paraEl.parentNode.insertBefore(bar, paraEl);
+
+    var state = { bar: bar, activeIdx: -1, patterns: patterns, dots: dots, label: label, paraEl: paraEl, saveBtn: saveBtn, clearBtn: clearBtn };
+    activeBars[pid] = state;
+
+    function selectPattern(idx) {
+      if (idx < 0 || idx >= patterns.length) return;
+      state.activeIdx = idx;
+      dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
+      label.textContent = patterns[idx].label;
+      applyPattern(paraEl, patterns[idx].blanks);
+      saveBtn.style.display = 'none';
+      clearBtn.style.display = '';
     }
-  }, { passive: true });
 
-  // Update on blank/reveal actions
+    function deselect() {
+      state.activeIdx = -1;
+      dots.forEach(function (d) { d.classList.remove('active'); });
+      label.textContent = '';
+      paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
+      clearBtn.style.display = 'none';
+    }
+
+    dots.forEach(function (dot, idx) {
+      dot.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (state.activeIdx === idx) { deselect(); return; }
+        selectPattern(idx);
+      });
+    });
+
+    leftArr.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var next = state.activeIdx <= 0 ? patterns.length - 1 : state.activeIdx - 1;
+      selectPattern(next);
+    });
+
+    rightArr.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var next = state.activeIdx >= patterns.length - 1 ? 0 : state.activeIdx + 1;
+      selectPattern(next);
+    });
+
+    saveBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var blanks = extractBlanks(paraEl);
+      if (!blanks.length) return;
+      var user = loadUserPatterns();
+      if (!user[pid]) user[pid] = [];
+      user[pid].push({ blanks: blanks, created: Date.now() });
+      saveUserPatterns(user);
+      saveBtn.textContent = 'Saved!';
+      setTimeout(function () { saveBtn.textContent = 'Save'; renderAllBars(); }, 800);
+    });
+
+    clearBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      deselect();
+    });
+  }
+
+  function showSaveOnBar(paraEl) {
+    // Show save button on the bar for this paragraph if it has unsaved blanks
+    var pid = paraEl.id;
+    if (!activeBars[pid]) return;
+    var hasBlanks = paraEl.querySelector('.cloze-blank');
+    activeBars[pid].saveBtn.style.display = hasBlanks ? '' : 'none';
+    activeBars[pid].clearBtn.style.display = hasBlanks ? '' : 'none';
+  }
+
+  function renderAllBars() {
+    // Remove all existing bars
+    Object.keys(activeBars).forEach(function (pid) {
+      if (activeBars[pid].bar.parentNode) activeBars[pid].bar.parentNode.removeChild(activeBars[pid].bar);
+    });
+    activeBars = {};
+    if (current !== 'clean') return;
+
+    parasWithPatterns().forEach(buildPatternBar);
+  }
+
+  // Arrow key navigation
+  document.addEventListener('keydown', function (e) {
+    if (current !== 'clean') return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+
+    // Find which paragraph bar is closest to viewport center / has focus
+    var pids = Object.keys(activeBars);
+    if (!pids.length) return;
+
+    // Use the first bar that's in view
+    var best = null;
+    var bestDist = Infinity;
+    pids.forEach(function (pid) {
+      var rect = activeBars[pid].paraEl.getBoundingClientRect();
+      var dist = Math.abs(rect.top - 100);
+      if (rect.top < window.innerHeight && rect.bottom > 0 && dist < bestDist) {
+        bestDist = dist;
+        best = pid;
+      }
+    });
+    if (!best) return;
+
+    e.preventDefault();
+    var state = activeBars[best];
+    var n = state.patterns.length;
+    if (!n) return;
+
+    var idx;
+    if (e.key === 'ArrowRight') {
+      idx = state.activeIdx >= n - 1 ? 0 : state.activeIdx + 1;
+    } else {
+      idx = state.activeIdx <= 0 ? n - 1 : state.activeIdx - 1;
+    }
+
+    // Activate the pattern
+    state.activeIdx = idx;
+    state.dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
+    state.label.textContent = state.patterns[idx].label;
+    applyPattern(state.paraEl, state.patterns[idx].blanks);
+    state.saveBtn.style.display = 'none';
+    state.clearBtn.style.display = '';
+  });
+
+  // Update save button visibility on blank/reveal actions
   var origBlankRange = blankRange;
   blankRange = function (r) {
     origBlankRange(r);
-    setTimeout(updateSaveBtn, 10);
+    setTimeout(function () {
+      var p = r.startContainer;
+      while (p && p.nodeType !== 1) p = p.parentNode;
+      if (p) p = p.closest('p[id^="p"]');
+      if (p) showSaveOnBar(p);
+    }, 10);
   };
 
   document.addEventListener('click', function () {
-    if (current === 'clean') setTimeout(updateSaveBtn, 50);
+    if (current !== 'clean') return;
+    setTimeout(function () {
+      Object.keys(activeBars).forEach(function (pid) {
+        showSaveOnBar(activeBars[pid].paraEl);
+      });
+    }, 50);
   });
 
-  // Render dots when entering clean mode
+  // Render bars when entering clean mode
   document.addEventListener('ip:modechange', function (e) {
     if (e.detail.mode === 'clean') {
-      renderPatternDots();
-      updateSaveBtn();
+      renderAllBars();
     } else {
-      dotContainer.innerHTML = '';
-      btnWrap.style.display = 'none';
+      Object.keys(activeBars).forEach(function (pid) {
+        if (activeBars[pid].bar.parentNode) activeBars[pid].bar.parentNode.removeChild(activeBars[pid].bar);
+      });
+      activeBars = {};
     }
   });
 
   // Initial render if starting in clean mode
   if (current === 'clean') {
-    document.addEventListener('DOMContentLoaded', function () {
-      renderPatternDots();
-    });
+    document.addEventListener('DOMContentLoaded', renderAllBars);
   }
 
   // Expose API

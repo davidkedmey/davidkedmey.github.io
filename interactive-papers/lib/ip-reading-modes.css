@@ -65,63 +65,79 @@ body.mode-clean .margin-note {
   background: var(--blank-hover);
 }
 
-/* ── Save / Clear buttons ── */
-.cloze-btn-wrap {
+/* ── Pattern bar (horizontal dots above paragraph) ── */
+.cloze-bar {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  z-index: 50;
-}
-.cloze-save-btn {
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 4px 0;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.cloze-bar-arrow {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.55rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.cloze-bar-arrow:hover { color: var(--text); }
+.cloze-bar-dots {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.cloze-bar-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--text-dim);
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s;
+}
+.cloze-bar-dot:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  opacity: 0.6;
+}
+.cloze-bar-dot.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.cloze-bar-dot-user {
+  border-style: dashed;
+}
+.cloze-bar-dot-user.active {
+  border-style: solid;
+}
+.cloze-bar-label {
   font-size: 0.7rem;
-  padding: 4px 10px;
+  color: var(--text-dim);
+  margin-left: 2px;
+  white-space: nowrap;
+}
+.cloze-bar-btn {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.65rem;
+  padding: 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface);
+  border-radius: 3px;
+  background: transparent;
   color: var(--text-dim);
   cursor: pointer;
   white-space: nowrap;
-  z-index: 50;
+  margin-left: auto;
   transition: color 0.15s, border-color 0.15s;
 }
-.cloze-save-btn:hover {
+.cloze-bar-btn:hover {
   color: var(--text);
   border-color: var(--text-dim);
 }
-
-/* ── Pattern dots (saved worksheets) ── */
-.cloze-pattern-dots {
-  pointer-events: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 50;
-}
-.cloze-dot-group {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  pointer-events: auto;
-}
-.cloze-dot {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-dim);
-  font-size: 0.6rem;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s;
-  padding: 0;
-}
-.cloze-dot:hover {
-  background: var(--accent);
-  color: var(--btn-active-text);
-  border-color: var(--accent);
+.cloze-bar-btn + .cloze-bar-btn {
+  margin-left: 4px;
 }

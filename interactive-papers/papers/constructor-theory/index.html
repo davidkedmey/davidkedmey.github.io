@@ -599,7 +599,40 @@ InteractivePaper.init({
     url: 'https://ryvvzykmjkxrozjugpod.supabase.co',
     anonKey: 'sb_publishable_RBafrbcyK3Q70_OuulTzZA_YHKWemG1'
   },
-  readingModes: { default: 'enhanced' },
+  readingModes: {
+    default: 'enhanced',
+    seedPatterns: {
+      p1: [
+        { label: 'Core thesis', blanks: [
+          {word:'dichotomy',charIndex:86},{word:'possible',charIndex:104},
+          {word:'impossible',charIndex:117},{word:'transformations',charIndex:137},
+          {word:'caused',charIndex:173},{word:'cannot',charIndex:205}
+        ]},
+        { label: 'The departure', blanks: [
+          {word:'departure',charIndex:223},{word:'prevailing',charIndex:242},
+          {word:'predict',charIndex:299},{word:'initial',charIndex:329},
+          {word:'conditions',charIndex:337},{word:'laws of motion',charIndex:352}
+        ]},
+        { label: 'Information & computation', blanks: [
+          {word:'information',charIndex:660},{word:'classical',charIndex:683},
+          {word:'quantum',charIndex:697},{word:'information',charIndex:705},
+          {word:'computation',charIndex:745},{word:'transformations',charIndex:781}
+        ]},
+        { label: 'Physics principles', blanks: [
+          {word:'conservation',charIndex:828},{word:'operational',charIndex:864},
+          {word:'perpetual motion machines',charIndex:908},{word:'testability',charIndex:965},
+          {word:'computability',charIndex:988},{word:'emergent',charIndex:1125},
+          {word:'thermodynamics',charIndex:1166}
+        ]},
+        { label: 'Epistemology', blanks: [
+          {word:'fundamental',charIndex:40},{word:'fundamental',charIndex:267},
+          {word:'unifications',charIndex:598},{word:'methodological',charIndex:1030},
+          {word:'metaphysical',charIndex:1049},{word:'knowledge',charIndex:1252},
+          {word:'physical terms',charIndex:1265}
+        ]}
+      ]
+    }
+  },
   paragraphIndex: { data: PARA_INDEX, summaryTiers: true, picker: true },
   flashcards: { enabled: true, marginDots: true, studyMode: true, seedUrl: 'seed-cards.json' }
 });
