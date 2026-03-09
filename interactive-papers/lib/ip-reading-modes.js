@@ -515,6 +515,7 @@
       if (mode !== 'viewing' || state.activeIdx < 0) return;
       var pat = patterns[state.activeIdx];
       if (pat.seed) return;
+      var prevIdx = state.activeIdx > 0 ? state.activeIdx - 1 : 0;
       var seedCount = (seedPatterns[pid] || []).length;
       var userIdx = state.activeIdx - seedCount;
       var user = loadUserPatterns();
@@ -524,6 +525,12 @@
         saveUserPatterns(user);
       }
       renderAllBars();
+      // Select the previous dot on the rebuilt bar
+      var newBar = activeBars[pid];
+      if (newBar && newBar.patterns.length) {
+        var selectIdx = Math.min(prevIdx, newBar.patterns.length - 1);
+        newBar.dots[selectIdx].click();
+      }
     });
 
     clearBtn.addEventListener('click', function (e) {
