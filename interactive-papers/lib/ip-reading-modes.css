@@ -47,8 +47,14 @@ body.mode-clean .fc-anno-nav-btn,
 body.mode-clean .fc-anno-nav,
 body.mode-clean .fc-drawer,
 body.mode-clean .fc-overlay,
+body.mode-clean .fc-margin-thread,
+body.mode-clean .fc-connectors,
 body.mode-clean .margin-note {
   display: none !important;
+}
+body.mode-clean .fc-hl {
+  background: none !important;
+  color: inherit !important;
 }
 
 /* ── Tap-to-blank cloze (Clean mode) ── */
