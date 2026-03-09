@@ -259,22 +259,6 @@
       dot.className = 'cloze-bar-dot' + (pat.seed ? '' : ' cloze-bar-dot-user');
       dot.title = pat.label;
       dot.dataset.idx = idx;
-      // Right-click user patterns to delete
-      if (!pat.seed) {
-        dot.addEventListener('contextmenu', function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          var user = loadUserPatterns();
-          var seedCount = (seedPatterns[pid] || []).length;
-          var userIdx = idx - seedCount;
-          if (user[pid]) {
-            user[pid].splice(userIdx, 1);
-            if (!user[pid].length) delete user[pid];
-            saveUserPatterns(user);
-          }
-          renderAllBars();
-        });
-      }
       dotWrap.appendChild(dot);
       dots.push(dot);
     });
@@ -313,6 +297,13 @@
     saveBtn.textContent = 'Save';
     saveBtn.style.display = 'none';
     bar.appendChild(saveBtn);
+
+    // Delete button
+    var deleteBtn = document.createElement('button');
+    deleteBtn.className = 'cloze-bar-btn';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.style.display = 'none';
+    bar.appendChild(deleteBtn);
 
     // Clear button
     var clearBtn = document.createElement('button');
@@ -380,6 +371,7 @@
       });
       editBtn.style.display = '';
       saveBtn.style.display = 'none';
+      deleteBtn.style.display = patterns[idx].seed ? 'none' : '';
       clearBtn.style.display = '';
     }
 
@@ -388,6 +380,7 @@
       editingIdx = -1;
       editBtn.style.display = 'none';
       saveBtn.style.display = 'none';
+      deleteBtn.style.display = 'none';
       lockScroll(function () {
         state.activeIdx = -1;
         dots.forEach(function (d) { d.classList.remove('active'); });
@@ -414,6 +407,7 @@
       label.textContent = 'Tap words to blank\u2026';
       editBtn.style.display = 'none';
       saveBtn.style.display = '';
+      deleteBtn.style.display = 'none';
       clearBtn.style.display = '';
     }
 
@@ -461,6 +455,7 @@
       dots[editingIdx].classList.add('cloze-bar-draft');
       editBtn.style.display = 'none';
       saveBtn.style.display = '';
+      deleteBtn.style.display = 'none';
       label.textContent = (patterns[editingIdx].seed ? 'Editing (will save as new)' : 'Editing') + '\u2026';
     });
 
@@ -477,6 +472,22 @@
         saveUserPatterns(user);
         drafting = false;
         draftDot = null;
+      }
+      renderAllBars();
+    });
+
+    deleteBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (state.activeIdx < 0) return;
+      var pat = patterns[state.activeIdx];
+      if (pat.seed) return; // can't delete seeds
+      var seedCount = (seedPatterns[pid] || []).length;
+      var userIdx = state.activeIdx - seedCount;
+      var user = loadUserPatterns();
+      if (user[pid]) {
+        user[pid].splice(userIdx, 1);
+        if (!user[pid].length) delete user[pid];
+        saveUserPatterns(user);
       }
       renderAllBars();
     });
