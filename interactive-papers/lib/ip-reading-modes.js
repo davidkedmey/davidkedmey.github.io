@@ -402,6 +402,8 @@
     addDot.addEventListener('click', function (e) {
       e.stopPropagation();
       if (drafting) {
+        // Nothing blanked yet — just keep the current draft
+        if (!paraEl.querySelector('.cloze-blank')) return;
         finishDraft();
         renderAllBars();
         // Start a new draft on the rebuilt bar
