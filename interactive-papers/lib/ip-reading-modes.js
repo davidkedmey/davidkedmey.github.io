@@ -326,9 +326,18 @@
     // Insert bar above the paragraph
     paraEl.parentNode.insertBefore(bar, paraEl);
 
-    var editing = false; // true when editing an existing pattern
-    var editingIdx = -1; // which pattern is being edited
-    var state = { bar: bar, activeIdx: -1, patterns: patterns, dots: dots, label: label, paraEl: paraEl, clearBtn: clearBtn, isEditing: function () { return editing; }, isDrafting: function () { return drafting; } };
+    // ── State machine ──
+    // Modes: 'idle' | 'viewing' | 'drafting' | 'editing'
+    var mode = 'idle';
+    var draftDot = null;
+
+    var state = {
+      bar: bar, activeIdx: -1, patterns: patterns, dots: dots,
+      label: label, paraEl: paraEl, clearBtn: clearBtn,
+      isEditing: function () { return mode === 'editing'; },
+      isDrafting: function () { return mode === 'drafting'; },
+      getMode: function () { return mode; }
+    };
     activeBars[pid] = state;
 
     function lockScroll(fn) {
@@ -341,16 +350,100 @@
       });
     }
 
-    var drafting = false;
-    var draftDot = null;
+    // Clean up current mode before transitioning
+    function exitMode() {
+      if (mode === 'drafting' && draftDot) {
+        if (draftDot.parentNode) draftDot.parentNode.removeChild(draftDot);
+        draftDot = null;
+      }
+      if (mode === 'editing' && state.activeIdx >= 0 && dots[state.activeIdx]) {
+        dots[state.activeIdx].classList.remove('cloze-bar-draft');
+      }
+    }
 
-    function finishEdit() {
-      if (!editing) return;
+    // Set button visibility + label for a mode (one place, no scattering)
+    function applyModeUI() {
+      var pat = (state.activeIdx >= 0 && state.activeIdx < patterns.length)
+        ? patterns[state.activeIdx] : null;
+      var isUser = pat && !pat.seed;
+
+      if (mode === 'idle') {
+        editBtn.style.display = 'none';
+        saveBtn.style.display = 'none';
+        deleteBtn.style.display = 'none';
+        clearBtn.style.display = 'none';
+        label.textContent = '';
+      } else if (mode === 'viewing') {
+        editBtn.style.display = '';
+        saveBtn.style.display = 'none';
+        deleteBtn.style.display = isUser ? '' : 'none';
+        clearBtn.style.display = '';
+        label.textContent = pat ? pat.label : '';
+      } else if (mode === 'drafting') {
+        editBtn.style.display = 'none';
+        saveBtn.style.display = '';
+        deleteBtn.style.display = 'none';
+        clearBtn.style.display = '';
+        label.textContent = 'Tap words to blank\u2026';
+      } else if (mode === 'editing') {
+        editBtn.style.display = 'none';
+        saveBtn.style.display = '';
+        deleteBtn.style.display = 'none';
+        clearBtn.style.display = '';
+        label.textContent = (pat && pat.seed ? 'Editing (will save as new)' : 'Editing') + '\u2026';
+      }
+    }
+
+    // The single transition function
+    function enterMode(newMode, idx) {
+      exitMode();
+      mode = newMode;
+
+      if (newMode === 'idle') {
+        state.activeIdx = -1;
+        lockScroll(function () {
+          dots.forEach(function (d) { d.classList.remove('active'); });
+          paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
+        });
+
+      } else if (newMode === 'viewing') {
+        state.activeIdx = idx;
+        lockScroll(function () {
+          dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
+          applyPattern(paraEl, patterns[idx].blanks);
+        });
+
+      } else if (newMode === 'drafting') {
+        state.activeIdx = -1;
+        lockScroll(function () {
+          dots.forEach(function (d) { d.classList.remove('active'); });
+          paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
+        });
+        draftDot = document.createElement('button');
+        draftDot.className = 'cloze-bar-dot cloze-bar-draft active';
+        dotWrap.insertBefore(draftDot, addDot);
+
+      } else if (newMode === 'editing') {
+        state.activeIdx = idx;
+        lockScroll(function () {
+          dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
+          applyPattern(paraEl, patterns[idx].blanks);
+        });
+        dots[idx].classList.add('cloze-bar-draft');
+      }
+
+      applyModeUI();
+    }
+
+    // Persist current work to localStorage
+    function saveCurrentWork() {
       var blanks = extractBlanks(paraEl);
-      if (blanks.length) {
-        var pat = patterns[editingIdx];
+      if (!blanks.length) return false;
+
+      if (mode === 'editing') {
+        var pat = patterns[state.activeIdx];
         if (pat.seed) {
-          // Fork: save as new user pattern
+          // Fork seed as new user pattern
           var user = loadUserPatterns();
           if (!user[pid]) user[pid] = [];
           user[pid].push({ blanks: blanks, created: Date.now() });
@@ -358,142 +451,70 @@
         } else {
           // Update user pattern in place
           var seedCount = (seedPatterns[pid] || []).length;
-          var userIdx = editingIdx - seedCount;
+          var userIdx = state.activeIdx - seedCount;
           var user = loadUserPatterns();
           if (user[pid] && user[pid][userIdx]) {
             user[pid][userIdx].blanks = blanks;
             saveUserPatterns(user);
           }
         }
+      } else if (mode === 'drafting') {
+        var user = loadUserPatterns();
+        if (!user[pid]) user[pid] = [];
+        user[pid].push({ blanks: blanks, created: Date.now() });
+        saveUserPatterns(user);
       }
-      editing = false;
-      editingIdx = -1;
+      return true;
     }
 
-    function selectPattern(idx) {
-      if (idx < 0 || idx >= patterns.length) return;
-      editing = false;
-      editingIdx = -1;
-      lockScroll(function () {
-        state.activeIdx = idx;
-        dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
-        label.textContent = patterns[idx].label;
-        applyPattern(paraEl, patterns[idx].blanks);
-      });
-      editBtn.style.display = '';
-      saveBtn.style.display = 'none';
-      deleteBtn.style.display = patterns[idx].seed ? 'none' : '';
-      clearBtn.style.display = '';
-    }
-
-    function deselect() {
-      editing = false;
-      editingIdx = -1;
-      editBtn.style.display = 'none';
-      saveBtn.style.display = 'none';
-      deleteBtn.style.display = 'none';
-      lockScroll(function () {
-        state.activeIdx = -1;
-        dots.forEach(function (d) { d.classList.remove('active'); });
-        label.textContent = '';
-        paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
-      });
-      clearBtn.style.display = 'none';
-    }
-
-    function startDraft() {
-      // Discard any existing unsaved draft
-      if (drafting && draftDot) {
-        if (draftDot.parentNode) draftDot.parentNode.removeChild(draftDot);
-      }
-      drafting = true;
-      lockScroll(function () {
-        state.activeIdx = -1;
-        dots.forEach(function (d) { d.classList.remove('active'); });
-        paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
-      });
-      draftDot = document.createElement('button');
-      draftDot.className = 'cloze-bar-dot cloze-bar-draft active';
-      dotWrap.insertBefore(draftDot, addDot);
-      label.textContent = 'Tap words to blank\u2026';
-      editBtn.style.display = 'none';
-      saveBtn.style.display = '';
-      deleteBtn.style.display = 'none';
-      clearBtn.style.display = '';
-    }
-
-    function discardDraft() {
-      if (draftDot && draftDot.parentNode) draftDot.parentNode.removeChild(draftDot);
-      drafting = false;
-      draftDot = null;
-      saveBtn.style.display = 'none';
-    }
+    // ── Event handlers (each is a simple transition) ──
 
     dots.forEach(function (dot, idx) {
       dot.addEventListener('click', function (e) {
         e.stopPropagation();
-        if (drafting) { discardDraft(); }
-        if (state.activeIdx === idx) { deselect(); return; }
-        selectPattern(idx);
+        if (mode === 'viewing' && state.activeIdx === idx) {
+          enterMode('idle');
+        } else {
+          enterMode('viewing', idx);
+        }
       });
     });
 
     leftArr.addEventListener('click', function (e) {
       e.stopPropagation();
-      if (drafting) { discardDraft(); }
-      var next = state.activeIdx <= 0 ? patterns.length - 1 : state.activeIdx - 1;
-      selectPattern(next);
+      var base = (mode === 'viewing' || mode === 'editing') ? state.activeIdx : 0;
+      var next = base <= 0 ? patterns.length - 1 : base - 1;
+      enterMode('viewing', next);
     });
 
     rightArr.addEventListener('click', function (e) {
       e.stopPropagation();
-      if (drafting) { discardDraft(); }
-      var next = state.activeIdx >= patterns.length - 1 ? 0 : state.activeIdx + 1;
-      selectPattern(next);
+      var base = (mode === 'viewing' || mode === 'editing') ? state.activeIdx : -1;
+      var next = base >= patterns.length - 1 ? 0 : base + 1;
+      enterMode('viewing', next);
     });
 
     addDot.addEventListener('click', function (e) {
       e.stopPropagation();
-      // Discard unsaved edit (consistent with arrows/dots)
-      editing = false;
-      editingIdx = -1;
-      startDraft();
+      enterMode('drafting');
     });
 
     editBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      if (state.activeIdx < 0) return;
-      editing = true;
-      editingIdx = state.activeIdx;
-      dots[editingIdx].classList.add('cloze-bar-draft');
-      editBtn.style.display = 'none';
-      saveBtn.style.display = '';
-      deleteBtn.style.display = 'none';
-      label.textContent = (patterns[editingIdx].seed ? 'Editing (will save as new)' : 'Editing') + '\u2026';
+      if (mode !== 'viewing' || state.activeIdx < 0) return;
+      enterMode('editing', state.activeIdx);
     });
 
     saveBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      var blanks = extractBlanks(paraEl);
-      if (!blanks.length) return; // nothing to save
-      if (editing) {
-        finishEdit();
-      } else if (drafting) {
-        var user = loadUserPatterns();
-        if (!user[pid]) user[pid] = [];
-        user[pid].push({ blanks: blanks, created: Date.now() });
-        saveUserPatterns(user);
-        drafting = false;
-        draftDot = null;
-      }
-      renderAllBars();
+      if (saveCurrentWork()) renderAllBars();
     });
 
     deleteBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      if (state.activeIdx < 0) return;
+      if (mode !== 'viewing' || state.activeIdx < 0) return;
       var pat = patterns[state.activeIdx];
-      if (pat.seed) return; // can't delete seeds
+      if (pat.seed) return;
       var seedCount = (seedPatterns[pid] || []).length;
       var userIdx = state.activeIdx - seedCount;
       var user = loadUserPatterns();
@@ -507,16 +528,8 @@
 
     clearBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      discardDraft();
-      deselect();
+      enterMode('idle');
     });
-  }
-
-  function showClearOnBar(paraEl) {
-    var pid = paraEl.id;
-    if (!activeBars[pid]) return;
-    var hasBlanks = paraEl.querySelector('.cloze-blank');
-    activeBars[pid].clearBtn.style.display = hasBlanks ? '' : 'none';
   }
 
   function renderAllBars() {
@@ -565,30 +578,10 @@
       idx = state.activeIdx <= 0 ? n - 1 : state.activeIdx - 1;
     }
 
-    // Use the bar's selectPattern which handles scroll locking
+    // Trigger the dot's click handler (goes through state machine)
     state.dots[idx].click();
   });
 
-  // Update save button visibility on blank/reveal actions
-  var origBlankRange = blankRange;
-  blankRange = function (r) {
-    origBlankRange(r);
-    setTimeout(function () {
-      var p = r.startContainer;
-      while (p && p.nodeType !== 1) p = p.parentNode;
-      if (p) p = p.closest('p[id^="p"]');
-      if (p) showClearOnBar(p);
-    }, 10);
-  };
-
-  document.addEventListener('click', function () {
-    if (current !== 'clean') return;
-    setTimeout(function () {
-      Object.keys(activeBars).forEach(function (pid) {
-        showClearOnBar(activeBars[pid].paraEl);
-      });
-    }, 50);
-  });
 
   // Render bars when entering clean mode
   document.addEventListener('ip:modechange', function (e) {
