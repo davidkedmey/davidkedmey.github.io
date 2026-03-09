@@ -138,6 +138,13 @@ body.mode-clean article { overflow-anchor: none; }
   opacity: 1;
   color: var(--btn-active-text);
 }
+.cloze-bar-draft {
+  animation: draft-pulse 1s ease-in-out infinite;
+}
+@keyframes draft-pulse {
+  0%, 100% { border-color: var(--accent); opacity: 1; }
+  50% { border-color: var(--text-dim); opacity: 0.5; }
+}
 .cloze-bar-label {
   font-size: 0.7rem;
   color: var(--text-dim);

@@ -353,26 +353,71 @@
       selectPattern(next);
     });
 
-    addDot.addEventListener('click', function (e) {
-      e.stopPropagation();
+    var drafting = false;
+    var draftDot = null;
+
+    function startDraft() {
+      drafting = true;
+      // Clear current blanks
+      lockScroll(function () {
+        state.activeIdx = -1;
+        dots.forEach(function (d) { d.classList.remove('active'); });
+        paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
+      });
+      // Create a new draft dot before the "+"
+      draftDot = document.createElement('button');
+      draftDot.className = 'cloze-bar-dot cloze-bar-dot-user cloze-bar-draft';
+      draftDot.title = 'New pattern (drafting)';
+      dotWrap.insertBefore(draftDot, addDot);
+      draftDot.classList.add('active');
+      addDot.textContent = '\u2713';
+      addDot.title = 'Save pattern';
+      label.textContent = 'Tap words to blank\u2026';
+      clearBtn.style.display = '';
+    }
+
+    function saveDraft() {
       var blanks = extractBlanks(paraEl);
       if (!blanks.length) {
-        // Nothing blanked — deselect so user can start tapping words
-        deselect();
-        label.textContent = 'Tap words to blank, then +';
+        cancelDraft();
         return;
       }
       var user = loadUserPatterns();
       if (!user[pid]) user[pid] = [];
       user[pid].push({ blanks: blanks, created: Date.now() });
       saveUserPatterns(user);
-      addDot.textContent = '\u2713';
-      setTimeout(function () { addDot.textContent = '+'; renderAllBars(); }, 600);
+      drafting = false;
+      draftDot = null;
+      addDot.textContent = '+';
+      addDot.title = 'Save current blanks as a new pattern';
+      renderAllBars();
+    }
+
+    function cancelDraft() {
+      drafting = false;
+      if (draftDot && draftDot.parentNode) draftDot.parentNode.removeChild(draftDot);
+      draftDot = null;
+      addDot.textContent = '+';
+      addDot.title = 'Save current blanks as a new pattern';
+      deselect();
+    }
+
+    addDot.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (drafting) {
+        saveDraft();
+      } else {
+        startDraft();
+      }
     });
 
     clearBtn.addEventListener('click', function (e) {
       e.stopPropagation();
-      deselect();
+      if (drafting) {
+        cancelDraft();
+      } else {
+        deselect();
+      }
     });
   }
 
