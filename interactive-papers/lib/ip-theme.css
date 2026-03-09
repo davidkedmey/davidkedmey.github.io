@@ -185,13 +185,22 @@ section { position: relative; }
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding: 0 16px;
+  padding: 0 max(16px, calc(50vw - 360px));
 }
 #top-bar .mode-toggle {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
 }
+/* Left group: study actions */
+#top-bar .fc-quiz-toggle { order: 1; }
+#top-bar .fc-study-toggle { order: 2; }
+/* Right group — margin-left:auto pushes to right */
+#top-bar .fc-author-toggle { order: 10; margin-left: auto; }
+#top-bar .fc-anno-nav-btn { order: 11; }
+#top-bar .para-picker-btn { order: 12; }
+#top-bar .settings-gear { order: 13; }
+#top-bar .ip-theme-toggle { order: 14; }
 
 /* ── Paragraph numbers in margin ── */
 p[data-pnum] { position: relative; }

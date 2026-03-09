@@ -90,6 +90,7 @@
         ? Math.min(paraBottom - ENTRY_H, Math.max(TOP_PAD, paraTop))
         : paraTop;
       entries[i].style.transform = 'translateY(' + (pos - offset) + 'px)';
+      if (!entries[i].classList.contains('pi-placed')) entries[i].classList.add('pi-placed');
     }
   }
 
@@ -105,6 +106,9 @@
   positionEntries();
   window.addEventListener('scroll', schedulePosition, { passive: true });
   window.addEventListener('resize', schedulePosition);
+  window.addEventListener('ip:auth:ready', function () {
+    requestAnimationFrame(positionEntries);
+  });
 
   // ── Summary tier switching ──
   if (hasSummaryTiers) {

@@ -64,3 +64,58 @@ body.mode-clean .margin-note {
 .cloze-blank:hover {
   background: var(--blank-hover);
 }
+
+/* ── Save pattern button ── */
+.cloze-save-btn {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.7rem;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+  z-index: 50;
+  transition: color 0.15s, border-color 0.15s;
+}
+.cloze-save-btn:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
+}
+
+/* ── Pattern dots (saved worksheets) ── */
+.cloze-pattern-dots {
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+}
+.cloze-dot-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  pointer-events: auto;
+}
+.cloze-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 0.6rem;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+}
+.cloze-dot:hover {
+  background: var(--accent);
+  color: var(--btn-active-text);
+  border-color: var(--accent);
+}
