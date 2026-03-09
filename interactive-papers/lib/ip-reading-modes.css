@@ -55,6 +55,7 @@ body.mode-clean .margin-note {
 body.mode-clean .fc-hl {
   background: none !important;
   color: inherit !important;
+  border: none !important;
 }
 
 /* ── Prevent scroll anchoring during cloze DOM changes ── */
