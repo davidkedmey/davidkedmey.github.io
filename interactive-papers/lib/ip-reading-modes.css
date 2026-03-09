@@ -65,7 +65,13 @@ body.mode-clean .margin-note {
   background: var(--blank-hover);
 }
 
-/* ── Save pattern button ── */
+/* ── Save / Clear buttons ── */
+.cloze-btn-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 50;
+}
 .cloze-save-btn {
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.7rem;

@@ -204,30 +204,40 @@
     });
   }
 
-  // ── Save button (appears when blanks exist) ──
+  // ── Save / Clear buttons (appear when blanks exist) ──
+  var btnWrap = document.createElement('div');
+  btnWrap.className = 'cloze-btn-wrap';
+  btnWrap.style.display = 'none';
+
   var saveBtn = document.createElement('button');
   saveBtn.className = 'cloze-save-btn';
   saveBtn.textContent = 'Save pattern';
-  saveBtn.style.display = 'none';
-  document.body.appendChild(saveBtn);
 
-  var saveBtnPara = null; // which paragraph the save button is anchored to
+  var clearBtn = document.createElement('button');
+  clearBtn.className = 'cloze-save-btn';
+  clearBtn.textContent = 'Clear';
+
+  btnWrap.appendChild(saveBtn);
+  btnWrap.appendChild(clearBtn);
+  document.body.appendChild(btnWrap);
+
+  var saveBtnPara = null; // which paragraph the buttons are anchored to
 
   function updateSaveBtn() {
-    if (current !== 'clean') { saveBtn.style.display = 'none'; return; }
+    if (current !== 'clean') { btnWrap.style.display = 'none'; return; }
     // Find a paragraph with active blanks
     var paras = document.querySelectorAll('article p[id^="p"]');
     var found = null;
     for (var i = 0; i < paras.length; i++) {
       if (paras[i].querySelector('.cloze-blank')) { found = paras[i]; break; }
     }
-    if (!found) { saveBtn.style.display = 'none'; saveBtnPara = null; return; }
+    if (!found) { btnWrap.style.display = 'none'; saveBtnPara = null; return; }
     saveBtnPara = found;
     var rect = found.getBoundingClientRect();
-    saveBtn.style.display = '';
-    saveBtn.style.position = 'fixed';
-    saveBtn.style.left = (rect.right + 12) + 'px';
-    saveBtn.style.top = (rect.top) + 'px';
+    btnWrap.style.display = '';
+    btnWrap.style.position = 'fixed';
+    btnWrap.style.left = (rect.right + 12) + 'px';
+    btnWrap.style.top = (rect.top) + 'px';
   }
 
   saveBtn.addEventListener('click', function (e) {
@@ -247,6 +257,12 @@
     setTimeout(function () { saveBtn.textContent = 'Save pattern'; }, 1200);
 
     renderPatternDots();
+  });
+
+  clearBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    clearAllBlanks();
+    updateSaveBtn();
   });
 
   // ── Pattern dots in margin ──
@@ -328,7 +344,7 @@
       updateSaveBtn();
     } else {
       dotContainer.innerHTML = '';
-      saveBtn.style.display = 'none';
+      btnWrap.style.display = 'none';
     }
   });
 
