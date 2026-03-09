@@ -74,6 +74,10 @@ body.mode-clean article { overflow-anchor: none; }
 .cloze-blank:hover {
   background: var(--blank-hover);
 }
+.cloze-blank.cloze-peek {
+  color: var(--accent2);
+  background: transparent;
+}
 
 /* ── Pattern bar (horizontal dots above paragraph) ── */
 .cloze-bar {

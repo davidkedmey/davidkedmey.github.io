@@ -92,9 +92,20 @@
   document.addEventListener('click', function (e) {
     if (current !== 'clean') return;
 
-    // Click on a blank → reveal it
+    // Click on a blank → peek (if viewing saved pattern) or reveal (if drafting/free)
     if (e.target.classList && e.target.classList.contains('cloze-blank')) {
-      revealBlank(e.target);
+      var p = e.target.closest && e.target.closest('p[id^="p"]');
+      var pid = p && p.id;
+      var barState = pid && activeBars[pid];
+      var isViewing = barState && barState.activeIdx >= 0;
+      if (isViewing) {
+        // Peek: temporarily show the word
+        var span = e.target;
+        span.classList.add('cloze-peek');
+        setTimeout(function () { span.classList.remove('cloze-peek'); }, 1200);
+      } else {
+        revealBlank(e.target);
+      }
       return;
     }
 
