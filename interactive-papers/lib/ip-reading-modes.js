@@ -505,6 +505,24 @@
     addDot.addEventListener('click', function (e) {
       e.stopPropagation();
       if (editing) { finishEdit(); renderAllBars(); return; }
+      if (drafting && draftDot) {
+        // Save current draft, rebuild bar, then auto-start a new draft
+        var blanks = extractBlanks(paraEl);
+        if (blanks.length) {
+          var user = loadUserPatterns();
+          if (!user[pid]) user[pid] = [];
+          user[pid].push({ blanks: blanks, created: Date.now() });
+          saveUserPatterns(user);
+        }
+        cleanupDrafts();
+        renderAllBars();
+        // Start new draft on the rebuilt bar
+        setTimeout(function () {
+          var newAdd = document.querySelector('.cloze-bar[data-para="' + pid + '"] .cloze-bar-add');
+          if (newAdd) newAdd.click();
+        }, 0);
+        return;
+      }
       startDraft();
     });
 
