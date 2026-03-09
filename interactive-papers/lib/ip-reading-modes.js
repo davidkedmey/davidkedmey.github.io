@@ -524,13 +524,17 @@
         if (!user[pid].length) delete user[pid];
         saveUserPatterns(user);
       }
+      // Clear blanks before rebuild so old pattern doesn't persist
+      paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
       renderAllBars();
       // Select the previous dot on the rebuilt bar
-      var newBar = activeBars[pid];
-      if (newBar && newBar.patterns.length) {
-        var selectIdx = Math.min(prevIdx, newBar.patterns.length - 1);
-        newBar.dots[selectIdx].click();
-      }
+      setTimeout(function () {
+        var newBar = activeBars[pid];
+        if (newBar && newBar.patterns.length) {
+          var selectIdx = Math.min(prevIdx, newBar.patterns.length - 1);
+          newBar.dots[selectIdx].click();
+        }
+      }, 0);
     });
 
     clearBtn.addEventListener('click', function (e) {

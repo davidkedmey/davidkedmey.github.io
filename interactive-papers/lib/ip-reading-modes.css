@@ -71,6 +71,9 @@ body.mode-clean article { overflow-anchor: none; }
   user-select: none;
   transition: background 0.15s;
 }
+.cloze-blank * {
+  color: inherit;
+}
 .cloze-blank:hover {
   background: var(--blank-hover);
 }
