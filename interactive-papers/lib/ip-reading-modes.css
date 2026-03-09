@@ -125,6 +125,19 @@ body.mode-clean article { overflow-anchor: none; }
 .cloze-bar-dot-user.active {
   border-style: solid;
 }
+.cloze-bar-add {
+  font-size: 0.6rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  border-style: dashed;
+}
+.cloze-bar-add:hover {
+  opacity: 1;
+  color: var(--btn-active-text);
+}
 .cloze-bar-label {
   font-size: 0.7rem;
   color: var(--text-dim);

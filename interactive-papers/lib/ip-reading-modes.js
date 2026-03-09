@@ -267,6 +267,14 @@
       dotWrap.appendChild(dot);
       dots.push(dot);
     });
+
+    // "+" dot to save a new pattern
+    var addDot = document.createElement('button');
+    addDot.className = 'cloze-bar-dot cloze-bar-add';
+    addDot.textContent = '+';
+    addDot.title = 'Save current blanks as a new pattern';
+    dotWrap.appendChild(addDot);
+
     bar.appendChild(dotWrap);
 
     // Right arrow
@@ -281,13 +289,7 @@
     label.className = 'cloze-bar-label';
     bar.appendChild(label);
 
-    // Save + Clear buttons
-    var saveBtn = document.createElement('button');
-    saveBtn.className = 'cloze-bar-btn';
-    saveBtn.textContent = 'Save';
-    saveBtn.style.display = 'none';
-    bar.appendChild(saveBtn);
-
+    // Clear button
     var clearBtn = document.createElement('button');
     clearBtn.className = 'cloze-bar-btn';
     clearBtn.textContent = 'Clear';
@@ -297,7 +299,7 @@
     // Insert bar above the paragraph
     paraEl.parentNode.insertBefore(bar, paraEl);
 
-    var state = { bar: bar, activeIdx: -1, patterns: patterns, dots: dots, label: label, paraEl: paraEl, saveBtn: saveBtn, clearBtn: clearBtn };
+    var state = { bar: bar, activeIdx: -1, patterns: patterns, dots: dots, label: label, paraEl: paraEl, clearBtn: clearBtn };
     activeBars[pid] = state;
 
     function lockScroll(fn) {
@@ -318,7 +320,6 @@
         label.textContent = patterns[idx].label;
         applyPattern(paraEl, patterns[idx].blanks);
       });
-      saveBtn.style.display = 'none';
       clearBtn.style.display = '';
     }
 
@@ -352,16 +353,21 @@
       selectPattern(next);
     });
 
-    saveBtn.addEventListener('click', function (e) {
+    addDot.addEventListener('click', function (e) {
       e.stopPropagation();
       var blanks = extractBlanks(paraEl);
-      if (!blanks.length) return;
+      if (!blanks.length) {
+        // Nothing blanked — deselect so user can start tapping words
+        deselect();
+        label.textContent = 'Tap words to blank, then +';
+        return;
+      }
       var user = loadUserPatterns();
       if (!user[pid]) user[pid] = [];
       user[pid].push({ blanks: blanks, created: Date.now() });
       saveUserPatterns(user);
-      saveBtn.textContent = 'Saved!';
-      setTimeout(function () { saveBtn.textContent = 'Save'; renderAllBars(); }, 800);
+      addDot.textContent = '\u2713';
+      setTimeout(function () { addDot.textContent = '+'; renderAllBars(); }, 600);
     });
 
     clearBtn.addEventListener('click', function (e) {
@@ -370,12 +376,10 @@
     });
   }
 
-  function showSaveOnBar(paraEl) {
-    // Show save button on the bar for this paragraph if it has unsaved blanks
+  function showClearOnBar(paraEl) {
     var pid = paraEl.id;
     if (!activeBars[pid]) return;
     var hasBlanks = paraEl.querySelector('.cloze-blank');
-    activeBars[pid].saveBtn.style.display = hasBlanks ? '' : 'none';
     activeBars[pid].clearBtn.style.display = hasBlanks ? '' : 'none';
   }
 
@@ -437,7 +441,7 @@
       var p = r.startContainer;
       while (p && p.nodeType !== 1) p = p.parentNode;
       if (p) p = p.closest('p[id^="p"]');
-      if (p) showSaveOnBar(p);
+      if (p) showClearOnBar(p);
     }, 10);
   };
 
@@ -445,7 +449,7 @@
     if (current !== 'clean') return;
     setTimeout(function () {
       Object.keys(activeBars).forEach(function (pid) {
-        showSaveOnBar(activeBars[pid].paraEl);
+        showClearOnBar(activeBars[pid].paraEl);
       });
     }, 50);
   });
