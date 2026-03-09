@@ -113,6 +113,11 @@
     var p = e.target.closest && e.target.closest('article p[id^="p"]');
     if (!p) return;
 
+    // Only allow blanking when drafting or editing
+    var pid = p.id;
+    var barState = pid && activeBars[pid];
+    if (!barState || (!barState.isDrafting() && !barState.isEditing())) return;
+
     // Don't blank if user is selecting text (drag-select)
     var sel = window.getSelection();
     if (sel && !sel.isCollapsed) return;
@@ -132,7 +137,13 @@
     var range = sel.getRangeAt(0);
     var container = range.commonAncestorContainer;
     while (container && container.nodeType !== 1) container = container.parentNode;
-    if (!container || !(container.closest && container.closest('article p[id^="p"]'))) return;
+    var para = container && container.closest && container.closest('article p[id^="p"]');
+    if (!para) return;
+
+    // Only allow blanking when drafting or editing
+    var pid = para.id;
+    var barState = pid && activeBars[pid];
+    if (!barState || (!barState.isDrafting() && !barState.isEditing())) return;
 
     e.preventDefault();
     blankRange(range);
@@ -317,7 +328,7 @@
 
     var editing = false; // true when editing an existing pattern
     var editingIdx = -1; // which pattern is being edited
-    var state = { bar: bar, activeIdx: -1, patterns: patterns, dots: dots, label: label, paraEl: paraEl, clearBtn: clearBtn, isEditing: function () { return editing; } };
+    var state = { bar: bar, activeIdx: -1, patterns: patterns, dots: dots, label: label, paraEl: paraEl, clearBtn: clearBtn, isEditing: function () { return editing; }, isDrafting: function () { return drafting; } };
     activeBars[pid] = state;
 
     function lockScroll(fn) {
@@ -443,7 +454,9 @@
 
     addDot.addEventListener('click', function (e) {
       e.stopPropagation();
-      if (editing) { finishEdit(); renderAllBars(); return; }
+      // Discard unsaved edit (consistent with arrows/dots)
+      editing = false;
+      editingIdx = -1;
       startDraft();
     });
 
