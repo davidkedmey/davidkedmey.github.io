@@ -177,3 +177,36 @@ body.mode-clean article { overflow-anchor: none; }
 .cloze-bar-btn + .cloze-bar-btn {
   margin-left: 4px;
 }
+
+/* ── Question highlights ── */
+.q-highlight {
+  background: rgba(126, 231, 135, 0.15);
+  border-bottom: 1.5px solid var(--accent2);
+  border-radius: 2px;
+  padding: 1px 0;
+}
+.cloze-bar-dot-question {
+  border-color: var(--accent2);
+}
+.cloze-bar-dot-question.active {
+  background: var(--accent2);
+  border-color: var(--accent2);
+}
+
+/* ── Question input ── */
+.cloze-bar-input {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  margin-left: 4px;
+  flex: 1;
+  min-width: 120px;
+}
+.cloze-bar-input:focus {
+  border-color: var(--accent2);
+}

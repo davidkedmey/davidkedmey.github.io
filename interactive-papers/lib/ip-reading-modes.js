@@ -150,9 +150,17 @@
     sel.removeAllRanges();
   });
 
-  // Clear blanks when leaving clean mode
+  // Clear blanks and highlights when leaving clean mode
   document.addEventListener('ip:modechange', function (e) {
-    if (e.detail.mode !== 'clean') clearAllBlanks();
+    if (e.detail.mode !== 'clean') {
+      clearAllBlanks();
+      document.querySelectorAll('.q-highlight').forEach(function (span) {
+        var parent = span.parentNode;
+        while (span.firstChild) parent.insertBefore(span.firstChild, span);
+        parent.removeChild(span);
+        parent.normalize();
+      });
+    }
   });
 
   // ── Pattern save/load (Clean mode worksheets) ──
@@ -183,12 +191,34 @@
     return seeds.concat(userPats);
   }
 
-  // Which paragraphs have patterns?
+  // ── Question save/load ──
+
+  var QUESTIONS_KEY = 'ip_questions_' + paperId;
+
+  function loadQuestions() {
+    try { return JSON.parse(localStorage.getItem(QUESTIONS_KEY)) || {}; }
+    catch (e) { return {}; }
+  }
+
+  function saveAllQuestions(qs) {
+    localStorage.setItem(QUESTIONS_KEY, JSON.stringify(qs));
+  }
+
+  function getQuestionsForPara(pid) {
+    var qs = loadQuestions();
+    return (qs[pid] || []).map(function (q, i) {
+      return { text: q.text, charIndex: q.charIndex, question: q.question, created: q.created };
+    });
+  }
+
+  // Which paragraphs have patterns or questions?
   function parasWithPatterns() {
     var pids = {};
     Object.keys(seedPatterns).forEach(function (k) { if (seedPatterns[k].length) pids[k] = true; });
     var user = loadUserPatterns();
     Object.keys(user).forEach(function (k) { if (user[k].length) pids[k] = true; });
+    var qs = loadQuestions();
+    Object.keys(qs).forEach(function (k) { if (qs[k].length) pids[k] = true; });
     return Object.keys(pids);
   }
 
@@ -236,6 +266,59 @@
     });
   }
 
+  // ── Highlight helpers (for questions) ──
+
+  function clearHighlights(paraEl) {
+    paraEl.querySelectorAll('.q-highlight').forEach(function (span) {
+      var parent = span.parentNode;
+      while (span.firstChild) parent.insertBefore(span.firstChild, span);
+      parent.removeChild(span);
+      parent.normalize();
+    });
+  }
+
+  function applyHighlight(paraEl, hl) {
+    clearHighlights(paraEl);
+    var startChar = hl.charIndex;
+    var endChar = startChar + hl.text.length;
+    var pos = 0;
+    var walker = document.createTreeWalker(paraEl, NodeFilter.SHOW_TEXT);
+    var node;
+    var toWrap = [];
+    while (node = walker.nextNode()) {
+      var nodeStart = pos;
+      var nodeEnd = pos + node.textContent.length;
+      if (nodeEnd > startChar && nodeStart < endChar) {
+        toWrap.push({
+          node: node,
+          start: Math.max(0, startChar - nodeStart),
+          end: Math.min(node.textContent.length, endChar - nodeStart)
+        });
+      }
+      pos = nodeEnd;
+    }
+    for (var i = toWrap.length - 1; i >= 0; i--) {
+      var w = toWrap[i];
+      var range = document.createRange();
+      range.setStart(w.node, w.start);
+      range.setEnd(w.node, w.end);
+      var span = document.createElement('span');
+      span.className = 'q-highlight';
+      range.surroundContents(span);
+    }
+  }
+
+  function getCharIndex(paraEl, textNode, offset) {
+    var pos = 0;
+    var walker = document.createTreeWalker(paraEl, NodeFilter.SHOW_TEXT);
+    var node;
+    while (node = walker.nextNode()) {
+      if (node === textNode) return pos + offset;
+      pos += node.textContent.length;
+    }
+    return -1;
+  }
+
   // ── Pattern bar (horizontal dots above paragraph) ──
   var activeBars = {}; // pid → { bar, activeIdx }
 
@@ -243,7 +326,14 @@
     var paraEl = document.getElementById(pid);
     if (!paraEl) return;
     var patterns = getAllPatterns(pid);
-    if (!patterns.length) return;
+    var questions = getQuestionsForPara(pid);
+    if (!patterns.length && !questions.length) return;
+
+    // Build unified items array: patterns then questions
+    var items = [];
+    patterns.forEach(function (p, i) { items.push({ type: 'pattern', typeIdx: i, data: p }); });
+    questions.forEach(function (q, i) { items.push({ type: 'question', typeIdx: i, data: q }); });
+    var patternCount = patterns.length;
 
     // Remove old bar if any
     if (activeBars[pid] && activeBars[pid].bar.parentNode) {
@@ -258,28 +348,40 @@
     var leftArr = document.createElement('button');
     leftArr.className = 'cloze-bar-arrow';
     leftArr.textContent = '\u25C0';
-    leftArr.setAttribute('aria-label', 'Previous pattern');
+    leftArr.setAttribute('aria-label', 'Previous');
     bar.appendChild(leftArr);
 
     // Dots
     var dotWrap = document.createElement('div');
     dotWrap.className = 'cloze-bar-dots';
     var dots = [];
-    patterns.forEach(function (pat, idx) {
+    items.forEach(function (item, idx) {
       var dot = document.createElement('button');
-      dot.className = 'cloze-bar-dot' + (pat.seed ? '' : ' cloze-bar-dot-user');
-      dot.title = pat.label;
+      if (item.type === 'pattern') {
+        dot.className = 'cloze-bar-dot' + (item.data.seed ? '' : ' cloze-bar-dot-user');
+        dot.title = item.data.label;
+      } else {
+        dot.className = 'cloze-bar-dot cloze-bar-dot-question';
+        dot.title = item.data.question || 'Question';
+      }
       dot.dataset.idx = idx;
       dotWrap.appendChild(dot);
       dots.push(dot);
     });
 
-    // "+" dot to save a new pattern
+    // "+" for new pattern
     var addDot = document.createElement('button');
     addDot.className = 'cloze-bar-dot cloze-bar-add';
     addDot.textContent = '+';
-    addDot.title = 'Save current blanks as a new pattern';
+    addDot.title = 'New cloze pattern';
     dotWrap.appendChild(addDot);
+
+    // "Q+" for new question
+    var addQ = document.createElement('button');
+    addQ.className = 'cloze-bar-dot cloze-bar-add';
+    addQ.textContent = 'Q+';
+    addQ.title = 'New question';
+    dotWrap.appendChild(addQ);
 
     bar.appendChild(dotWrap);
 
@@ -287,7 +389,7 @@
     var rightArr = document.createElement('button');
     rightArr.className = 'cloze-bar-arrow';
     rightArr.textContent = '\u25B6';
-    rightArr.setAttribute('aria-label', 'Next pattern');
+    rightArr.setAttribute('aria-label', 'Next');
     bar.appendChild(rightArr);
 
     // Label
@@ -323,19 +425,29 @@
     clearBtn.style.display = 'none';
     bar.appendChild(clearBtn);
 
+    // Question input (hidden until asking mode)
+    var qInput = document.createElement('input');
+    qInput.type = 'text';
+    qInput.className = 'cloze-bar-input';
+    qInput.placeholder = 'Type your question\u2026';
+    qInput.style.display = 'none';
+    bar.appendChild(qInput);
+
     // Insert bar above the paragraph
     paraEl.parentNode.insertBefore(bar, paraEl);
 
     // ── State machine ──
-    // Modes: 'idle' | 'viewing' | 'drafting' | 'editing'
+    // Modes: 'idle' | 'viewing' | 'drafting' | 'editing' | 'asking'
     var mode = 'idle';
     var draftDot = null;
+    var pendingHighlight = null; // stored selection for asking mode
 
     var state = {
-      bar: bar, activeIdx: -1, patterns: patterns, dots: dots,
+      bar: bar, activeIdx: -1, items: items, dots: dots,
       label: label, paraEl: paraEl, clearBtn: clearBtn,
       isEditing: function () { return mode === 'editing'; },
       isDrafting: function () { return mode === 'drafting'; },
+      isAsking: function () { return mode === 'asking'; },
       getMode: function () { return mode; }
     };
     activeBars[pid] = state;
@@ -350,6 +462,11 @@
       });
     }
 
+    function clearPara() {
+      paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
+      clearHighlights(paraEl);
+    }
+
     // Clean up current mode before transitioning
     function exitMode() {
       if (mode === 'drafting' && draftDot) {
@@ -359,13 +476,19 @@
       if (mode === 'editing' && state.activeIdx >= 0 && dots[state.activeIdx]) {
         dots[state.activeIdx].classList.remove('cloze-bar-draft');
       }
+      if (mode === 'asking') {
+        pendingHighlight = null;
+        qInput.value = '';
+      }
     }
 
     // Set button visibility + label for a mode (one place, no scattering)
     function applyModeUI() {
-      var pat = (state.activeIdx >= 0 && state.activeIdx < patterns.length)
-        ? patterns[state.activeIdx] : null;
-      var isUser = pat && !pat.seed;
+      var item = (state.activeIdx >= 0 && state.activeIdx < items.length)
+        ? items[state.activeIdx] : null;
+      var canDelete = item && ((item.type === 'pattern' && !item.data.seed) || item.type === 'question');
+
+      qInput.style.display = 'none';
 
       if (mode === 'idle') {
         editBtn.style.display = 'none';
@@ -374,11 +497,15 @@
         clearBtn.style.display = 'none';
         label.textContent = '';
       } else if (mode === 'viewing') {
-        editBtn.style.display = '';
+        editBtn.style.display = item && item.type === 'pattern' ? '' : 'none';
         saveBtn.style.display = 'none';
-        deleteBtn.style.display = isUser ? '' : 'none';
+        deleteBtn.style.display = canDelete ? '' : 'none';
         clearBtn.style.display = '';
-        label.textContent = pat ? pat.label : '';
+        if (item && item.type === 'pattern') {
+          label.textContent = item.data.label || '';
+        } else if (item && item.type === 'question') {
+          label.textContent = item.data.question || '';
+        }
       } else if (mode === 'drafting') {
         editBtn.style.display = 'none';
         saveBtn.style.display = '';
@@ -390,7 +517,15 @@
         saveBtn.style.display = '';
         deleteBtn.style.display = 'none';
         clearBtn.style.display = '';
+        var pat = item ? item.data : null;
         label.textContent = (pat && pat.seed ? 'Editing (will save as new)' : 'Editing') + '\u2026';
+      } else if (mode === 'asking') {
+        editBtn.style.display = 'none';
+        saveBtn.style.display = '';
+        deleteBtn.style.display = 'none';
+        clearBtn.style.display = '';
+        qInput.style.display = '';
+        label.textContent = 'Select text\u2026';
       }
     }
 
@@ -403,21 +538,27 @@
         state.activeIdx = -1;
         lockScroll(function () {
           dots.forEach(function (d) { d.classList.remove('active'); });
-          paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
+          clearPara();
         });
 
       } else if (newMode === 'viewing') {
         state.activeIdx = idx;
+        var item = items[idx];
         lockScroll(function () {
           dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
-          applyPattern(paraEl, patterns[idx].blanks);
+          clearPara();
+          if (item.type === 'pattern') {
+            applyPattern(paraEl, item.data.blanks);
+          } else if (item.type === 'question') {
+            applyHighlight(paraEl, item.data);
+          }
         });
 
       } else if (newMode === 'drafting') {
         state.activeIdx = -1;
         lockScroll(function () {
           dots.forEach(function (d) { d.classList.remove('active'); });
-          paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
+          clearPara();
         });
         draftDot = document.createElement('button');
         draftDot.className = 'cloze-bar-dot cloze-bar-draft active';
@@ -425,33 +566,79 @@
 
       } else if (newMode === 'editing') {
         state.activeIdx = idx;
+        var editItem = items[idx];
         lockScroll(function () {
           dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
-          applyPattern(paraEl, patterns[idx].blanks);
+          clearPara();
+          applyPattern(paraEl, editItem.data.blanks);
         });
         dots[idx].classList.add('cloze-bar-draft');
+
+      } else if (newMode === 'asking') {
+        state.activeIdx = -1;
+        pendingHighlight = null;
+        lockScroll(function () {
+          dots.forEach(function (d) { d.classList.remove('active'); });
+          clearPara();
+        });
+        qInput.focus();
       }
 
       applyModeUI();
     }
 
+    // Capture text selection during asking mode
+    paraEl.addEventListener('mouseup', function () {
+      if (mode !== 'asking') return;
+      var sel = window.getSelection();
+      if (!sel || sel.isCollapsed || !sel.rangeCount) return;
+      var range = sel.getRangeAt(0);
+      // Verify selection is in this paragraph
+      var container = range.commonAncestorContainer;
+      while (container && container !== paraEl) container = container.parentNode;
+      if (!container) return;
+
+      var text = sel.toString().trim();
+      if (!text) return;
+      var charIdx = getCharIndex(paraEl, range.startContainer, range.startOffset);
+      if (charIdx < 0) return;
+
+      pendingHighlight = { text: text, charIndex: charIdx };
+      clearHighlights(paraEl);
+      applyHighlight(paraEl, pendingHighlight);
+      sel.removeAllRanges();
+      label.textContent = 'Selected \u2014 type your question\u2026';
+    });
+
     // Persist current work to localStorage
     function saveCurrentWork() {
+      if (mode === 'asking') {
+        if (!pendingHighlight || !qInput.value.trim()) return false;
+        var qs = loadQuestions();
+        if (!qs[pid]) qs[pid] = [];
+        qs[pid].push({
+          text: pendingHighlight.text,
+          charIndex: pendingHighlight.charIndex,
+          question: qInput.value.trim(),
+          created: Date.now()
+        });
+        saveAllQuestions(qs);
+        return true;
+      }
+
       var blanks = extractBlanks(paraEl);
       if (!blanks.length) return false;
 
       if (mode === 'editing') {
-        var pat = patterns[state.activeIdx];
-        if (pat.seed) {
-          // Fork seed as new user pattern
+        var item = items[state.activeIdx];
+        if (item.data.seed) {
           var user = loadUserPatterns();
           if (!user[pid]) user[pid] = [];
           user[pid].push({ blanks: blanks, created: Date.now() });
           saveUserPatterns(user);
         } else {
-          // Update user pattern in place
           var seedCount = (seedPatterns[pid] || []).length;
-          var userIdx = state.activeIdx - seedCount;
+          var userIdx = item.typeIdx - seedCount;
           var user = loadUserPatterns();
           if (user[pid] && user[pid][userIdx]) {
             user[pid][userIdx].blanks = blanks;
@@ -483,14 +670,14 @@
     leftArr.addEventListener('click', function (e) {
       e.stopPropagation();
       var base = (mode === 'viewing' || mode === 'editing') ? state.activeIdx : 0;
-      var next = base <= 0 ? patterns.length - 1 : base - 1;
+      var next = base <= 0 ? items.length - 1 : base - 1;
       enterMode('viewing', next);
     });
 
     rightArr.addEventListener('click', function (e) {
       e.stopPropagation();
       var base = (mode === 'viewing' || mode === 'editing') ? state.activeIdx : -1;
-      var next = base >= patterns.length - 1 ? 0 : base + 1;
+      var next = base >= items.length - 1 ? 0 : base + 1;
       enterMode('viewing', next);
     });
 
@@ -499,9 +686,15 @@
       enterMode('drafting');
     });
 
+    addQ.addEventListener('click', function (e) {
+      e.stopPropagation();
+      enterMode('asking');
+    });
+
     editBtn.addEventListener('click', function (e) {
       e.stopPropagation();
       if (mode !== 'viewing' || state.activeIdx < 0) return;
+      if (items[state.activeIdx].type !== 'pattern') return;
       enterMode('editing', state.activeIdx);
     });
 
@@ -513,25 +706,34 @@
     deleteBtn.addEventListener('click', function (e) {
       e.stopPropagation();
       if (mode !== 'viewing' || state.activeIdx < 0) return;
-      var pat = patterns[state.activeIdx];
-      if (pat.seed) return;
+      var item = items[state.activeIdx];
       var prevIdx = state.activeIdx > 0 ? state.activeIdx - 1 : 0;
-      var seedCount = (seedPatterns[pid] || []).length;
-      var userIdx = state.activeIdx - seedCount;
-      var user = loadUserPatterns();
-      if (user[pid]) {
-        user[pid].splice(userIdx, 1);
-        if (!user[pid].length) delete user[pid];
-        saveUserPatterns(user);
+
+      if (item.type === 'pattern') {
+        if (item.data.seed) return;
+        var seedCount = (seedPatterns[pid] || []).length;
+        var userIdx = item.typeIdx - seedCount;
+        var user = loadUserPatterns();
+        if (user[pid]) {
+          user[pid].splice(userIdx, 1);
+          if (!user[pid].length) delete user[pid];
+          saveUserPatterns(user);
+        }
+      } else if (item.type === 'question') {
+        var qs = loadQuestions();
+        if (qs[pid]) {
+          qs[pid].splice(item.typeIdx, 1);
+          if (!qs[pid].length) delete qs[pid];
+          saveAllQuestions(qs);
+        }
       }
-      // Clear blanks before rebuild so old pattern doesn't persist
-      paraEl.querySelectorAll('.cloze-blank').forEach(revealBlank);
+
+      clearPara();
       renderAllBars();
-      // Select the previous dot on the rebuilt bar
       setTimeout(function () {
         var newBar = activeBars[pid];
-        if (newBar && newBar.patterns.length) {
-          var selectIdx = Math.min(prevIdx, newBar.patterns.length - 1);
+        if (newBar && newBar.items.length) {
+          var selectIdx = Math.min(prevIdx, newBar.items.length - 1);
           newBar.dots[selectIdx].click();
         }
       }, 0);
@@ -541,6 +743,9 @@
       e.stopPropagation();
       enterMode('idle');
     });
+
+    // Prevent qInput clicks from bubbling to document click handler
+    qInput.addEventListener('click', function (e) { e.stopPropagation(); });
   }
 
   function renderAllBars() {
@@ -579,7 +784,7 @@
     if (!best) best = pids[0];
 
     var state = activeBars[best];
-    var n = state.patterns.length;
+    var n = state.items.length;
     if (!n) return;
 
     var idx;
