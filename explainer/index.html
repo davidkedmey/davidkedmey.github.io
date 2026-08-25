@@ -38,6 +38,18 @@
       z-index: 200;
     }
 
+    .site-nav {
+      display: flex;
+      gap: 18px;
+      padding: 10px 20px;
+      border-bottom: 1px solid #1c2430;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: .8rem;
+      align-self: stretch;
+    }
+    .site-nav a { color: #6a8a9a; text-decoration: none; }
+    .site-nav a:hover { color: #a8d8a8; }
+
     .header h1 {
       font-family: "SF Mono", "Fira Code", monospace;
       font-size: 1.1rem;
@@ -525,6 +537,14 @@
 </head>
 <body>
 
+  <nav class="site-nav">
+    <a href="../">Hub</a>
+    <a href="../breed.html">Breed</a>
+    <a href="../bloom/">Bloom</a>
+    <a href="../museum.html">Museum</a>
+    <a href="../dawkins-paper/">Read</a>
+  </nav>
+
   <div class="header">
     <h1>Illustrated Explanation</h1>
     <div class="header-center">
@@ -534,7 +554,6 @@
     </div>
     <div class="header-nav">
       <span class="header-step" id="header-step">1 / 14</span>
-      <a class="hub-link" href="../">Hub</a>
     </div>
   </div>
 
@@ -1700,9 +1719,8 @@ const steps = [
     text: '',
     phases: [
       { type: 'overlay', html: `<div class="dawkins-quote">"I was genuinely astonished and delighted at the richness of morphological types that emerged before my eyes..."<span class="quote-attr">— Dawkins, <em>The Evolution of Evolvability</em> (1988)</span></div>`, reveal: true },
-      { type: 'illustration' },
-      { type: 'overlay', html: `<div class="step-title">This is a biomorph</div>`, reveal: false },
-      { type: 'overlay', html: `<div class="step-title">This is a biomorph</div><div class="step-text">A digital creature built entirely from <em>9 numbers</em>. No artist drew this — a simple algorithm read 9 numbers and drew every line you see. Let's find out how.</div>`, reveal: false },
+      { type: 'illustration', text: `<div class="step-title">This is a biomorph</div>` },
+      { type: 'illustration', text: `<div class="step-title">This is a biomorph</div><div class="step-text">A digital creature built entirely from <em>9 numbers</em>. No artist drew this — a simple algorithm read 9 numbers and drew every line you see. Let's find out how.</div>` },
     ],
   },
 
@@ -2036,16 +2054,16 @@ const steps = [
 
 // ── Phase system ──
 // Each step has phases derived from its properties:
-// - quoteOverlay → quote phase (3B1B reveal)
-// - text → text phase (overlay, no reveal)
-// - always → illustration phase (canvas + controls, no text)
+// - quoteOverlay → quote phase (3B1B reveal); the only overlay type —
+//   section-transition quotes cover the screen, ordinary text never does
+// - always → illustration phase (canvas + controls, step text below)
+// A phase may carry its own `text` to override the step's text below the drawing.
 function buildPhases(s) {
   if (s.phases) return s.phases;
   const phases = [];
   if (s.quoteOverlay) {
     phases.push({ type: 'overlay', html: `<div class="dawkins-quote">${s.quoteOverlay}</div>`, reveal: true });
   }
-  phases.push({ type: 'overlay', html: s.text.trim(), reveal: false });
   phases.push({ type: 'illustration' });
   return phases;
 }
@@ -2055,14 +2073,17 @@ function enterPhase(phase) {
   cancelReveal();
   hideQuoteOverlay();
 
-  const phases = buildPhases(steps[currentStep]);
+  const s = steps[currentStep];
+  const phases = buildPhases(s);
   const p = phases[phase];
 
   if (p.type === 'overlay') {
     showQuoteOverlay(p.html, p.reveal, 30);
     $buttonBar.style.display = 'none';
   } else {
-    // Illustration: show buttons
+    // Illustration: step text below the drawing, buttons visible
+    document.getElementById('body-row').innerHTML =
+      p.text !== undefined ? p.text : (s.text || '').trim();
     const hasToggles = $toggles.style.display !== 'none';
     const hasButtons = $buttonBar.querySelector('.btn');
     $buttonBar.style.display = (hasToggles || hasButtons) ? 'flex' : 'none';
@@ -2082,6 +2103,7 @@ function goTo(step, phase = 0) {
   cancelReveal();
   hideQuoteOverlay();
   currentStep = step;
+  history.replaceState(null, '', '#' + (step + 1));
   $hs.textContent = `${step + 1} / ${steps.length}`;
   $dots.querySelectorAll('.step-dot').forEach((d, i) => d.classList.toggle('active', i === step));
 
@@ -2102,7 +2124,7 @@ function goTo(step, phase = 0) {
   s.setup();
   draw();
 
-  // Never show text in the old text-panel/body-row — all text goes through overlay
+  // Clear text areas; enterPhase fills body-row for illustration phases
   $tp.innerHTML = '';
   document.getElementById('body-row').innerHTML = '';
 
@@ -2238,9 +2260,19 @@ $canvasCol.appendChild($buttonBar);
 $buttonBar.appendChild($toggles);
 buildAllSliders();
 
-// ── Initial step count in header ──
+// ── Start at the step named in the URL hash (#1 … #14), if any ──
 
-goTo(0);
+function stepFromHash() {
+  const n = parseInt(location.hash.slice(1));
+  return isNaN(n) ? 0 : Math.min(steps.length - 1, Math.max(0, n - 1));
+}
+
+window.addEventListener('hashchange', () => {
+  const n = stepFromHash();
+  if (n !== currentStep) goTo(n);
+});
+
+goTo(stepFromHash());
 
 </script>
 </body>
