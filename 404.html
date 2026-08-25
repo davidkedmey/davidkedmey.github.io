@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page not found — Biomorph Builder</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #0a0e14;
+      color: #d4dce6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+    }
+    h1 { font-size: 2rem; color: #c8e6c8; margin-bottom: 10px; }
+    p { color: #8a9aaa; line-height: 1.6; max-width: 480px; margin-bottom: 6px; }
+    canvas { display: block; margin: 26px auto; }
+    .links { margin-top: 18px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+    .links a {
+      display: inline-block;
+      padding: 9px 22px;
+      border: 1px solid #3a5a4a;
+      border-radius: 6px;
+      color: #a8d8a8;
+      font-size: 0.9rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .links a:hover { background: #1a2a22; }
+    .note {
+      margin-top: 22px;
+      font-size: 0.78rem;
+      color: #4a5a6a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <h1>No page at this address</h1>
+  <p>It may have moved to the Workshop when the front page was reorganised, or the link may be misspelled.</p>
+  <canvas id="c" width="300" height="220"></canvas>
+  <div class="links">
+    <a href="/">Front page</a>
+    <a href="/workshop.html">Workshop</a>
+    <a href="/breed.html">Breeder</a>
+  </div>
+  <p class="note" id="note"></p>
+  <script type="module">
+    import { drawTree, randomInteresting } from '/shared/genotype.js';
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const genes = randomInteresting(1);
+    const lines = drawTree(genes);
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const s of lines) {
+      minX = Math.min(minX, s.x0, s.x1); maxX = Math.max(maxX, s.x0, s.x1);
+      minY = Math.min(minY, s.y0, s.y1); maxY = Math.max(maxY, s.y0, s.y1);
+    }
+    const bw = maxX - minX || 1, bh = maxY - minY || 1, pad = 14;
+    const scale = Math.min((canvas.width - pad * 2) / bw, (canvas.height - pad * 2) / bh);
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    const ox = (minX + maxX) / 2, oy = (minY + maxY) / 2;
+    const maxD = Math.max(...lines.map(s => s.depth));
+    for (const s of lines) {
+      const t = maxD > 1 ? (s.depth - 1) / (maxD - 1) : 0;
+      ctx.strokeStyle = `hsl(${120 + t * 60}, 50%, ${40 + t * 25}%)`;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(cx + (s.x0 - ox) * scale, cy + (s.y0 - oy) * scale);
+      ctx.lineTo(cx + (s.x1 - ox) * scale, cy + (s.y1 - oy) * scale);
+      ctx.stroke();
+    }
+    document.getElementById('note').textContent =
+      `While you're here: a randomly generated biomorph, genes [${genes.join(', ')}].`;
+  </script>
+</body>
+</html>
