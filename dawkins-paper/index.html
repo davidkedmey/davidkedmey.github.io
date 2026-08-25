@@ -1670,6 +1670,8 @@
   .fc-rate-good:hover { background: rgba(88,166,255,0.1); }
   .fc-rate-easy { color: #3fb950; border-color: #3fb95040; }
   .fc-rate-easy:hover { background: #3fb95015; }
+  .fc-rate-skip { color: var(--text-dim); border-color: var(--border); }
+  .fc-rate-skip:hover { background: rgba(128,128,128,0.1); }
   .fc-study-btn {
     display: block;
     width: 100%;
@@ -5762,6 +5764,7 @@ if (document.body.classList.contains('mode-multimedia') || document.body.classLi
       '<button class="fc-rate-again">Again</button>' +
       '<button class="fc-rate-good">Good</button>' +
       '<button class="fc-rate-easy">Easy</button>' +
+      '<button class="fc-rate-skip">Skip</button>' +
     '</div>';
   document.body.appendChild(studyPop);
 
@@ -5776,6 +5779,9 @@ if (document.body.classList.contains('mode-multimedia') || document.body.classLi
   });
   studyPop.querySelector('.fc-rate-easy').addEventListener('click', function() {
     if (studyPopoverCardObj) rateCard(studyPopoverCardObj, 'easy');
+  });
+  studyPop.querySelector('.fc-rate-skip').addEventListener('click', function() {
+    if (studyPopoverCardObj) skipCard();
   });
 
   function enterStudy() {
@@ -5950,6 +5956,16 @@ if (document.body.classList.contains('mode-multimedia') || document.body.classLi
     updateStudyBanner();
 
     // Advance to next or show completion
+    scrollToNextDue();
+  }
+
+  function skipCard() {
+    // Remove skipped card from the due queue so it won't reappear this session
+    if (studyPopoverCardObj) {
+      dueQueue = dueQueue.filter(function(c) { return c.id !== studyPopoverCardObj.id; });
+    }
+    hideStudyPopover();
+    updateStudyBanner();
     scrollToNextDue();
   }
 

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Explainer Storyboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #1a1a2e; color: #e0e0e0; padding: 40px 20px;
+  }
+  h1 { text-align: center; margin-bottom: 10px; color: #fff; font-size: 1.6rem; }
+  .subtitle { text-align: center; color: #888; margin-bottom: 40px; font-size: 0.9rem; }
+  .slide-grid {
+    max-width: 640px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr; gap: 24px;
+  }
+  .slide {
+    background: #0d1117; border: 1px solid #2a3444; border-radius: 10px;
+    overflow: hidden;
+  }
+  .slide-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 16px; background: #161b22; border-bottom: 1px solid #2a3444;
+    font-size: 0.75rem;
+  }
+  .slide-num {
+    font-weight: 600; font-size: 0.65rem;
+    padding: 2px 8px; border-radius: 10px; white-space: nowrap; text-transform: uppercase;
+    background: transparent; border: 1px solid;
+  }
+  .slide-num.overlay { border-color: #1f6feb; color: #5a9af5; }
+  .slide-num.illustration { border-color: #238636; color: #4aad5a; }
+  .slide-num.quote { border-color: #8b5cf6; color: #a87df7; }
+  .slide-meta { color: #8b949e; font-size: 0.75rem; }
+  .slide-step { color: #58a6ff; font-weight: 600; }
+
+  /* 16:9 slide body */
+  .slide-body {
+    aspect-ratio: 16 / 9;
+    padding: 24px 32px;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center; flex-direction: column; gap: 12px;
+    position: relative; overflow: hidden;
+  }
+  .slide-body.is-overlay { background: rgba(15, 20, 30, 0.95); }
+  .slide-body.is-illustration { background: #0a0e14; }
+  .slide-body.is-quote { background: rgba(20, 15, 35, 0.95); }
+
+  /* Canvas inside illustration slides */
+  .slide-body canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+  }
+  .illust-caption {
+    position: relative; z-index: 1;
+    background: rgba(0,0,0,0.6); padding: 4px 12px; border-radius: 6px;
+    font-size: 0.7rem; color: #6a8a6a; align-self: flex-end; margin-top: auto;
+  }
+
+  /* Text content */
+  .slide-body .dawkins-quote {
+    font-style: italic; font-size: 1.05rem; color: #9aacba; line-height: 1.9; max-width: 520px;
+  }
+  .slide-body .quote-attr {
+    display: block; margin-top: 10px; font-size: 0.8rem; color: #6a7a8a; font-style: normal;
+  }
+  .slide-body .step-title {
+    font-family: "SF Mono", "Fira Code", monospace; font-size: 1.05rem;
+    color: #c8e6c8; font-weight: 600;
+  }
+  .slide-body .step-text {
+    font-size: 0.9rem; line-height: 1.8; color: #aab8c8; max-width: 520px;
+  }
+  .slide-body .step-text em { color: #c8e6c8; font-style: normal; font-weight: 600; }
+
+  /* Step dividers */
+  .step-divider {
+    max-width: 640px; margin: 8px auto;
+    border: none; border-top: 2px solid #333;
+  }
+  .step-label {
+    max-width: 640px; margin: 0 auto 8px;
+    color: #58a6ff; font-size: 0.85rem; font-weight: 600;
+    padding-left: 4px;
+  }
+  .legend {
+    max-width: 640px; margin: 0 auto 30px; display: flex; gap: 20px;
+    justify-content: center; flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #8b949e; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 5px; }
+  .legend-dot.quote { background: #8b5cf6; }
+  .legend-dot.overlay { background: #1f6feb; }
+  .legend-dot.illustration { background: #238636; }
+</style>
+</head>
+<body>
+
+<h1>Explainer Storyboard</h1>
+<p class="subtitle">Every phase the user clicks through. Edit sequence, text, or grouping — I'll update the real explainer.</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot quote"></div> Dawkins quote</div>
+  <div class="legend-item"><div class="legend-dot overlay"></div> Text overlay</div>
+  <div class="legend-item"><div class="legend-dot illustration"></div> Illustration</div>
+</div>
+
+<div class="slide-grid" id="slides"></div>
+
+<div style="text-align: center; padding: 60px 20px; color: #555; font-size: 0.85rem;">
+  Total: 14 steps, ~33 phases
+</div>
+
+<script type="module">
+import { drawTree, defineVectors } from '../shared/genotype.js';
+
+// ── Render biomorph to a canvas ──
+function renderBiomorph(canvas, genes, opts = {}) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const w = rect.width || 640;
+  const h = rect.height || 360;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const lines = drawTree(genes);
+  if (!lines.length) return;
+
+  // Segments
+  const segs = (genes.length > 9 && genes[9] > 1) ? genes[9] : 1;
+  const segDist = (genes.length > 10) ? genes[10] : 6;
+  const grad1 = (genes.length > 12) ? genes[11] : 0;
+  const grad2 = (genes.length > 12) ? genes[12] : 0;
+
+  // Bounding box across all segments
+  let allPts = [];
+  for (let s = 0; s < segs; s++) {
+    const offY = s * segDist * 6;
+    const scale1 = 1 + (grad1 * s) / (segs || 1) * 0.1;
+    const scale2 = 1 + (grad2 * s) / (segs || 1) * 0.1;
+    for (const l of lines) {
+      const sx = (l.x0 + l.x1) / 2 > 0 ? scale1 : scale2;
+      allPts.push({ x: l.x0 * sx, y: l.y0 + offY });
+      allPts.push({ x: l.x1 * sx, y: l.y1 + offY });
+    }
+  }
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const p of allPts) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const bw = maxX - minX || 1;
+  const bh = maxY - minY || 1;
+  const pad = 30;
+  const scale = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh);
+  const cx = w / 2 - (minX + maxX) / 2 * scale;
+  const cy = h / 2 - (minY + maxY) / 2 * scale;
+
+  ctx.strokeStyle = '#44cc66';
+  ctx.lineWidth = 1.5;
+  ctx.lineCap = 'round';
+
+  for (let s = 0; s < segs; s++) {
+    const offY = s * segDist * 6;
+    const scale1 = 1 + (grad1 * s) / (segs || 1) * 0.1;
+    const scale2 = 1 + (grad2 * s) / (segs || 1) * 0.1;
+    const alpha = segs > 1 ? 0.5 + 0.5 * (1 - s / segs) : 1;
+    ctx.globalAlpha = alpha;
+    for (const l of lines) {
+      const sx = (l.x0 + l.x1) / 2 > 0 ? scale1 : scale2;
+      ctx.beginPath();
+      ctx.moveTo(l.x0 * sx * scale + cx, (l.y0 + offY) * scale + cy);
+      ctx.lineTo(l.x1 * sx * scale + cx, (l.y1 + offY) * scale + cy);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ── Slide data ──
+const slides = [
+  // Step 0 — The Hook
+  { step: 0, label: 'The Hook' },
+  { type: 'quote', step: 0, html: `"I was genuinely astonished and delighted at the richness of morphological types that emerged before my eyes..."<span class="quote-attr">— Dawkins, <em>The Evolution of Evolvability</em> (1988)</span>` },
+  { type: 'illustration', step: 0, genes: [-4, 5, -2, 3, -6, 4, 7, -3, 7], caption: 'Biomorph appears alone — no text, no controls' },
+  { type: 'overlay', step: 0, html: `<div class="step-title">This is a biomorph</div>` },
+  { type: 'overlay', step: 0, html: `<div class="step-title">This is a biomorph</div><div class="step-text">A digital creature built entirely from <em>9 numbers</em>. No artist drew this — a simple algorithm read 9 numbers and drew every line you see. Let's find out how.</div>` },
+
+  // Step 1 — Meet the Turtle
+  { step: 1, label: 'Meet the Turtle' },
+  { type: 'overlay', step: 1, html: `<div class="step-title">Meet the turtle</div><div class="step-text">The algorithm works like a <em>turtle</em> with a pen. It starts at a point and walks in a direction, drawing a line behind it.<br><br>That's it. One turtle, one direction, one line. Everything else builds on this.</div>` },
+  { type: 'illustration', step: 1, genes: [0, 0, 0, 5, 0, 0, 0, 0, 1], caption: 'Turtle animation — single line' },
+
+  // Step 2 — The Stem
+  { step: 2, label: 'The Stem' },
+  { type: 'overlay', step: 2, html: `<div class="step-title">The stem</div><div class="step-text"><em>Gene 1</em> controls how far the turtle walks — the height of the central stem.</div>` },
+  { type: 'illustration', step: 2, genes: [0, 0, 0, 5, 0, 0, 0, 0, 1], caption: 'Gene 1 slider active · "Show all values" button' },
+
+  // Step 3 — Walk and Split
+  { step: 3, label: 'Walk and Split' },
+  { type: 'overlay', step: 3, html: `<div class="step-title">Walk and split</div><div class="step-text">When the turtle reaches the end of the stem, it <em>clones itself into two children</em>. Watch: one walks left, then one walks right — always mirrored.<br><br><em>Gene 2</em> controls how far apart they spread.</div>` },
+  { type: 'illustration', step: 3, genes: [5, 0, 0, 3, 0, 0, 0, 0, 2], caption: 'Gene 1 + Gene 2 sliders · "Show all spreads" button' },
+
+  // Step 4 — Angled Branches
+  { step: 4, label: 'Angled Branches' },
+  { type: 'overlay', step: 4, html: `<div class="step-title">Angled branches</div><div class="step-text">So far the branches go straight sideways. <em>Gene 3</em> tilts them — it adds a vertical component.<br><br>Gene 2 says how far sideways. Gene 3 says how far up or down. The branch follows the diagonal — the dotted lines show the two components.<br><br>Set Gene 3 to <em>negative</em> and the branches droop downward instead.</div>` },
+  { type: 'illustration', step: 4, genes: [5, 4, 0, 3, 0, 0, 0, 0, 2], caption: 'Gene 1–3 sliders · Branch annotation dotted lines' },
+
+  // Step 5 — Turtles All the Way Down
+  { step: 5, label: 'Turtles All the Way Down' },
+  { type: 'overlay', step: 5, html: `<div class="step-title">Turtles all the way down</div><div class="step-text">Each child turtle reaches its endpoint and <em>splits again</em>. And those children split again. <em>Depth</em> controls how many generations of splitting.<br><br>At depth 3, tips fork. At depth 4, those forks fork. The tree grows exponentially — 2 branches become 6, then 14, then 30.</div>` },
+  { type: 'illustration', step: 5, genes: [4, 3, 0, 3, 0, 0, 0, 0, 5], caption: 'Gene 1–3 + Depth sliders' },
+
+  // Step 6 — Each Level Gets Its Own Direction
+  { step: 6, label: 'Each Level Gets Its Own Direction' },
+  { type: 'overlay', step: 6, html: `<div class="step-title">Each level gets its own direction</div><div class="step-text">Here's the key: each <em>generation</em> of turtles walks in a <em>different direction</em>. The first turtle uses Gene 1 (the stem). Its children use Genes 2+3 (inner branches). Their children use Genes 4+5 (middle). The next generation uses Genes 6+7 (outer).<br><br>That's why 8 direction genes exist — to give each depth level its own character.</div>` },
+  { type: 'illustration', step: 6, genes: [4, 3, -2, 3, 4, -3, 2, -2, 5], caption: 'All 8 gene sliders · Depth 5' },
+
+  // Step 7 — The Trunk
+  { step: 7, label: 'The Trunk' },
+  { type: 'overlay', step: 7, html: `<div class="step-title">The trunk</div><div class="step-text">One more direction: <em>Gene 8</em> draws a trunk — or tail, or root — extending downward from the starting point. It also appears deep in the branching tree when levels wrap around.<br><br>That gives us <em>9 genes total</em>: 8 directions plus depth. The complete recipe for a biomorph.</div>` },
+  { type: 'illustration', step: 7, genes: [4, 3, -2, 3, 4, -3, 2, -2, 5], caption: 'All 9 sliders · Gene 8 highlighted' },
+
+  // Step 8 — Nine Genes, Billions of Forms
+  { step: 8, label: 'Nine Genes, Billions of Forms' },
+  { type: 'quote', step: 8, html: `"Genes don't control small fragments of the body, the equivalent of pixels. Genes exert global growing rules, developmental processes, and embryological algorithms."<span class="quote-attr">— Dawkins, p. 206</span>` },
+  { type: 'overlay', step: 8, html: `<div class="step-title">Nine genes, billions of forms</div><div class="step-text">This is the basic Dawkins system. Every combination of 9 numbers produces a different creature. With each gene ranging from −9 to 9 and depth from 1 to 8, that's over <em>46 million</em> possible genotypes.</div>` },
+  { type: 'illustration', step: 8, genes: [-4, 5, -2, 3, -6, 4, 7, -3, 7], caption: 'All 9 sliders · Autoplay + Random · Free exploration' },
+
+  // Step 9 — The Problem with Trees
+  { step: 9, label: 'The Problem with Trees' },
+  { type: 'quote', step: 9, html: `"Not all evolutionary watersheds are as dramatic in their magnitude or in their consequences as the invention of segmentation."<span class="quote-attr">— Dawkins, p. 217</span>` },
+  { type: 'overlay', step: 9, html: `<div class="step-title">The problem with trees</div><div class="step-text">With 9 genes you can make insects, ferns, spiders, foxes — but they're all <em>single branching trees</em>. Real animals have <em>repeating segments</em>: vertebrae, ribs, legs along a body.<br><br>Dawkins realized he needed a new embryological trick to get there.</div>` },
+  { type: 'illustration', step: 9, genes: [-4, 5, -2, 3, -6, 4, 7, -3, 7], caption: 'Same biomorph — impressive but limited to tree topology' },
+
+  // Step 10 — Segments
+  { step: 10, label: 'Segments' },
+  { type: 'overlay', step: 10, html: `<div class="step-title">Segments</div><div class="step-text">New gene: <em>Segments</em>. It repeats the entire tree body plan multiple times, stacked vertically — like vertebrae along a spine.</div>` },
+  { type: 'illustration', step: 10, genes: [3, -2, 1, 5, -3, 4, -1, 2, 4, 5, 6], caption: 'Segments slider highlighted' },
+
+  // Step 11 — Spacing
+  { step: 11, label: 'Spacing' },
+  { type: 'overlay', step: 11, html: `<div class="step-title">Spacing</div><div class="step-text">New gene: <em>Spacing</em>. It controls the distance between segments.<br><br>Small spacing = compact caterpillar. Large spacing = stretched centipede.</div>` },
+  { type: 'illustration', step: 11, genes: [3, -2, 1, 5, -3, 4, -1, 2, 4, 5, 6], caption: 'Spacing slider highlighted' },
+
+  // Step 12 — Gradients
+  { step: 12, label: 'Gradients' },
+  { type: 'quote', step: 12, html: `"The segments of a millipede may all look pretty much the same, but many segmented animals taper, being broader at the front and narrower at the back."<span class="quote-attr">— Dawkins, p. 212</span>` },
+  { type: 'overlay', step: 12, html: `<div class="step-title">Gradients</div><div class="step-text">A caterpillar's segments aren't all identical. A crab's front claws differ from its back legs. <em>Grad 1</em> and <em>Grad 2</em> make the branch pattern <em>change gradually</em> from segment to segment.</div>` },
+  { type: 'illustration', step: 12, genes: [3, -2, 1, 5, -3, 4, -1, 2, 4, 5, 6, 4, -2], caption: 'Grad 1 + Grad 2 sliders highlighted' },
+
+  // Step 13 — The Full System
+  { step: 13, label: 'The Full Dawkins System' },
+  { type: 'quote', step: 13, html: `"I am talking about a kind of higher-level selection, a selection not for survivability but for <em>evolvability</em>."<span class="quote-attr">— Dawkins, p. 217</span>` },
+  { type: 'overlay', step: 13, html: `<div class="step-title">The full Dawkins system</div><div class="step-text"><em>13 genes + symmetry options</em>. That's the complete toolkit from the 1988 paper. 9 direction genes, depth, segments, spacing, and two gradients.<br><br>Try <em>radial</em> symmetry — it copies the whole creature around a circle, like a starfish or sea urchin. The number of arms equals the segment count.</div>` },
+  { type: 'illustration', step: 13, genes: [-3, 4, -2, 5, -4, 3, 2, -1, 6, 4, 5, 3, -2], caption: 'All 13 sliders · Symmetry toggles · Links' },
+];
+
+// ── Build DOM ──
+const $grid = document.getElementById('slides');
+let phase = 0;
+const canvases = [];
+
+for (const s of slides) {
+  if (s.label !== undefined && s.type === undefined) {
+    // Step divider
+    if (s.step > 0) {
+      const hr = document.createElement('hr');
+      hr.className = 'step-divider';
+      $grid.appendChild(hr);
+    }
+    const lbl = document.createElement('div');
+    lbl.className = 'step-label';
+    lbl.textContent = `Step ${s.step} — ${s.label}`;
+    $grid.appendChild(lbl);
+    continue;
+  }
+
+  phase++;
+  const slide = document.createElement('div');
+  slide.className = 'slide';
+
+  const typeLabel = s.type === 'quote' ? 'Quote' : s.type === 'overlay' ? 'Text' : 'Illustration';
+  const typeClass = s.type;
+
+  slide.innerHTML = `
+    <div class="slide-header">
+      <span class="slide-num ${typeClass}">${phase} · ${typeLabel}</span>
+      <span class="slide-meta"><span class="slide-step">Step ${s.step}</span>${s.caption ? ' · ' + s.caption : ''}</span>
+    </div>
+    <div class="slide-body is-${typeClass}">
+      ${s.type === 'illustration' ? '<canvas></canvas><div class="illust-caption">' + (s.caption || '') + '</div>' : ''}
+      ${s.type === 'quote' ? '<div class="dawkins-quote">' + s.html + '</div>' : ''}
+      ${s.type === 'overlay' ? s.html : ''}
+    </div>
+  `;
+  $grid.appendChild(slide);
+
+  if (s.type === 'illustration') {
+    const canvas = slide.querySelector('canvas');
+    canvases.push({ canvas, genes: s.genes });
+  }
+}
+
+// ── Render all canvases after layout ──
+requestAnimationFrame(() => {
+  for (const { canvas, genes } of canvases) {
+    renderBiomorph(canvas, genes);
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Workshop — Biomorph Builder</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background:#0a0e14; color:#d4dce6; min-height:100vh;
+  }
+  .site-nav {
+    display:flex; gap:18px; padding:10px 20px; border-bottom:1px solid #1c2430;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.8rem;
+  }
+  .site-nav a { color:#6a8a9a; text-decoration:none; }
+  .site-nav a:hover { color:#a8d8a8; }
+
+  .wrap { max-width:860px; margin:0 auto; padding:44px 24px 70px; }
+  h1 { font-size:2rem; color:#c8e6c8; margin-bottom:12px; }
+  .lede { color:#93a3b3; line-height:1.65; margin-bottom:38px; max-width:640px; }
+
+  h2 {
+    font-size:.78rem; color:#7fa88c; text-transform:uppercase; letter-spacing:.09em;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+    border-bottom:1px solid #1c2430; padding-bottom:7px; margin:34px 0 4px;
+  }
+  h2:first-of-type { margin-top:0; }
+  .group-note {
+    color:#5a6a7a; font-size:.82rem; margin:10px 0 6px; line-height:1.55;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+
+  ul { list-style:none; }
+  li a {
+    display:flex; gap:14px; align-items:baseline; flex-wrap:wrap;
+    padding:11px 10px; margin:0 -10px;
+    border-radius:7px; text-decoration:none; color:inherit;
+    border-bottom:1px solid #141b25;
+  }
+  li a:hover { background:#111721; }
+  li a .name { color:#c8e6c8; font-size:1rem; flex:0 0 auto; min-width:230px; }
+  li a:hover .name { color:#a8d8a8; }
+  li a .what {
+    color:#7a8a9a; font-size:.85rem; line-height:1.5; flex:1 1 300px;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+
+  footer {
+    margin-top:46px; padding-top:20px; border-top:1px solid #1c2430;
+    color:#4a5a6a; font-size:.82rem; line-height:1.7;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  footer a { color:#6a8a9a; text-decoration:none; }
+
+  @media (max-width:620px) {
+    li a .name { min-width:0; flex:1 1 100%; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="./">Hub</a>
+  <a href="breed.html">Breed</a>
+  <a href="bloom/">Bloom</a>
+  <a href="museum.html">Museum</a>
+  <a href="dawkins-paper/">Read</a>
+</nav>
+
+<div class="wrap">
+  <h1>Workshop</h1>
+  <p class="lede">
+    Everything built along the way that is not one of the seven experiences on the front page.
+    Some of these are finished and simply narrow; others are half-built and left where they
+    stopped. They are all live, and none of them is maintained.
+  </p>
+
+  <h2>Experiments</h2>
+  <p class="group-note">Working tools and simulations, each answering one question.</p>
+  <ul>
+    <li><a href="genome/"><span class="name">Genome</span><span class="what">Inspect and edit every gene with a live preview of the creature it makes.</span></a></li>
+    <li><a href="search.html"><span class="name">Gene Search</span><span class="what">Upload a target shape; a genetic algorithm evolves a genotype toward it.</span></a></li>
+    <li><a href="colony/"><span class="name">Colony</span><span class="what">A population evolving with no one selecting. Clusters form and lineages drift.</span></a></li>
+    <li><a href="planet/"><span class="name">Planet</span><span class="what">Five biomes with five selection pressures, driving the same starting population apart.</span></a></li>
+    <li><a href="3d/locomotion.html"><span class="name">Locomotion</span><span class="what">A physics arena where a creature's shape decides whether it walks, crawls or slithers.</span></a></li>
+    <li><a href="expedition/"><span class="name">Expedition</span><span class="what">Collecting and trading rare biomorphs against AI collectors.</span></a></li>
+  </ul>
+
+  <h2>Prototypes</h2>
+  <p class="group-note">
+    Attempts at embryologies beyond the five in the paper. Most of what worked here was folded
+    back into the mode tabs in <a href="breed.html" style="color:#7a9aba">Breed</a>.
+  </p>
+  <ul>
+    <li><a href="prototype-buds.html"><span class="name">Buds</span><span class="what">First try at growth points that can sprout new structure.</span></a></li>
+    <li><a href="prototype-buds-v2.html"><span class="name">Buds v2</span><span class="what">Segmented body plans.</span></a></li>
+    <li><a href="prototype-buds-v3.html"><span class="name">Buds v3</span><span class="what">Full body plans, the version that became a mode tab.</span></a></li>
+    <li><a href="prototype-exploratory.html"><span class="name">Exploratory Growth</span><span class="what">Structure that grows toward something rather than following a fixed rule.</span></a></li>
+    <li><a href="prototype-mustard.html"><span class="name">Mustard Plant Principle</span><span class="what">One gene switching a whole developmental program on or off.</span></a></li>
+    <li><a href="demo-bones.html"><span class="name">Homologous Bones</span><span class="what">The same underlying skeleton showing through creatures that look unrelated.</span></a></li>
+    <li><a href="storyboard.html"><span class="name">Zoom Storyboard</span><span class="what">Sketch of one continuous zoom from genome to organism to colony to planet.</span></a></li>
+    <li><a href="gallery-preview.html"><span class="name">Specimen Library</span><span class="what">Contact sheet of the saved specimen set.</span></a></li>
+  </ul>
+
+  <h2>Writing</h2>
+  <ul>
+    <li><a href="articles.html"><span class="name">Behind the Build</span><span class="what">Dev logs and writeups: how the tools were built, what the experiments showed, which puzzles took longest.</span></a></li>
+    <li><a href="how-we-built-this.html"><span class="name">Reverse-Engineering Dawkins</span><span class="what">Working out the 1988 program's actual rules from the paper and its binary save files.</span></a></li>
+  </ul>
+
+  <h2>Elsewhere in this repo</h2>
+  <p class="group-note">Built here, unrelated to biomorphs.</p>
+  <ul>
+    <li><a href="turing-paper/"><span class="name">On Computable Numbers</span><span class="what">Turing's 1936 paper as an interactive edition, with a machine you can run.</span></a></li>
+    <li><a href="interactive-papers/"><span class="name">Interactive Papers</span><span class="what">The shared reading surface those editions are built on.</span></a></li>
+    <li><a href="status/"><span class="name">Project Dashboard</span><span class="what">Build status across the whole repo.</span></a></li>
+  </ul>
+
+  <footer>
+    <a href="./">&larr; Back to the front page</a>
+  </footer>
+</div>
+
+</body>
+</html>

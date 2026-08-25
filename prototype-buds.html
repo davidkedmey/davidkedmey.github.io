@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Biomorph Buds — Prototype</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d1117; color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+    padding: 20px;
+  }
+  h1 { font-size: 1.4em; margin-bottom: 4px; }
+  .subtitle { color: #8b949e; font-size: 0.85em; margin-bottom: 16px; }
+  .breeding-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 8px;
+    width: min(90vw, 720px);
+    aspect-ratio: 1;
+    margin-bottom: 16px;
+  }
+  .cell {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+  .cell:hover { border-color: #58a6ff; }
+  .cell.parent {
+    border-color: #58a6ff;
+    background: #0d1117;
+    cursor: default;
+  }
+  .cell canvas { width: 100%; height: 100%; }
+  .gene-panel {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 16px; width: min(90vw, 720px);
+    margin-bottom: 12px;
+  }
+  .gene-panel h3 { font-size: 0.9em; margin-bottom: 8px; color: #58a6ff; }
+  .gene-row {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;
+  }
+  .gene-badge {
+    background: #21262d; border: 1px solid #30363d; border-radius: 4px;
+    padding: 2px 6px; font-size: 0.75em; font-family: 'SF Mono', monospace;
+    color: #8b949e;
+  }
+  .gene-badge .label { color: #58a6ff; }
+  .gene-badge .val { color: #e6edf3; }
+  .gene-badge.bud .label { color: #f0883e; }
+  .gene-badge.meta .label { color: #a5d6ff; }
+  .controls {
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+    margin-bottom: 12px;
+  }
+  button {
+    background: #21262d; border: 1px solid #30363d; color: #e6edf3;
+    border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 0.85em;
+  }
+  button:hover { border-color: #58a6ff; background: #30363d; }
+  button.active { border-color: #58a6ff; background: #1f3a5f; }
+  .info {
+    color: #8b949e; font-size: 0.8em; max-width: 720px; text-align: center;
+    line-height: 1.5;
+  }
+  .gen-label {
+    position: absolute; bottom: 4px; left: 0; right: 0;
+    text-align: center; font-size: 0.7em; color: #484f58;
+    pointer-events: none;
+  }
+  .legend {
+    display: flex; gap: 16px; margin-bottom: 12px; font-size: 0.8em;
+  }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend .swatch {
+    width: 12px; height: 12px; border-radius: 2px; display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<h1>Biomorph Buds — Recursive Body Plans</h1>
+<p class="subtitle">Hox-gene inspired developmental switching. Click an offspring to select it as parent.</p>
+
+<div class="legend">
+  <span><span class="swatch" style="background: #58a6ff;"></span> Trunk branches</span>
+  <span><span class="swatch" style="background: #f0883e;"></span> Bud branches</span>
+</div>
+
+<div class="breeding-grid" id="grid"></div>
+
+<div class="controls">
+  <button id="btn-random">Random</button>
+  <button id="btn-origin">Origin</button>
+  <button id="btn-interesting">Interesting</button>
+  <button id="btn-intensity-1" class="active">Gentle</button>
+  <button id="btn-intensity-2">Moderate</button>
+  <button id="btn-intensity-3">Wild</button>
+</div>
+
+<div class="gene-panel" id="gene-display"></div>
+
+<p class="info">
+  <strong>How it works:</strong> Each organism has two gene-groups — <em>trunk</em> (blue) and <em>bud</em> (orange) —
+  plus a <em>budTrigger</em> gene. When the recursive branching reaches the trigger depth, it switches from
+  trunk genes to bud genes for all remaining sub-branches. This is analogous to how Hox genes activate
+  different developmental programs at different positions along the body axis.
+  When budTrigger = 0, buds are inactive and you get a classic Dawkins biomorph.
+</p>
+
+<script>
+// ── Genome definition ───────────────────────────────────────
+
+const GENE_COUNT = 20;
+// Indices 0-8:  trunk genes (g1-g8, depth)
+// Indices 9-17: bud genes   (bg1-bg8, bDepth)
+// Index 18:     budTrigger (0 = off, 1..trunk_depth = switch depth)
+// Index 19:     budScale   (1-8, maps to 0.25x - 1.0x)
+
+const GENE_MIN = [-9,-9,-9,-9,-9,-9,-9,-9, 1,  -9,-9,-9,-9,-9,-9,-9,-9, 1,  0, 1];
+const GENE_MAX = [ 9, 9, 9, 9, 9, 9, 9, 9, 8,   9, 9, 9, 9, 9, 9, 9, 9, 8,  8, 8];
+
+const GENE_LABELS = [
+  'g1','g2','g3','g4','g5','g6','g7','g8','depth',
+  'bg1','bg2','bg3','bg4','bg5','bg6','bg7','bg8','bDepth',
+  'budTrigger','budScale'
+];
+
+// ── State ───────────────────────────────────────────────────
+
+let parentGenes = originGenotype();
+let generation = 0;
+let mutationIntensity = 1;
+
+// ── Genotype helpers ────────────────────────────────────────
+
+function originGenotype() {
+  const g = new Array(GENE_COUNT).fill(0);
+  g[8] = 1;   // trunk depth
+  g[17] = 1;  // bud depth
+  g[18] = 0;  // budTrigger off
+  g[19] = 4;  // budScale mid
+  return g;
+}
+
+function randomGenotype() {
+  return Array.from({ length: GENE_COUNT }, (_, i) =>
+    GENE_MIN[i] + Math.floor(Math.random() * (GENE_MAX[i] - GENE_MIN[i] + 1))
+  );
+}
+
+function randomInteresting() {
+  const g = new Array(GENE_COUNT);
+
+  // Trunk: depth 5-7 for enough levels to show both trunk and buds
+  g[8] = 5 + Math.floor(Math.random() * 3);
+  g[8] = Math.min(g[8], GENE_MAX[8]);
+
+  // Trunk direction genes: ensure at least 4 non-zero for visual interest
+  for (let i = 0; i < 8; i++) {
+    g[i] = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 4));
+    g[i] = Math.max(GENE_MIN[i], Math.min(GENE_MAX[i], g[i]));
+  }
+  // Zero out 2-3 genes for variety
+  const zeroCount = 2 + Math.floor(Math.random() * 2);
+  for (let z = 0; z < zeroCount; z++) {
+    g[Math.floor(Math.random() * 8)] = 0;
+  }
+
+  // Bud: depth 3-5, deliberately different direction genes
+  g[17] = 3 + Math.floor(Math.random() * 3);
+  g[17] = Math.min(g[17], GENE_MAX[17]);
+  for (let i = 9; i < 17; i++) {
+    g[i] = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 5));
+    g[i] = Math.max(GENE_MIN[i], Math.min(GENE_MAX[i], g[i]));
+  }
+  // Zero out 2-3 bud genes
+  for (let z = 0; z < zeroCount; z++) {
+    g[9 + Math.floor(Math.random() * 8)] = 0;
+  }
+
+  // Meta: trigger in the middle range so both trunk and buds are visible.
+  // Trigger should leave at least 2 levels of trunk visible.
+  const maxTrigger = Math.max(2, g[8] - 2);
+  const minTrigger = 2;
+  g[18] = minTrigger + Math.floor(Math.random() * (maxTrigger - minTrigger + 1));
+  g[19] = 3 + Math.floor(Math.random() * 4); // budScale 3-6 (38%-75%)
+
+  return g;
+}
+
+function mutate(genes) {
+  const child = genes.slice();
+  const i = Math.floor(Math.random() * GENE_COUNT);
+  const maxDelta = mutationIntensity;
+  const delta = (1 + Math.floor(Math.random() * maxDelta)) * (Math.random() < 0.5 ? -1 : 1);
+  child[i] = Math.max(GENE_MIN[i], Math.min(GENE_MAX[i], child[i] + delta));
+  return child;
+}
+
+// ── Embryology: drawTree with bud switching ─────────────────
+
+function defineVectors(genes, offset) {
+  const o = offset || 0;
+  const [g1, g2, g3, g4, g5, g6, g7, g8] = genes.slice(o, o + 8);
+  return [
+    null,
+    [-g3,  g7],
+    [-g2,  g6],
+    [-g1,  g5],
+    [  0,  g4],
+    [ g1,  g5],
+    [ g2,  g6],
+    [ g3,  g7],
+    [  0,  g8],
+  ];
+}
+
+function drawTreeWithBuds(genes) {
+  const trunkVectors = defineVectors(genes, 0);
+  const trunkDepth = genes[8];
+  const budVectors = defineVectors(genes, 9);
+  const budDepth = genes[17];
+  const budTrigger = genes[18]; // 0 = no buds
+  const budScaleRaw = genes[19];
+  const budScale = budScaleRaw / 8; // 0.125 to 1.0
+
+  const lines = [];
+
+  function recurse(i, c, x0, y0, isBud, scaleFactor) {
+    if (i === 0) i = 8;
+    else if (i === 9) i = 1;
+
+    const vectors = isBud ? budVectors : trunkVectors;
+    const v = vectors[i];
+    const x1 = x0 + c * v[0] * scaleFactor;
+    const y1 = y0 + c * v[1] * scaleFactor;
+    lines.push({ x0, y0, x1, y1, depth: c, isBud });
+
+    // Check for bud trigger BEFORE the c>1 gate.
+    // This way budTrigger=1 works: at the leaf level, instead of
+    // terminating, we spawn bud sub-trees (Hox gene activation).
+    if (!isBud && budTrigger > 0 && c === budTrigger) {
+      // SWITCH: Hox gene activation — start bud program here
+      if (budDepth > 0) {
+        recurseBud(i - 1, budDepth, x1, y1, budScale);
+        recurseBud(i + 1, budDepth, x1, y1, budScale);
+      }
+    } else if (c > 1) {
+      recurse(i - 1, c - 1, x1, y1, isBud, scaleFactor);
+      recurse(i + 1, c - 1, x1, y1, isBud, scaleFactor);
+    }
+  }
+
+  function recurseBud(i, c, x0, y0, scaleFactor) {
+    if (i === 0) i = 8;
+    else if (i === 9) i = 1;
+
+    const v = budVectors[i];
+    const x1 = x0 + c * v[0] * scaleFactor;
+    const y1 = y0 + c * v[1] * scaleFactor;
+    lines.push({ x0, y0, x1, y1, depth: c, isBud: true });
+
+    if (c > 1) {
+      recurseBud(i - 1, c - 1, x1, y1, scaleFactor);
+      recurseBud(i + 1, c - 1, x1, y1, scaleFactor);
+    }
+  }
+
+  recurse(4, trunkDepth, 0, 0, false, 1);
+  return lines;
+}
+
+// ── Rendering ───────────────────────────────────────────────
+
+function renderBiomorph(canvas, genes) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const lines = drawTreeWithBuds(genes);
+  if (lines.length === 0) return;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const seg of lines) {
+    minX = Math.min(minX, seg.x0, seg.x1);
+    maxX = Math.max(maxX, seg.x0, seg.x1);
+    minY = Math.min(minY, seg.y0, seg.y1);
+    maxY = Math.max(maxY, seg.y0, seg.y1);
+  }
+
+  const bw = maxX - minX || 1;
+  const bh = maxY - minY || 1;
+  const padding = 16;
+  const scale = Math.min((w - padding * 2) / bw, (h - padding * 2) / bh);
+  const cx = w / 2;
+  const cy = h / 2;
+  const offsetX = (minX + maxX) / 2;
+  const offsetY = (minY + maxY) / 2;
+
+  // Draw trunk lines (blue)
+  const trunkLines = lines.filter(s => !s.isBud);
+  const budLines = lines.filter(s => s.isBud);
+
+  ctx.lineCap = 'round';
+
+  if (trunkLines.length > 0) {
+    ctx.strokeStyle = '#58a6ff';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    for (const seg of trunkLines) {
+      ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
+      ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
+    }
+    ctx.stroke();
+  }
+
+  if (budLines.length > 0) {
+    ctx.strokeStyle = '#f0883e';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    for (const seg of budLines) {
+      ctx.moveTo(cx + (seg.x0 - offsetX) * scale, cy + (seg.y0 - offsetY) * scale);
+      ctx.lineTo(cx + (seg.x1 - offsetX) * scale, cy + (seg.y1 - offsetY) * scale);
+    }
+    ctx.stroke();
+  }
+}
+
+// ── Gene display ────────────────────────────────────────────
+
+function displayGenes(genes) {
+  const panel = document.getElementById('gene-display');
+  const trunkHTML = genes.slice(0, 9).map((v, i) =>
+    `<span class="gene-badge"><span class="label">${GENE_LABELS[i]}</span> <span class="val">${v}</span></span>`
+  ).join('');
+  const budHTML = genes.slice(9, 18).map((v, i) =>
+    `<span class="gene-badge bud"><span class="label">${GENE_LABELS[i + 9]}</span> <span class="val">${v}</span></span>`
+  ).join('');
+  const metaHTML = genes.slice(18).map((v, i) =>
+    `<span class="gene-badge meta"><span class="label">${GENE_LABELS[i + 18]}</span> <span class="val">${v}</span></span>`
+  ).join('');
+
+  panel.innerHTML = `
+    <h3>Trunk Genes</h3><div class="gene-row">${trunkHTML}</div>
+    <h3>Bud Genes (Hox-switched)</h3><div class="gene-row">${budHTML}</div>
+    <h3>Meta Genes</h3><div class="gene-row">${metaHTML}</div>
+    <div style="color:#484f58;font-size:0.75em;margin-top:4px;">Generation ${generation} · ${genes[18] === 0 ? 'Buds inactive' : 'Buds trigger at depth ' + genes[18]} · Bud scale ${(genes[19]/8*100).toFixed(0)}%</div>
+  `;
+}
+
+// ── Breeding grid ───────────────────────────────────────────
+
+const NUM_OFFSPRING = 8;
+
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+
+  // Create 9 cells: center = parent, rest = offspring
+  const cells = [];
+  for (let idx = 0; idx < 9; idx++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    const canvas = document.createElement('canvas');
+    canvas.width = 300;
+    canvas.height = 300;
+    cell.appendChild(canvas);
+    grid.appendChild(cell);
+    cells.push({ cell, canvas });
+  }
+
+  // Center cell (index 4) is parent
+  const parentIdx = 4;
+  cells[parentIdx].cell.classList.add('parent');
+  renderBiomorph(cells[parentIdx].canvas, parentGenes);
+
+  const label = document.createElement('div');
+  label.className = 'gen-label';
+  label.textContent = `Gen ${generation}`;
+  cells[parentIdx].cell.appendChild(label);
+
+  // Offspring
+  const offspringGenes = [];
+  for (let idx = 0; idx < 9; idx++) {
+    if (idx === parentIdx) { offspringGenes.push(null); continue; }
+    const child = mutate(parentGenes);
+    offspringGenes.push(child);
+    renderBiomorph(cells[idx].canvas, child);
+
+    cells[idx].cell.addEventListener('click', () => {
+      parentGenes = child;
+      generation++;
+      buildGrid();
+      displayGenes(parentGenes);
+    });
+  }
+
+  displayGenes(parentGenes);
+}
+
+// ── Controls ────────────────────────────────────────────────
+
+document.getElementById('btn-random').addEventListener('click', () => {
+  parentGenes = randomGenotype();
+  generation = 0;
+  buildGrid();
+});
+
+document.getElementById('btn-origin').addEventListener('click', () => {
+  parentGenes = originGenotype();
+  generation = 0;
+  buildGrid();
+});
+
+document.getElementById('btn-interesting').addEventListener('click', () => {
+  parentGenes = randomInteresting();
+  generation = 0;
+  buildGrid();
+});
+
+['btn-intensity-1', 'btn-intensity-2', 'btn-intensity-3'].forEach((id, i) => {
+  document.getElementById(id).addEventListener('click', () => {
+    mutationIntensity = i + 1;
+    document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    // Re-breed with new intensity
+    buildGrid();
+  });
+});
+
+// ── Init ────────────────────────────────────────────────────
+
+// Start with something interesting so the concept is immediately visible
+parentGenes = randomInteresting();
+buildGrid();
+
+</script>
+</body>
+</html>

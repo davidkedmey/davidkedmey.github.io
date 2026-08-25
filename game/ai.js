@@ -7,9 +7,9 @@ import { randomInteresting } from '../shared/genotype.js';
 import { sellPrice, buyPrice, generateShopStock } from './economy.js';
 import { breed } from './breeding.js';
 import { donate, recordSale, recordBreed, genotypeHash } from './collection.js';
-import { checkAndRegister, RARITY_LABELS } from './discovery.js';
+import { checkAndRegister } from './discovery.js';
 
-function aAn(word) { return /^[aeiou]/i.test(word) ? 'an' : 'a'; }
+
 import { harvestMaterials, addMaterialToInventory } from './materials.js';
 import { RECIPES, canCraft, executeCraft } from './crafting.js';
 import { getWildOrganism } from './wild.js';
@@ -409,10 +409,6 @@ function executeSell(state, personality, collection, gameState, registry, npc) {
     recordSale(collection, item);
     if (registry) {
       const result = checkAndRegister(registry, item, npc.id, gameState.day);
-      if (result.isNew) {
-        const rarity = RARITY_LABELS[result.rarity];
-        collection.notifications.push(`${npc.name} discovered ${aAn(rarity)} ${rarity} species!`);
-      }
     }
     state.inventory.splice(idx, 1);
   }
@@ -476,11 +472,7 @@ function executeBreed(state, personality, collection, registry, npc, gameState) 
 
   // Register offspring discovery
   if (registry && npc) {
-    const result = checkAndRegister(registry, pick, npc.id, gameState ? gameState.day : 0);
-    if (result.isNew) {
-      const rarity = RARITY_LABELS[result.rarity];
-      collection.notifications.push(`${npc.name} bred a new ${rarity} species!`);  // "a new" always works
-    }
+    checkAndRegister(registry, pick, npc.id, gameState ? gameState.day : 0);
   }
 
   // Remove parents (higher index first)
@@ -523,11 +515,7 @@ function executeDonate(state, collection, gameState, registry, npc) {
     const org = state.inventory.splice(idx, 1)[0];
     donate(collection, org, gameState.day);
     if (registry && npc) {
-      const result = checkAndRegister(registry, org, npc.id, gameState.day);
-      if (result.isNew) {
-        const rarity = RARITY_LABELS[result.rarity];
-        collection.notifications.push(`${npc.name} discovered ${aAn(rarity)} ${rarity} species!`);
-      }
+      checkAndRegister(registry, org, npc.id, gameState.day);
     }
   }
 }
@@ -545,11 +533,7 @@ function executeExplore(state, npc, task, wilds, registry, collection, gameState
   const row = Math.round((task.destY - TILE_SIZE / 2) / TILE_SIZE);
   const wildOrg = getWildOrganism(wilds, col, row);
   if (wildOrg && registry) {
-    const result = checkAndRegister(registry, wildOrg, npc.id, gameState.day);
-    if (result.isNew) {
-      const rarity = RARITY_LABELS[result.rarity];
-      collection.notifications.push(`${npc.name} discovered ${aAn(rarity)} ${rarity} species!`);
-    }
+    checkAndRegister(registry, wildOrg, npc.id, gameState.day);
   }
 }
 

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bloom — A Second Embryology</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background:#0a0e14; color:#d4dce6; min-height:100vh;
+  }
+  a { color:#7a9aba; }
+  .site-nav {
+    display:flex; gap:18px; padding:10px 20px;
+    border-bottom:1px solid #1c2430;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.8rem;
+  }
+  .site-nav a { color:#6a8a9a; text-decoration:none; }
+  .site-nav a:hover { color:#a8d8a8; }
+
+  header.intro { max-width:820px; margin:0 auto; padding:36px 24px 10px; }
+  header.intro h1 { font-size:2rem; color:#c8e6c8; margin-bottom:10px; }
+  header.intro p { color:#93a3b3; line-height:1.65; font-size:1rem; margin-bottom:12px; }
+  header.intro code {
+    font-family:ui-monospace, Menlo, monospace; font-size:.78rem;
+    color:#8fb89a; background:#111721; border:1px solid #1e2836;
+    border-radius:5px; padding:2px 5px;
+  }
+  header.intro h2.how {
+    font-size:.78rem; color:#7fa88c; text-transform:uppercase; letter-spacing:.09em;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+    border-bottom:1px solid #1c2430; padding-bottom:7px; margin:26px 0 12px;
+  }
+  ol.layers { margin:0 0 12px; padding-left:22px; }
+  ol.layers li { color:#93a3b3; line-height:1.65; margin-bottom:9px; }
+  ol.layers li b { color:#c8d8c8; font-weight:normal; }
+
+  .formula {
+    display:block; white-space:pre-wrap; word-break:break-all;
+    font-family:ui-monospace, Menlo, monospace; font-size:.72rem; line-height:1.5;
+    color:#7fa88c; background:#0e131b; border:1px solid #1e2836;
+    border-radius:7px; padding:10px 12px; margin:14px 0 4px;
+  }
+  .formula-note {
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:.75rem; color:#5a6a7a;
+  }
+
+  main {
+    display:flex; gap:32px; flex-wrap:wrap; justify-content:center;
+    max-width:1180px; margin:0 auto; padding:22px 24px 60px;
+  }
+
+  /* ── selection grid ─────────────────────────── */
+  .grid-col { flex:0 0 auto; }
+  #grid {
+    display:grid; grid-template-columns:repeat(3, 168px);
+    grid-template-rows:repeat(3, 168px); gap:9px;
+  }
+  .cell {
+    position:relative; border:1px solid #202a38; border-radius:9px;
+    overflow:hidden; cursor:pointer; background:#0a0e14;
+    transition:border-color .15s, transform .15s;
+  }
+  .cell canvas { display:block; width:100%; height:100%; }
+  .cell:hover { border-color:#4a7a5a; transform:translateY(-2px); }
+  .cell.parent { cursor:default; border-color:#4a6a5a; box-shadow:0 0 0 1px #2b4a38 inset; }
+  .cell.parent:hover { transform:none; }
+  .cell .tag {
+    position:absolute; left:7px; bottom:5px;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:.62rem; letter-spacing:.06em; text-transform:uppercase;
+    color:#54697d; pointer-events:none;
+  }
+  .cell.parent .tag { color:#8fc79a; }
+
+  .grid-caption {
+    margin-top:12px; color:#68788a; font-size:.82rem; line-height:1.5;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+    max-width:522px;
+  }
+
+  /* ── side panel ─────────────────────────────── */
+  .panel { flex:1 1 320px; max-width:380px; min-width:300px; }
+  .panel h2 {
+    font-size:1.02rem; color:#c8e6c8; margin:0 0 8px;
+    border-bottom:1px solid #1c2430; padding-bottom:6px;
+  }
+  .panel section { margin-bottom:26px; }
+
+  .compare { display:flex; gap:12px; }
+  .compare figure { flex:1; }
+  .compare canvas {
+    width:100%; aspect-ratio:1; display:block;
+    border:1px solid #202a38; border-radius:8px; background:#0a0e14;
+  }
+  .compare figcaption {
+    margin-top:6px; font-size:.72rem; color:#6a7a8a; text-align:center;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+
+  table.genes { width:100%; border-collapse:collapse; font-size:.76rem;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  table.genes th {
+    text-align:left; color:#5a6a7a; font-weight:normal; font-size:.66rem;
+    text-transform:uppercase; letter-spacing:.06em; padding:0 0 6px; border-bottom:1px solid #1c2430;
+  }
+  table.genes td { padding:4px 0; border-bottom:1px solid #141b25; color:#8a9aaa; }
+  table.genes td.name { color:#a8c8b0; width:52px; font-family:ui-monospace, Menlo, monospace; }
+  table.genes td.val  { color:#d4dce6; width:34px; text-align:right;
+    font-family:ui-monospace, Menlo, monospace; }
+  table.genes td.role { padding-left:12px; }
+  table.genes td.tree { color:#55677a; font-size:.7rem; }
+
+  .controls { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:12px; }
+  button, select {
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.78rem;
+    padding:6px 13px; border:1px solid #2a3444; border-radius:6px;
+    background:#12161e; color:#c8d8c8; cursor:pointer;
+  }
+  button:hover { background:#1a2a22; border-color:#4a6a5a; }
+  button:disabled { opacity:.35; cursor:default; }
+  button:disabled:hover { background:#12161e; border-color:#2a3444; }
+  label.ctl {
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+    font-size:.76rem; color:#7a8a9a; display:flex; align-items:center; gap:6px;
+  }
+
+  a.zoolink {
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.78rem;
+    padding:6px 13px; border:1px solid #2a3444; border-radius:6px;
+    color:#a8d8a8; text-decoration:none;
+  }
+  a.zoolink:hover { background:#1a2a22; border-color:#4a6a5a; }
+
+  #gallery-list { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:8px; }
+  #gallery-list img {
+    width:100%; aspect-ratio:1; border:1px solid #202a38; border-radius:5px;
+    cursor:pointer; background:#0a0e14;
+  }
+  #gallery-list img:hover { border-color:#4a7a5a; }
+  .empty {
+    font-size:.75rem; color:#55677a; margin-top:6px;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  #status {
+    font-size:.75rem; color:#7fa88c; min-height:1.1em; margin-top:6px;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+
+  footer {
+    text-align:center; padding:10px 24px 50px; color:#4a5a6a; font-size:.78rem;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.7;
+  }
+
+  @media (max-width:760px) {
+    #grid { grid-template-columns:repeat(3, minmax(0,1fr)); grid-template-rows:none; }
+    .cell { aspect-ratio:1; }
+    .grid-col { width:100%; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="../">Hub</a>
+  <a href="../breed.html">Breed</a>
+  <a href="../museum.html">Museum</a>
+  <a href="../explainer/">Explainer</a>
+  <a href="../dawkins-paper/">Read</a>
+  <a href="zoo.html">Zoo</a>
+</nav>
+
+<header class="intro">
+  <h1>Bloom</h1>
+  <p>
+    A biomorph is nine numbers and a rule for turning them into a form. Dawkins' rule
+    reads genes 1&ndash;8 as eight directions and gene 9 as how many times to branch.
+    This page keeps the same nine genes and swaps the rule.
+  </p>
+  <p>
+    Here the genes are the coefficients of a trigonometric generator: four of them shape a
+    cross-section, two lay out a backbone, one sets how big the cross-section is, one sets how
+    far the copies wrap around the body, and gene 9 &mdash; depth in the tree rule &mdash; sets
+    how many copies there are. Selection works the way it always does. The centre creature is
+    the parent, the eight around it each carry one mutation, and clicking one makes it the
+    parent of the next generation.
+  </p>
+
+  <h2 class="how">How the rule places a point</h2>
+  <p>
+    Nothing here is a creature model, and there is no randomness anywhere. Each frame plots
+    thousands of points, and every one of them is fixed exactly by three numbers: which sample
+    it is, which copy of the body it belongs to, and what time it is. A point's position is
+    three things added together.
+  </p>
+  <ol class="layers">
+    <li>
+      <b>A backbone.</b> One horizontal cycle for every four vertical ones, which makes a
+      closed curve with several lobes rather than an ellipse. The copies sit at points spaced
+      along it, and the lobes are what read as head, body and limbs.
+    </li>
+    <li>
+      <b>A cross-section.</b> A small shape built from four harmonics that beat against each
+      other, added at whichever point of the backbone a copy sits on. Because the frequencies
+      are related rather than arbitrary, the detail repeats without duplicating &mdash; which is
+      what tissue does and what random noise does not.
+    </li>
+    <li>
+      <b>A swelling factor.</b> The cross-section is multiplied by a number that runs between
+      1/d and d and never reaches zero, so the form expands and contracts without turning
+      inside out. Its phase depends on the local geometry, so neighbouring regions swell by
+      slightly different amounts instead of moving in lockstep.
+    </li>
+  </ol>
+  <p>
+    Three separate clocks run at once: the cross-section deforms quickly, a pulse travels along
+    the body at half that rate, and the whole form drifts around the backbone about fifty times
+    slower still. Each copy of the body gets its own offset into those clocks, so the pulse
+    arrives at one end before the other rather than the whole thing throbbing at once.
+  </p>
+  <p>
+    The image is a density map, not a line drawing. Points are plotted, not strokes, and where
+    many of them land on the same spot it reads as bright and solid; where few land it stays
+    wispy. The shading is just the count.
+  </p>
+  <code class="formula">a=(m,d=mag(k=9*cos(i*5)*sin(i),e=cos(i*3)*cos(i*2)*9)**3/1999+1.5-sin(t/2+m)**3/3)=&gt;point(99*sin(c=d/16-t/48+m)+k*(p=d**sin(d*d-t+m))+200,99*sin(c*4)+e*p+200)
+t=0,draw=$=&gt;{t||createCanvas(w=400,w);background(9).stroke(w,96);for(t+=PI/20,i=1e4;i--;)a(i%16*13)}</code>
+  <p class="formula-note">
+    The starting point: a p5.js sketch by
+    <a href="https://x.com/yuruyurau" target="_blank" rel="noopener">@yuruyurau</a>.
+    Every constant in it that could be a gene now is one.
+  </p>
+</header>
+
+<main>
+  <div class="grid-col">
+    <div id="grid"></div>
+    <p class="grid-caption">
+      Click any of the eight offspring to select it. Generation <span id="gen">0</span>.
+    </p>
+  </div>
+
+  <div class="panel">
+    <section>
+      <h2>One genotype, two rules</h2>
+      <div class="compare">
+        <figure>
+          <canvas id="cmp-tree" width="300" height="300"></canvas>
+          <figcaption>Tree rule</figcaption>
+        </figure>
+        <figure>
+          <canvas id="cmp-field" width="300" height="300"></canvas>
+          <figcaption>Field rule</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section>
+      <h2>Selection</h2>
+      <div class="controls">
+        <button id="btn-brood" title="Same parent, a fresh set of mutations">&#8635; New Brood</button>
+        <button id="btn-back" title="Return to the previous parent">&larr; Back</button>
+        <button id="btn-seed" title="Start over from a random genotype">Seed</button>
+      </div>
+      <div class="controls">
+        <label class="ctl">Mutation:
+          <select id="intensity">
+            <option value="1">Gentle</option>
+            <option value="2">Moderate</option>
+            <option value="3">Strong</option>
+          </select>
+        </label>
+        <label class="ctl">Motion:
+          <select id="speed">
+            <option value="0.03">Slow</option>
+            <option value="0.06" selected>Normal</option>
+            <option value="0.12">Fast</option>
+            <option value="0">Still</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Genotype</h2>
+      <table class="genes">
+        <thead>
+          <tr><th>Gene</th><th></th><th style="padding-left:12px">Field rule</th><th>Tree rule</th></tr>
+        </thead>
+        <tbody id="gene-rows"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Gallery</h2>
+      <div class="controls">
+        <button id="btn-save">Save this genotype</button>
+        <button id="btn-reload">Refresh list</button>
+        <a href="zoo.html" class="zoolink">Put them all in a zoo &rarr;</a>
+      </div>
+      <div id="gallery-list"></div>
+      <p class="empty" id="gallery-empty">Nothing saved yet. Specimens saved here also open in the breeder.</p>
+      <div id="status"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  Same genome as <a href="../breed.html">Breed</a> and <a href="../museum.html">Museum</a> &mdash;
+  specimens saved in either place open in the other.
+</footer>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

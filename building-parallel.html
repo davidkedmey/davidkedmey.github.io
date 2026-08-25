@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Parallel Problem — Biomorph Builder</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #0a0e14;
+      color: #d4dce6;
+      min-height: 100vh;
+      line-height: 1.7;
+    }
+
+    .site-nav {
+      display: flex;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #0d1117;
+      border-bottom: 1px solid #1a2030;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.8rem;
+    }
+    .site-nav a {
+      color: #8a9aaa;
+      text-decoration: none;
+      padding: 4px 10px;
+      border: 1px solid #2a3444;
+      border-radius: 4px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .site-nav a:hover {
+      color: #c8e6c8;
+      border-color: #4a6a5a;
+    }
+
+    .article {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: #c8e6c8;
+      margin-bottom: 8px;
+      line-height: 1.3;
+    }
+
+    .lead {
+      font-size: 1.05rem;
+      color: #8a9aaa;
+      font-style: italic;
+      margin-bottom: 32px;
+    }
+
+    h2 {
+      font-size: 1.35rem;
+      color: #c8e6c8;
+      margin: 40px 0 12px;
+      padding-top: 16px;
+      border-top: 1px solid #1a2434;
+    }
+
+    h3 {
+      font-size: 1.1rem;
+      color: #a0b8c8;
+      margin: 24px 0 8px;
+    }
+
+    p {
+      margin-bottom: 16px;
+      color: #b8c8d8;
+    }
+
+    a { color: #7a9aba; }
+    a:hover { color: #a8d8a8; }
+
+    strong { color: #d4dce6; }
+
+    code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      background: #12161e;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 0.88em;
+      color: #c8e6c8;
+    }
+
+    pre {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      border-radius: 8px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin: 12px 0 20px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: #b8c8d8;
+    }
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: inherit;
+    }
+
+    ol, ul {
+      margin: 8px 0 16px 24px;
+      color: #b8c8d8;
+    }
+    li { margin-bottom: 6px; }
+
+    blockquote {
+      border-left: 3px solid #3a5a4a;
+      padding: 12px 20px;
+      margin: 16px 0;
+      background: #0d1117;
+      border-radius: 0 6px 6px 0;
+      font-style: italic;
+      color: #8a9aaa;
+    }
+
+    .callout {
+      background: #12161e;
+      border: 1px solid #2a3444;
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 20px 0;
+    }
+    .callout-title {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 0.8rem;
+      color: #a8d8a8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 40px 24px;
+      color: #4a5a6a;
+      font-size: 0.8rem;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      border-top: 1px solid #1a2434;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .footer a { color: #6a8a9a; text-decoration: none; }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.6rem; }
+      .article { padding: 32px 16px 60px; }
+      pre { font-size: 0.75rem; padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <a href="./">Hub</a>
+  <a href="articles.html">Articles</a>
+  <a href="breed.html">Breed</a>
+  <a href="3d/">3D</a>
+</nav>
+
+<article class="article">
+
+  <h1>The Parallel Problem</h1>
+  <p class="lead">What happens when two AI instances edit the same codebase at the same time &mdash; and what I wish the tools would do about it.</p>
+
+  <h2>The Incident</h2>
+
+  <p>I was running two Claude Code instances on the Biomorph Builder repo. One was implementing a tiered level system for the farm game. The other was adding zoom controls that work across all levels. Both needed to edit <code>game/main.js</code> and <code>game/renderer.js</code>.</p>
+
+  <p>Everything was fine until commit time. Instance A staged its files and committed. Instance B, unaware of A's push, also committed &mdash; with a clean <code>git status</code> from its perspective. When B tried to push, it got rejected: the remote had moved. When A later amended a commit that was already pushed, it required a force push that could have overwritten B's work entirely.</p>
+
+  <p>Neither instance did anything wrong. Each followed its instructions, checked <code>git status</code>, made focused commits. The problem is structural: <strong>two agents sharing a working directory have no way to know what the other is doing</strong>.</p>
+
+  <h2>What Actually Goes Wrong</h2>
+
+  <p>The surface issue is merge conflicts, but that's the easy part. Git handles merge conflicts. The harder problems are:</p>
+
+  <ul>
+    <li><strong>Silent semantic conflicts.</strong> Instance A adds a <code>startLevel()</code> function that replaces <code>startNewGame()</code>. Instance B, working from stale context, calls <code>startNewGame()</code> in its new zoom code. Both commits are clean. The merge succeeds. The code is broken.</li>
+    <li><strong>Stale reads.</strong> Each instance reads a file at session start. If the other instance modifies that file mid-session, the first instance's mental model is wrong but it doesn't know.</li>
+    <li><strong>Amend/rebase hazards.</strong> Amending a pushed commit rewrites history. If you have two instances and one amends, the other's branch diverges silently. Force pushing is the only way out, and force pushing is destructive.</li>
+    <li><strong>Shared mutable state beyond git.</strong> Both instances share <code>localStorage</code> in the browser, the same dev server, the same terminal. One restarts the server; the other's test breaks.</li>
+  </ul>
+
+  <h2>What We Do Now</h2>
+
+  <p>Our <code>CLAUDE.md</code> file &mdash; which every Claude instance reads at session start &mdash; has a "Parallel Development" section with rules:</p>
+
+  <ol>
+    <li><strong>Check before editing:</strong> Run <code>git status</code> and <code>git diff --stat</code> to see if another instance has uncommitted changes to files you need.</li>
+    <li><strong>File ownership by role:</strong> The Game role owns <code>game/</code>, the Paper role owns <code>dawkins-paper/</code>, etc. If you're not the owner, don't touch it.</li>
+    <li><strong>Branch when overlapping:</strong> If two instances need the same files, one stays on <code>main</code>, the other branches.</li>
+    <li><strong>Pull before commit:</strong> Always <code>git pull</code> right before staging. This is the single most important rule and the one most often skipped.</li>
+    <li><strong>Never amend pushed commits:</strong> This rewrites history and creates force-push situations.</li>
+    <li><strong>Stage only your files:</strong> If <code>git status</code> shows changes you didn't make, leave them alone.</li>
+  </ol>
+
+  <p>This works <em>most</em> of the time. It fails when both instances touch the same file (like <code>main.js</code>, which is imported by everything), when commits happen close together in time, or when one instance forgets to pull.</p>
+
+  <h2>How Other Tools Handle This</h2>
+
+  <h3>Git Worktrees: The Current Consensus</h3>
+
+  <p>The industry has largely converged on <strong>git worktrees</strong> as the isolation mechanism. A worktree lets you check out multiple branches simultaneously in separate directories, all sharing the same <code>.git</code> database. Each AI agent gets its own directory, its own branch, its own working tree. They literally cannot see each other's uncommitted changes.</p>
+
+  <p>OpenAI's Codex App does this automatically &mdash; every agent thread gets its own worktree. Several community tools have appeared: <a href="https://github.com/nickarino/agentree">agentree</a>, <a href="https://github.com/nickarino/git-worktree-runner">git-worktree-runner</a>, <a href="https://nx.dev/blog/git-worktrees-ai-agents">worktree-cli</a>. Claude Code's own documentation recommends worktrees for manual parallel sessions.</p>
+
+  <p>Worktrees solve the <em>isolation</em> problem completely. What they don't solve is <em>coordination</em> &mdash; two agents in separate worktrees can still make conflicting architectural decisions, and someone has to merge their branches.</p>
+
+  <h3>Claude Code Agent Teams</h3>
+
+  <p>Anthropic ships an experimental feature called <a href="https://code.claude.com/docs/en/agent-teams">Agent Teams</a>. A "team lead" session spawns teammates, assigns tasks, and coordinates through a shared task list and mailbox system. Teammates claim tasks with file locking to prevent races.</p>
+
+  <p>This is the most ambitious built-in solution, but it's marked experimental. Known limitations: no session resumption for teammates, task status can lag, one team per session, no nested teams. It also uses 3-4x the tokens of a single session &mdash; the coordination overhead is real.</p>
+
+  <h3>Cursor's Planner/Worker/Judge</h3>
+
+  <p>Cursor developed a three-tier architecture: <strong>planners</strong> continuously explore the codebase and create tasks, <strong>workers</strong> execute independently, and <strong>judge agents</strong> evaluate progress. The key insight was that <em>coherence through orchestration</em> works better than giving agents autonomy. A planner that understands the whole codebase can assign non-overlapping tasks.</p>
+
+  <h3>Devin's Full Isolation</h3>
+
+  <p>Cognition's Devin takes the simplest approach: each agent is fully autonomous with its own browser, terminal, and editor. Parallelism comes from running multiple Devin instances on separate PRs. No shared state, no coordination needed &mdash; but also no collaboration within a single feature.</p>
+
+  <h2>The Deeper Problem</h2>
+
+  <p>All of these solutions address file-level conflicts. None of them address <strong>semantic-level conflicts</strong>. Consider:</p>
+
+  <ul>
+    <li>Agent A renames an exported function. Agent B, in a separate worktree, imports the old name. Both branches are clean. The merge compiles. The app crashes at runtime.</li>
+    <li>Agent A adds a new parameter to a shared config object. Agent B adds a different parameter with the same name. Git merges them both. The config is nonsensical.</li>
+    <li>Agent A decides to use a queue pattern for event handling. Agent B decides to use callbacks. Both are internally consistent. The merged architecture is incoherent.</li>
+  </ul>
+
+  <p>These are the kinds of conflicts that a human developer catches instinctively &mdash; "wait, didn't Sarah say she was changing that API?" &mdash; but that no current tool detects programmatically.</p>
+
+  <h2>What I Wish Existed</h2>
+
+  <p>Here's what would make parallel AI development actually reliable. Some of this is technically feasible today; some requires new infrastructure. I'm writing this as a user who runs 2-3 Claude instances daily, not as a tools researcher.</p>
+
+  <h3>1. Shared Context, Not Just Shared Files</h3>
+
+  <p>The root problem is that each instance starts with a snapshot of the repo and has no awareness of what's changing around it. What if instances could subscribe to a lightweight event stream?</p>
+
+  <pre><code>// Hypothetical: instance B receives this mid-session
+[agent-a] modified game/main.js: renamed startNewGame() → startLevel()
+[agent-a] modified game/renderer.js: added 'level-pick' submenu
+[agent-a] committed: "Replace 3-mode picker with 4 tiered levels"</code></pre>
+
+  <p>Not full context sharing &mdash; that would be noisy and expensive. Just a feed of significant actions: files touched, functions renamed, commits made. Enough for an instance to think "I should re-read <code>main.js</code> before I edit it."</p>
+
+  <h3>2. Pre-Flight Conflict Detection</h3>
+
+  <p>Before an instance starts editing, it should declare its intent: "I plan to modify <code>game/main.js</code>, specifically the zoom handling section." The system checks if another instance has declared overlapping intent and warns you <em>before</em> any code is written, not after both agents have invested thousands of tokens.</p>
+
+  <h3>3. Automatic Worktree Management</h3>
+
+  <p>When you launch a second Claude Code instance on the same repo, the tool should automatically create a worktree and branch. No user configuration needed. When the task is done, it opens a PR. The user reviews and merges. This is basically what Codex App does, and it should be the default everywhere.</p>
+
+  <h3>4. Semantic Merge Checks</h3>
+
+  <p>After merging two branches, run a quick analysis: "Are there any references to symbols that were renamed or removed in the other branch? Are there conflicting additions to shared data structures? Do the architectural patterns of both branches cohere?" This is essentially an AI-powered merge reviewer that runs automatically.</p>
+
+  <h3>5. A Real-Time Dashboard</h3>
+
+  <p>Show me, in one view: how many instances are running, what files each is touching, what their current task is, and whether any conflicts are brewing. Let me redirect an instance before it goes too far down a conflicting path. The current experience is flying blind &mdash; I don't know what an instance is doing until it commits.</p>
+
+  <div class="callout">
+    <div class="callout-title">What Anthropic Could Ship</div>
+    <p>The lowest-hanging fruit is <strong>automatic worktree creation</strong> when a second instance opens the same repo. Claude Code already manages its own config, hooks, and MCP servers &mdash; managing a worktree is a natural extension. Combined with <strong>a simple event log</strong> that instances can read (just a <code>.claude/activity.jsonl</code> file in the repo root), you'd eliminate 80% of the conflicts I've hit. No fancy orchestration needed.</p>
+    <p>The more ambitious version is baking the planner/worker pattern into Claude Code itself: when you describe a multi-part task, the tool automatically decomposes it, creates worktrees, dispatches subtasks, and presents you with a set of PRs to review. Agent Teams is heading in this direction, but it's still opt-in and experimental.</p>
+  </div>
+
+  <h2>What the Research Says</h2>
+
+  <p>A comprehensive <a href="https://arxiv.org/html/2404.04834v4">ACM survey of LLM-based multi-agent systems for software engineering</a> catalogs the design space: cooperative, competitive, and hierarchical agent organizations; centralized and decentralized communication; role-based task allocation. Systems like <a href="https://github.com/geekan/MetaGPT">MetaGPT</a> assign waterfall-inspired roles (PM, architect, engineer, QA). <a href="https://github.com/OpenBMB/ChatDev">ChatDev</a> simulates a virtual company with a CEO, CTO, programmer, reviewer, and tester.</p>
+
+  <p>The finding that stands out: ChatDev struggled to autonomously develop a functional Tetris game even after 10 attempts, while handling simpler games on the second try. Multi-agent systems hit a complexity ceiling. The coordination overhead scales non-linearly with task difficulty. This matches my experience &mdash; two Claude instances work great on independent features, but the moment they share a file, the overhead of coordination exceeds the speedup from parallelism.</p>
+
+  <p>A <a href="https://www.metr.org/">METR study</a> found that experienced developers were 19% <em>slower</em> with AI tools while <em>believing</em> they were 20% faster &mdash; a 39-percentage-point perception gap. This suggests that the productivity gains from running multiple agents may be systematically overestimated. You feel faster because more code is being produced. But if 15% of that code conflicts and needs rework, the net gain shrinks dramatically.</p>
+
+  <h2>Our Current Setup</h2>
+
+  <p>For context, here's what the Biomorph Builder project looks like. It's a vanilla JS static site with ~30,000 lines across 7 experiences. No build step, no framework, no npm. The entire thing is served by <code>python3 -m http.server 8765</code>.</p>
+
+  <p>We use role-based file ownership in <code>CLAUDE.md</code>. We have a project dashboard (<code>status/index.html</code>) where each feature card links directly into the right game level for testing. We try to keep instances on different roles. When we can't, one branches.</p>
+
+  <p>It works well enough for a solo developer with 2-3 instances. It would fall apart at 5+. The honest truth is that the human &mdash; me &mdash; is the orchestrator. I decide which instance works on what, I notice when they're about to collide, I tell one to branch. The tools don't help with any of this.</p>
+
+  <h2>Where This Is Going</h2>
+
+  <p>2025 was about proving that a single AI agent could write useful code. 2026 is about making multiple agents work together reliably. The approaches are converging:</p>
+
+  <ul>
+    <li><strong>Isolation</strong> (worktrees) is solved.</li>
+    <li><strong>Orchestration</strong> (planner/worker patterns, agent teams) is early but improving.</li>
+    <li><strong>Semantic awareness</strong> (understanding what other agents are doing at an architectural level) is unsolved.</li>
+    <li><strong>Dynamic coordination</strong> (agents adjusting their plans in response to other agents' actions in real time) is barely explored.</li>
+  </ul>
+
+  <p>The gap between "each agent works fine alone" and "agents work well together" is the same gap that plagues human software teams. We've spent decades building tools for human coordination: code review, CI/CD, branch protection rules, architecture documents, stand-up meetings. The AI agent equivalent of all of this is a <code>CLAUDE.md</code> file and "please run <code>git pull</code> first."</p>
+
+  <p>We'll get there. But right now, running parallel AI agents on the same codebase is like pair programming where neither programmer can see the other's screen.</p>
+
+</article>
+
+<div class="footer">
+  <a href="articles.html">Back to Articles</a> &middot; <a href="./">Hub</a>
+  <br>February 2026
+</div>
+
+</body>
+</html>

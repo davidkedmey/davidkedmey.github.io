@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Bloom Zoo</title>
+<meta name="description" content="Creatures selected one mutation at a time from a nine-gene genotype, all in one tank.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="A Bloom Zoo">
+<meta property="og:description" content="Creatures selected one mutation at a time from a nine-gene genotype, all in one tank.">
+<meta property="og:image" content="https://biomorphbuilder.com/bloom/zoo-preview.png">
+<meta property="og:url" content="https://biomorphbuilder.com/bloom/zoo.html">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="A Bloom Zoo">
+<meta name="twitter:description" content="Creatures selected one mutation at a time from a nine-gene genotype, all in one tank.">
+<meta name="twitter:image" content="https://biomorphbuilder.com/bloom/zoo-preview.png">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background:#0a0e14; color:#d4dce6; min-height:100vh;
+  }
+  a { color:#7a9aba; }
+  .wrap { max-width:1120px; margin:0 auto; padding:30px 20px 50px; }
+
+  header { text-align:center; margin-bottom:20px; }
+  h1 { font-size:1.9rem; color:#c8e6c8; margin-bottom:8px; }
+  header p {
+    color:#7e8e9e; font-size:.92rem; line-height:1.6; max-width:640px; margin:0 auto;
+  }
+
+  #tank {
+    display:block; width:100%; height:auto;
+    background:#0a0e14; border:1px solid #202a38; border-radius:12px; margin:20px 0 14px;
+  }
+
+  .views { display:inline-flex; }
+  .views button { border-radius:0; }
+  .views button:first-child { border-radius:6px 0 0 6px; }
+  .views button:last-child { border-radius:0 6px 6px 0; border-left:none; }
+  .views button.on { background:#1a2a22; border-color:#4a6a5a; color:#a8d8a8; }
+
+  .bar {
+    display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:center;
+    margin-bottom:10px;
+  }
+  button, input {
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:.8rem;
+    padding:7px 14px; border:1px solid #2a3444; border-radius:6px;
+    background:#12161e; color:#c8d8c8;
+  }
+  button { cursor:pointer; }
+  button:hover { background:#1a2a22; border-color:#4a6a5a; }
+  button:disabled { opacity:.35; cursor:default; }
+  input { min-width:230px; color:#d4dce6; }
+  input::placeholder { color:#4d6070; }
+
+  #status {
+    text-align:center; min-height:1.2em; font-size:.8rem; color:#7fa88c; margin-bottom:18px;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+
+  details { max-width:760px; margin:0 auto 22px; }
+  summary {
+    cursor:pointer; color:#6a8a9a; font-size:.82rem; text-align:center; list-style:none;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  summary::-webkit-details-marker { display:none; }
+  summary:hover { color:#a8d8a8; }
+  .picker {
+    margin-top:14px; border:1px solid #1c2430; border-radius:9px; padding:12px;
+  }
+  .picker ul { list-style:none; }
+  .picker li {
+    display:flex; gap:10px; align-items:center; padding:6px 2px;
+    border-bottom:1px solid #141b25; font-size:.82rem;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  .picker li:last-child { border-bottom:none; }
+  .picker .nm {
+    flex:0 0 150px; background:#0e131b; border:1px solid #1c2430; border-radius:5px;
+    color:#c8e6c8; padding:4px 8px; font-size:.8rem; min-width:0;
+  }
+  .picker .nm:focus { outline:none; border-color:#4a6a5a; }
+  .picker .gn { color:#55677a; font-family:ui-monospace, Menlo, monospace; font-size:.74rem; flex:1; }
+  .picker input[type=checkbox] { accent-color:#5f9d72; cursor:pointer; }
+  .picker li.out .nm, .picker li.out .gn { opacity:.35; }
+  .picker .hint {
+    color:#55677a; font-size:.76rem; margin-bottom:8px;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  #link {
+    width:100%; margin-top:10px; font-family:ui-monospace, Menlo, monospace; font-size:.7rem;
+    word-break:break-all;
+  }
+
+  footer {
+    text-align:center; margin-top:26px; padding-top:20px; border-top:1px solid #1c2430;
+    color:#5a6a7a; font-size:.85rem; line-height:1.8;
+    font-family:-apple-system, BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  footer a { text-decoration:none; }
+  footer a:hover { color:#a8d8a8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1 id="title">A Bloom Zoo</h1>
+    <p>
+      Every creature here is nine numbers. Each one was found by starting from a random
+      genotype and repeatedly picking one offspring out of eight, each differing by a single
+      mutation. Nothing is drawn; the shapes are where the points pile up.
+      <span id="mode-note"></span>
+    </p>
+  </header>
+
+  <canvas id="tank" width="1600" height="1000"></canvas>
+
+  <div class="bar">
+    <span class="views">
+      <button id="v-zoo" class="on">Colonies</button><button id="v-aq">Aquarium</button>
+    </span>
+    <button id="copy">Copy shareable link</button>
+    <button id="mine">Load my saved specimens</button>
+    <input id="zootitle" placeholder="Name this zoo (optional)" maxlength="60">
+  </div>
+  <div id="status"></div>
+
+  <details id="edit">
+    <summary>What's in this zoo</summary>
+    <div class="picker">
+      <p class="hint">Rename a creature or untick it to leave it out. The link updates as you go.</p>
+      <ul id="list"></ul>
+      <input id="link" readonly>
+    </div>
+  </details>
+
+  <footer>
+    Built with <a href="./">Bloom</a> on <a href="../">Biomorph Builder</a> &mdash;
+    Richard Dawkins' biomorphs, nine genes under a second developmental rule.<br>
+    <a href="./">Select your own &rarr;</a>
+  </footer>
+
+</div>
+
+<script type="module">
+import { decodeZoo, encodeZoo, drawZoo, columnsFor } from './zoo.js';
+import { renderAquarium } from './render.js';
+
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+const tank = document.getElementById('tank');
+const statusEl = document.getElementById('status');
+const titleEl = document.getElementById('title');
+const titleInput = document.getElementById('zootitle');
+const GALLERY_KEY = 'biomorph-gallery';
+
+let specimens = [];
+let zooTitle = '';
+// The hash this page last wrote. Edits rewrite the URL constantly, so a hashchange only
+// means "someone opened a different zoo" when it differs from what we put there ourselves.
+let ownHash = '';
+let view = 'zoo';
+
+function loadGallery() {
+  try {
+    return (JSON.parse(localStorage.getItem(GALLERY_KEY)) || [])
+      .filter(s => Array.isArray(s.genes) && s.genes.length >= 9)
+      .map(s => ({ genes: s.genes.slice(0, 9).map(v => v | 0), name: s.name || 'Specimen', on: true }));
+  } catch { return []; }
+}
+
+const LABEL = 20;
+
+function sizeTank() {
+  // Square cells, plus a strip under each row for the name.
+  const cssW = Math.min(1080, document.querySelector('.wrap').clientWidth - 40);
+  const n = shown().length || 1;
+  let cssH;
+  if (view === 'aquarium') {
+    cssH = Math.round(cssW * 0.62);
+  } else {
+    const cols = columnsFor(n);
+    const rows = Math.ceil(n / cols);
+    cssH = Math.round((cssW / cols) * rows + rows * LABEL);
+  }
+  tank.style.width = cssW + 'px';
+  tank.style.height = cssH + 'px';
+  tank.width = Math.round(cssW * DPR);
+  tank.height = Math.round(cssH * DPR);
+}
+
+/** Only the ticked creatures are drawn, sized for, and encoded into the link. */
+function shown() {
+  return specimens.filter(s => s.on);
+}
+
+function shareUrl() {
+  return location.origin + location.pathname + '#' + encodeZoo(shown(), zooTitle, view);
+}
+
+function refresh() {
+  document.getElementById('v-zoo').classList.toggle('on', view === 'zoo');
+  document.getElementById('v-aq').classList.toggle('on', view === 'aquarium');
+  titleEl.textContent = zooTitle || (view === 'aquarium' ? 'A Bloom Aquarium' : 'A Bloom Zoo');
+  document.getElementById('mode-note').textContent = view === 'aquarium'
+    ? ' Each genotype develops a whole colony at once; here one individual is taken from each. They share a tank at one steady pace, stopping now and then to hang still, and each sheds a wake on the stroke that squeezes it \u2014 thick behind a hard beat, thin between, spreading as it drifts. They swim at different depths, so a nearer one passes in front of a farther one; two at the same depth shoulder each other and lean away. The swelling and shrinking is the body\u2019s own cycle: it drives the wake, not the speed.'
+    : ' Each panel is one genotype and the whole colony it develops.';
+  document.title = titleEl.textContent;
+  titleInput.value = zooTitle;
+  sizeTank();
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  specimens.forEach((s, i) => {
+    const li = document.createElement('li');
+    if (!s.on) li.className = 'out';
+
+    const tick = document.createElement('input');
+    tick.type = 'checkbox';
+    tick.checked = s.on;
+    tick.title = 'Include in the zoo';
+    tick.addEventListener('change', () => { s.on = tick.checked; refresh(); });
+
+    const nm = document.createElement('input');
+    nm.className = 'nm';
+    nm.value = s.name;
+    nm.maxLength = 28;
+    nm.addEventListener('input', () => {
+      s.name = nm.value;
+      document.getElementById('link').value = shareUrl();
+      ownHash = '#' + encodeZoo(shown(), zooTitle, view);
+      history.replaceState(null, '', ownHash);
+    });
+
+    const gn = document.createElement('span');
+    gn.className = 'gn';
+    gn.textContent = s.genes.join(', ');
+
+    li.append(tick, nm, gn);
+    list.appendChild(li);
+  });
+  document.getElementById('link').value = shareUrl();
+  ownHash = '#' + encodeZoo(shown(), zooTitle, view);
+  document.getElementById('copy').disabled = shown().length === 0;
+  history.replaceState(null, '', ownHash);
+}
+
+// A shared link wins; otherwise fall back to whatever is saved in this browser.
+const fromUrl = decodeZoo(location.hash);
+if (fromUrl) {
+  specimens = fromUrl.specimens.map(s => ({ ...s, on: true }));
+  zooTitle = fromUrl.title;
+  view = fromUrl.view;
+} else {
+  specimens = loadGallery();
+  if (!specimens.length) {
+    statusEl.textContent =
+      'Nothing saved in this browser yet. Select some creatures in Bloom and save them first.';
+  }
+}
+refresh();
+
+document.getElementById('mine').addEventListener('click', () => {
+  const mine = loadGallery();
+  if (!mine.length) {
+    statusEl.textContent = 'No saved specimens found in this browser.';
+    return;
+  }
+  specimens = mine;
+  refresh();
+  statusEl.textContent = `Loaded ${mine.length} saved specimen${mine.length === 1 ? '' : 's'}.`;
+});
+
+document.getElementById('copy').addEventListener('click', async () => {
+  const url = shareUrl();
+  try {
+    await navigator.clipboard.writeText(url);
+    statusEl.textContent = 'Link copied. Anyone who opens it sees these creatures.';
+  } catch {
+    document.getElementById('edit').open = true;
+    document.getElementById('link').select();
+    statusEl.textContent = 'Copy the link below.';
+  }
+});
+
+function setView(v) { view = v; refresh(); }
+document.getElementById('v-zoo').addEventListener('click', () => setView('zoo'));
+document.getElementById('v-aq').addEventListener('click', () => setView('aquarium'));
+
+titleInput.addEventListener('input', e => { zooTitle = e.target.value.trim(); refresh(); });
+
+// A hash-only navigation does not reload the document, so following a second zoo link from
+// an open zoo would otherwise leave the old creatures on screen.
+window.addEventListener('hashchange', () => {
+  if (location.hash === ownHash) return;
+  const next = decodeZoo(location.hash);
+  if (!next) return;
+  specimens = next.specimens.map(s => ({ ...s, on: true }));
+  zooTitle = next.title;
+  view = next.view;
+  refresh();
+  statusEl.textContent = '';
+});
+window.addEventListener('resize', sizeTank);
+
+let t = 0;
+function frame() {
+  // The aquarium runs a slower clock: bodies deform on a 2*pi cycle in t, which at the zoo's
+  // pace is a shimmer rather than a creature breathing.
+  t += view === 'aquarium' ? 0.028 : 0.05;
+  const live = shown();
+  if (!live.length) return;
+  if (view === 'aquarium') {
+    // One individual from each genotype. Which copy varies per slot, so two creatures never
+    // start life at the same point of their backbone.
+    renderAquarium(tank, live.map((s, i) => ({ genes: s.genes, name: s.name, phaseIndex: i })), t, {
+      dpr: DPR, labelPx: Math.round(LABEL * DPR), perCopy: 5200,
+    });
+  } else {
+    drawZoo(tank, live, t, 2000, { dpr: DPR, labelPx: Math.round(LABEL * DPR) });
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

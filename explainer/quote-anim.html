@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fold/Unfold Grammar — Biomorph Transitions</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0e14; color: #e0e0e0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow: hidden; height: 100vh;
+  }
+  .stage {
+    position: relative; width: 100%; height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+  }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .quote-layer {
+    position: relative; z-index: 1;
+    max-width: 580px; text-align: center;
+  }
+  .quote-text {
+    font-style: italic; font-size: 1.3rem; color: #9aacba;
+    line-height: 1.9; letter-spacing: 0.01em;
+  }
+  .quote-attr {
+    display: block; margin-top: 14px;
+    font-size: 0.85rem; color: #5a6a7a; font-style: normal;
+  }
+
+  /* ── Control panel ── */
+  .panel {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+    background: rgba(10, 14, 20, 0.92); backdrop-filter: blur(12px);
+    border-top: 1px solid #1a2030; padding: 14px 24px;
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: center;
+  }
+  .param-group {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .param-label {
+    font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #4a5a6a; font-weight: 600;
+  }
+  .param-options { display: flex; gap: 4px; }
+  .param-options button {
+    font-size: 0.72rem; padding: 4px 10px;
+    border: 1px solid #2a3444; border-radius: 6px;
+    background: transparent; color: #6a7a8a; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .param-options button:hover { border-color: #4a5a6a; color: #aabaca; }
+  .param-options button.active {
+    background: #1a2a3a; border-color: #3a6a8a; color: #c8e0f0;
+  }
+  .play-btn {
+    font-size: 0.85rem; padding: 8px 24px;
+    border: 1px solid #3a5a3a; border-radius: 8px;
+    background: rgba(30, 60, 30, 0.4); color: #7aba7a; cursor: pointer;
+    font-weight: 600; transition: all 0.15s;
+  }
+  .play-btn:hover { background: rgba(40, 80, 40, 0.5); color: #a0d0a0; }
+  .info {
+    font-size: 0.7rem; color: #3a4a5a; min-width: 100px; text-align: center;
+    font-family: "SF Mono", monospace;
+  }
+  .preset-group { display: flex; gap: 4px; }
+  .preset-btn {
+    font-size: 0.65rem; padding: 3px 8px;
+    border: 1px solid #2a2a3a; border-radius: 5px;
+    background: transparent; color: #6a6a8a; cursor: pointer;
+  }
+  .preset-btn:hover { border-color: #5a5a8a; color: #aaaacc; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <canvas id="canvas"></canvas>
+  <div class="quote-layer" id="quote-layer">
+    <div class="quote-text">
+      "I was genuinely astonished and delighted at the richness of
+      morphological types that emerged before my eyes..."
+    </div>
+    <div class="quote-attr">— Dawkins, <em>The Evolution of Evolvability</em> (1988)</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="param-group">
+    <div class="param-label">Direction</div>
+    <div class="param-options" data-param="direction">
+      <button data-val="grow" class="active">grow</button>
+      <button data-val="shrink">shrink</button>
+    </div>
+  </div>
+
+  <div class="param-group">
+    <div class="param-label">Collapse toward</div>
+    <div class="param-options" data-param="collapse">
+      <button data-val="parent" class="active">parent</button>
+      <button data-val="origin">origin</button>
+    </div>
+  </div>
+
+  <div class="param-group">
+    <div class="param-label">Center</div>
+    <div class="param-options" data-param="center">
+      <button data-val="origin" class="active">origin</button>
+      <button data-val="bbox">bbox</button>
+    </div>
+  </div>
+
+  <div class="param-group">
+    <div class="param-label">Quote</div>
+    <div class="param-options" data-param="quote">
+      <button data-val="early">early</button>
+      <button data-val="late" class="active">late</button>
+      <button data-val="cross">cross</button>
+    </div>
+  </div>
+
+  <div class="param-group">
+    <div class="param-label">Duration</div>
+    <div class="param-options" data-param="duration">
+      <button data-val="2000">2s</button>
+      <button data-val="4000" class="active">4s</button>
+      <button data-val="6000">6s</button>
+    </div>
+  </div>
+
+  <div class="param-group">
+    <div class="param-label">Presets</div>
+    <div class="preset-group">
+      <button class="preset-btn" data-preset="dawkins-reveal">dawkins reveal</button>
+      <button class="preset-btn" data-preset="collapse-to-quote">collapse to quote</button>
+      <button class="preset-btn" data-preset="crossfade">crossfade</button>
+    </div>
+  </div>
+
+  <button class="play-btn" id="btn-play">Play</button>
+  <div class="info" id="info">—</div>
+</div>
+
+<script type="module">
+import { defineVectors } from '../shared/genotype.js';
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const $quote = document.getElementById('quote-layer');
+const $info = document.getElementById('info');
+
+const TARGET_GENES = [-4, 5, -2, 3, -6, 4, 7, -3, 7];
+const TARGET_DEPTH = TARGET_GENES[8];
+
+// ── HiDPI ──
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── Precompute tree ──
+let precomputed = null;
+
+function precompute(genes) {
+  const vectors = defineVectors(genes);
+  const linesByLevel = {};
+  function recurse(i, c, x0, y0, level) {
+    if (i === 0) i = 8;
+    else if (i === 9) i = 1;
+    const v = vectors[i];
+    const x1 = x0 + c * v[0];
+    const y1 = y0 + c * v[1];
+    if (!linesByLevel[level]) linesByLevel[level] = [];
+    linesByLevel[level].push({ x0, y0, x1, y1 });
+    if (c > 1) {
+      recurse(i - 1, c - 1, x1, y1, level + 1);
+      recurse(i + 1, c - 1, x1, y1, level + 1);
+    }
+  }
+  recurse(4, TARGET_DEPTH, 0, 0, 0);
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const lvl in linesByLevel) {
+    for (const l of linesByLevel[lvl]) {
+      minX = Math.min(minX, l.x0, l.x1);
+      maxX = Math.max(maxX, l.x0, l.x1);
+      minY = Math.min(minY, l.y0, l.y1);
+      maxY = Math.max(maxY, l.y0, l.y1);
+    }
+  }
+  const maxLevel = Math.max(...Object.keys(linesByLevel).map(Number));
+  precomputed = { linesByLevel, minX, maxX, minY, maxY, maxLevel };
+}
+
+// ── Grammar parameters ──
+const params = {
+  direction: 'grow',   // grow | shrink
+  collapse: 'parent',  // parent | origin
+  center: 'origin',    // origin | bbox
+  quote: 'late',       // early | late | cross
+  duration: 4000,
+};
+
+// ── Core draw function ──
+// fracGrown: 0 = just trunk, 1 = full tree
+// direction: 'grow' means fracGrown goes 0→1; 'shrink' means 1→0
+// But we always pass the current fracGrown (how much of the tree is visible)
+function drawBiomorph(fracGrown) {
+  if (!precomputed) return;
+  const { linesByLevel, minX, maxX, minY, maxY, maxLevel } = precomputed;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  const bw = maxX - minX || 1;
+  const bh = maxY - minY || 1;
+  const pad = 60;
+  const scale = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh);
+
+  // Centering
+  let cx, cy;
+  if (params.center === 'origin') {
+    cx = w / 2;
+    cy = h / 2;
+  } else {
+    cx = w / 2 - (minX + maxX) / 2 * scale;
+    cy = h / 2 - (minY + maxY) / 2 * scale;
+  }
+
+  const totalLevels = maxLevel + 1;
+
+  // fracGrown maps to which levels are visible:
+  // At fracGrown=0: nothing. At fracGrown=1: all levels.
+  // Level 0 = trunk (innermost), maxLevel = outermost tips.
+  // Growth: trunk appears first (level 0), tips last (maxLevel).
+  // Shrink: tips disappear first (maxLevel), trunk last (level 0).
+  const levelsRevealed = fracGrown * totalLevels;
+
+  ctx.lineCap = 'round';
+
+  for (const lvlStr in linesByLevel) {
+    const lvl = parseInt(lvlStr);
+
+    // For growth order: level 0 appears first at low fracGrown
+    // levelFrac = how visible this level is (0..1)
+    let levelFrac;
+
+    if (params.direction === 'grow') {
+      // Trunk first: level 0 appears at fracGrown near 0
+      levelFrac = Math.max(0, Math.min(1, levelsRevealed - lvl));
+    } else {
+      // Shrink: outer tips disappear first
+      // reversedIdx: trunk gets highest index (disappears last)
+      const reversedIdx = maxLevel - lvl;
+      levelFrac = Math.max(0, Math.min(1, levelsRevealed - reversedIdx));
+    }
+
+    if (levelFrac <= 0) continue;
+
+    const alpha = levelFrac;
+
+    // Color
+    const brightness = Math.min(1, 0.4 + (lvl / (maxLevel || 1)) * 0.6);
+    const g = Math.round(140 + brightness * 80);
+    const b = Math.round(60 + brightness * 40);
+    ctx.strokeStyle = `rgba(${Math.round(40 + brightness * 30)}, ${g}, ${b}, ${alpha})`;
+    ctx.lineWidth = Math.max(0.8, 2.5 - lvl * 0.15);
+
+    for (const l of linesByLevel[lvl]) {
+      const sx = l.x0 * scale + cx;
+      const sy = l.y0 * scale + cy;
+      let ex = l.x1 * scale + cx;
+      let ey = l.y1 * scale + cy;
+
+      if (levelFrac < 1) {
+        if (params.collapse === 'parent') {
+          // Retract toward parent (start point of the line)
+          ex = sx + (ex - sx) * levelFrac;
+          ey = sy + (ey - sy) * levelFrac;
+        } else {
+          // Retract toward origin (screen center)
+          const ox = params.center === 'origin' ? w / 2 : cx;
+          const oy = params.center === 'origin' ? h / 2 : cy;
+          sx * 1; // keep sx/sy but lerp both endpoints toward origin
+          const t = levelFrac;
+          const sx2 = ox + (sx - ox) * t;
+          const sy2 = oy + (sy - oy) * t;
+          const ex2 = ox + (ex - ox) * t;
+          const ey2 = oy + (ey - oy) * t;
+          ctx.beginPath();
+          ctx.moveTo(sx2, sy2);
+          ctx.lineTo(ex2, ey2);
+          ctx.stroke();
+          continue;
+        }
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+    }
+  }
+}
+
+// ── Quote opacity from progress ──
+function quoteOpacity(progress) {
+  const q = params.quote;
+  if (q === 'early') {
+    // Quote visible at start, fades out by 60%
+    if (progress < 0.15) return 1;
+    if (progress > 0.6) return 0;
+    return 1 - (progress - 0.15) / 0.45;
+  } else if (q === 'late') {
+    // Quote fades in during second half
+    if (progress < 0.45) return 0;
+    if (progress > 0.85) return 1;
+    return (progress - 0.45) / 0.4;
+  } else {
+    // Cross: quote and biomorph swap at midpoint
+    if (progress < 0.3) return 0;
+    if (progress > 0.7) return 1;
+    return (progress - 0.3) / 0.4;
+  }
+}
+
+// ── Animation ──
+let animating = false;
+let animStart = 0;
+
+function animate(t) {
+  if (!animating) return;
+  const elapsed = t - animStart;
+  const progress = Math.min(1, elapsed / params.duration);
+
+  // Ease in-out
+  const eased = progress < 0.5
+    ? 2 * progress * progress
+    : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+
+  // fracGrown: how much of the tree is currently visible
+  let fracGrown;
+  if (params.direction === 'grow') {
+    fracGrown = eased;
+  } else {
+    fracGrown = 1 - eased;
+  }
+
+  // Quote
+  const qo = quoteOpacity(progress);
+  $quote.style.opacity = qo;
+
+  // Draw
+  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  if (fracGrown > 0.01) drawBiomorph(fracGrown);
+
+  // Info
+  const dir = params.direction === 'grow' ? '→' : '←';
+  $info.textContent = `${dir} ${Math.round(fracGrown * 100)}% · q:${Math.round(qo * 100)}%`;
+
+  if (progress < 1) {
+    requestAnimationFrame(animate);
+  } else {
+    animating = false;
+    $info.textContent = `done · ${params.direction} · ${params.collapse} · ${params.center} · ${params.quote}`;
+  }
+}
+
+function play() {
+  animating = false;
+  // Set initial state
+  if (params.direction === 'grow') {
+    $quote.style.opacity = params.quote === 'early' ? 1 : 0;
+  } else {
+    $quote.style.opacity = params.quote === 'late' ? 0 : 1;
+  }
+  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  precompute(TARGET_GENES);
+
+  // Brief pause then animate
+  setTimeout(() => {
+    animating = true;
+    animStart = performance.now();
+    requestAnimationFrame(animate);
+  }, 200);
+}
+
+// ── Initial draw ──
+function drawInitial() {
+  precompute(TARGET_GENES);
+  ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  if (params.direction === 'grow') {
+    $quote.style.opacity = params.quote === 'early' ? 1 : 0;
+  } else {
+    drawBiomorph(1);
+    $quote.style.opacity = 0;
+  }
+}
+drawInitial();
+
+// ── Panel wiring ──
+document.querySelectorAll('.param-options').forEach(group => {
+  const param = group.dataset.param;
+  group.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      group.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const val = btn.dataset.val;
+      params[param] = param === 'duration' ? parseInt(val) : val;
+      animating = false;
+      drawInitial();
+    });
+  });
+});
+
+function setParam(param, val) {
+  const group = document.querySelector(`[data-param="${param}"]`);
+  group.querySelectorAll('button').forEach(b => {
+    b.classList.toggle('active', b.dataset.val === String(val));
+  });
+  params[param] = param === 'duration' ? parseInt(val) : val;
+}
+
+// Presets
+const presets = {
+  'dawkins-reveal': { direction: 'grow', collapse: 'parent', center: 'origin', quote: 'early', duration: 4000 },
+  'collapse-to-quote': { direction: 'shrink', collapse: 'parent', center: 'origin', quote: 'late', duration: 4000 },
+  'crossfade': { direction: 'shrink', collapse: 'origin', center: 'origin', quote: 'cross', duration: 4000 },
+};
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = presets[btn.dataset.preset];
+    for (const k in p) setParam(k, p[k]);
+    animating = false;
+    drawInitial();
+    setTimeout(play, 200);
+  });
+});
+
+document.getElementById('btn-play').addEventListener('click', play);
+</script>
+</body>
+</html>

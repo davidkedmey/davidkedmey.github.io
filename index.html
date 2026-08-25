@@ -133,6 +133,35 @@
       background: #1a2a22;
     }
 
+    .more {
+      display: block;
+      max-width: 700px;
+      margin: 0 auto 40px;
+      padding: 18px 24px;
+      border: 1px solid #202a38;
+      border-radius: 12px;
+      text-decoration: none;
+      text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .more:hover { border-color: #4a6a5a; background: #10151d; }
+
+    .more-label {
+      display: block;
+      font-size: 1rem;
+      color: #a8d8a8;
+      margin-bottom: 6px;
+    }
+
+    .more-desc {
+      display: block;
+      font-size: 0.82rem;
+      color: #6a7a8a;
+      line-height: 1.6;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
     .footer {
       text-align: center;
       padding: 20px 24px 40px;
@@ -192,8 +221,8 @@
     </div>
     <canvas id="hero-canvas" width="720" height="120"></canvas>
     <p class="tagline">
-      Nine genes. Recursive branching. Billions of possible forms.
-      Explore morphospace through breeding, farming, and walking.
+      Nine genes, a rule that turns them into a form, and mutations to choose between.
+      Pick a parent, and pick again, and see how far the shapes travel.
     </p>
   </div>
 
@@ -204,24 +233,54 @@
   </div>
 
   <div class="cards">
-    <a class="card" href="genome/">
-      <span class="card-icon">&#129516;</span>
-      <h2>Genome</h2>
+    <a class="card" href="explainer/">
+      <span class="card-icon">&#129513;</span>
+      <h2>Illustrated Explanation</h2>
       <div class="desc">
-        The DNA sequencer. Inspect and edit every gene with live preview.
-        See how each parameter shapes the creature in real time.
+        From 9 numbers to a branching creature.
+        A step-by-step visual guide to the biomorph algorithm.
       </div>
-      <span class="enter">Open Genome View</span>
+      <span class="enter">Start Here</span>
     </a>
 
     <a class="card" href="breed.html">
       <span class="card-icon">&#9878;</span>
       <h2>Breed</h2>
       <div class="desc">
-        The laboratory. Select offspring, tweak parameters, discover species.
-        All five embryological modes from Dawkins' paper.
+        The selection loop. One parent, eight mutant offspring, and you decide which
+        one has the next generation. All five embryologies from the paper.
       </div>
       <span class="enter">Open Breeder</span>
+    </a>
+
+    <a class="card" href="bloom/">
+      <span class="card-icon">&#10058;</span>
+      <h2>Bloom</h2>
+      <div class="desc">
+        The same nine genes, developed by a different rule. Trigonometry instead of
+        branching, so one genotype can be seen as a tree or as a field of points.
+      </div>
+      <span class="enter">Select Blooms</span>
+    </a>
+
+    <a class="card" href="dawkins-paper/">
+      <span class="card-icon">&#128214;</span>
+      <h2>Read</h2>
+      <div class="desc">
+        The original 1988 paper, annotated and interactive.
+        Live widgets, reading modes, and a built-in study system.
+      </div>
+      <span class="enter">Read the Paper</span>
+    </a>
+
+    <a class="card" href="museum.html">
+      <span class="card-icon">&#127963;</span>
+      <h2>Museum</h2>
+      <div class="desc">
+        70+ original specimens from Dawkins' Blind Watchmaker program,
+        extracted from 1988 binary save files. The real creatures.
+      </div>
+      <span class="enter">Browse the Zoo</span>
     </a>
 
     <a class="card" href="game/">
@@ -243,100 +302,20 @@
       </div>
       <span class="enter">Enter 3D Gallery</span>
     </a>
-
-    <a class="card" href="3d/locomotion.html">
-      <span class="card-icon">&#129414;</span>
-      <h2>Locomotion</h2>
-      <div class="desc">
-        Physics-based movement arena. Biomorphs walk, crawl, or slither
-        based on their morphology. Shape determines motion.
-      </div>
-      <span class="enter">Open Arena</span>
-    </a>
-
-    <a class="card" href="expedition/">
-      <span class="card-icon">&#127760;</span>
-      <h2>Expedition</h2>
-      <div class="desc">
-        Explore morphospace with AI collectors. Breed, discover, and compete
-        to find the rarest biomorphs. CryptoKitties meets evolutionary biology.
-      </div>
-      <span class="enter">Launch Expedition</span>
-    </a>
-
-    <a class="card" href="colony/">
-      <span class="card-icon">&#127758;</span>
-      <h2>Colony</h2>
-      <div class="desc">
-        Watch a population of biomorphs evolve autonomously. Clusters form,
-        lineages drift, and diversity emerges on a living landscape.
-      </div>
-      <span class="enter">Enter Colony</span>
-    </a>
-
-    <a class="card" href="planet/">
-      <span class="card-icon">&#127757;</span>
-      <h2>Planet</h2>
-      <div class="desc">
-        Five biomes, five selection pressures. Watch geographic isolation
-        drive morphological divergence — Carroll's rock pocket mice, made visible.
-      </div>
-      <span class="enter">Explore Planet</span>
-    </a>
-
-    <a class="card" href="explainer/">
-      <span class="card-icon">&#129513;</span>
-      <h2>Illustrated Explanation</h2>
-      <div class="desc">
-        From 9 numbers to a branching creature.
-        A step-by-step visual guide to the biomorph algorithm.
-      </div>
-      <span class="enter">Start Learning</span>
-    </a>
-
-    <a class="card" href="dawkins-paper/">
-      <span class="card-icon">&#128214;</span>
-      <h2>Read</h2>
-      <div class="desc">
-        The original 1988 paper, annotated and interactive.
-        Live widgets, reading modes, and a built-in study system.
-      </div>
-      <span class="enter">Read the Paper</span>
-    </a>
-
-    <a class="card" href="museum.html" style="flex-grow:0">
-      <span class="card-icon">&#127963;</span>
-      <h2>Museum</h2>
-      <div class="desc">
-        70+ original specimens from Dawkins' Blind Watchmaker program,
-        extracted from 1988 binary save files. The real creatures.
-      </div>
-      <span class="enter">Browse the Zoo</span>
-    </a>
-
-    <a class="card" href="search.html" style="flex-grow:0">
-      <span class="card-icon">&#128269;</span>
-      <h2>Search</h2>
-      <div class="desc">
-        Upload a target shape and watch a genetic algorithm evolve toward it.
-        Dawkins' method, finding Dawkins' creatures.
-      </div>
-      <span class="enter">Open Gene Search</span>
-    </a>
-
-    <a class="card" href="articles.html" style="flex-grow:0">
-      <span class="card-icon">&#128295;</span>
-      <h2>Behind the Build</h2>
-      <div class="desc">
-        How we built the tools, ran the experiments, and solved the puzzles.
-        Dev logs and writeups from across the project.
-      </div>
-      <span class="enter">Read Articles</span>
-    </a>
   </div>
 
+  <a class="more" href="workshop.html">
+    <span class="more-label">Workshop</span>
+    <span class="more-desc">
+      Genome &middot; Gene Search &middot; Colony &middot; Planet &middot; Locomotion &middot; Expedition &middot;
+      the buds and exploratory-growth prototypes &middot; the dev logs
+    </span>
+  </a>
+
   <div class="footer">
-    <a href="https://github.com/davidkedmey/dawkins-biomorphs">GitHub</a>
+    <a href="articles.html">Behind the Build</a> &middot;
+    <a href="workshop.html">Workshop</a> &middot;
+    <a href="https://github.com/davidkedmey/davidkedmey.github.io">GitHub</a>
     <br>
     No frameworks. No build step. Just vanilla JS and the evolution of form.
   </div>
@@ -420,7 +399,10 @@
     }
 
     function animate(now) {
-      const elapsed = now - startTime;
+      // rAF reports the time the frame began, which can predate startTime on the very first
+      // callback. Left negative, idx lands on -1, genesets[-1] is undefined, and the throw
+      // kills the animation loop before it draws anything.
+      const elapsed = Math.max(0, now - startTime);
       const inCycle = elapsed % CYCLE_MS;
       const idx = Math.floor(elapsed / CYCLE_MS) % genesets.length;
 
