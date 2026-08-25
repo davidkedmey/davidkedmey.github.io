@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Interactive implementation of Richard Dawkins' biomorphs from "The Evolution of Evolvability" (1988). The landing page carries seven experiences: illustrated explainer, selection app (Breed), field embryology (Bloom), interactive paper, specimen museum, 2D game, and 3D gallery. Everything else — Genome, Gene Search, Colony, Planet, Locomotion, Expedition, the prototypes, and the dev logs — is listed on `workshop.html`. No build step — vanilla JS, served as static files.
+Interactive implementation of Richard Dawkins' biomorphs from "The Evolution of Evolvability" (1988). The landing page carries four experiences: illustrated explainer, selection app (Breed), interactive paper, and specimen museum. Everything else — Bloom (field embryology), the 2D game, the 3D gallery, Genome, Gene Search, Colony, Planet, Locomotion, Expedition, the prototypes, and the dev logs — is listed on `workshop.html`. Site-nav on every page: Hub · Explainer · Breed · Museum · Read (omit the page's own link). No build step — vanilla JS, served as static files.
 
 **Vocabulary:** the core loop is mutation plus artificial selection — a parent, offspring that each differ by one mutation, and the user picking which offspring parents the next generation. Call it selection, not breeding; "breeding" in this codebase means the separate sexual-reproduction feature that crosses saved specimens.
 

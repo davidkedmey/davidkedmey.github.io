@@ -169,7 +169,7 @@
       padding: 14px 20px;
       text-align: center;
     }
-    .body-row .step-text { text-align: left; display: inline-block; max-width: 700px; }
+    .body-row .step-text { text-align: left; display: inline-block; max-width: 58ch; }
     .body-row:empty { display: none; }
 
     /* ── Quote overlay (3B1B style) ── */
@@ -540,7 +540,6 @@
   <nav class="site-nav">
     <a href="../">Hub</a>
     <a href="../breed.html">Breed</a>
-    <a href="../bloom/">Bloom</a>
     <a href="../museum.html">Museum</a>
     <a href="../dawkins-paper/">Read</a>
   </nav>
@@ -2088,6 +2087,7 @@ function enterPhase(phase) {
     const hasButtons = $buttonBar.querySelector('.btn');
     $buttonBar.style.display = (hasToggles || hasButtons) ? 'flex' : 'none';
   }
+  updateStopIndicator();
   updateNavButtons();
 }
 
@@ -2104,8 +2104,6 @@ function goTo(step, phase = 0) {
   hideQuoteOverlay();
   currentStep = step;
   history.replaceState(null, '', '#' + (step + 1));
-  $hs.textContent = `${step + 1} / ${steps.length}`;
-  $dots.querySelectorAll('.step-dot').forEach((d, i) => d.classList.toggle('active', i === step));
 
   // Full reset + setup
   $buttonBar.querySelectorAll('.btn, .extra-row').forEach(b => b.remove());
@@ -2188,11 +2186,20 @@ function goPrev() {
   }
 }
 
-for (let i = 0; i < steps.length; i++) {
+// One dot per stop (every Next press), not per slide
+const stops = [];
+steps.forEach((s, si) => buildPhases(s).forEach((p, pi) => stops.push({ step: si, phase: pi })));
+stops.forEach(t => {
   const dot = document.createElement('div');
   dot.className = 'step-dot';
-  dot.addEventListener('click', () => goTo(i));
+  dot.addEventListener('click', () => goTo(t.step, t.phase));
   $dots.appendChild(dot);
+});
+
+function updateStopIndicator() {
+  const idx = stops.findIndex(t => t.step === currentStep && t.phase === currentPhase);
+  $hs.textContent = `${idx + 1} / ${stops.length}`;
+  $dots.querySelectorAll('.step-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
 }
 
 $prev.addEventListener('click', () => { goPrev(); $prev.blur(); });
