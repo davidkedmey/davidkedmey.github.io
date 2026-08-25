@@ -34,7 +34,6 @@
     <div id="action-bar">
       <div class="action-buttons">
         <button id="btn-reroll" title="Same parent, new mutations (asexual reproduction)">&#8635; New Brood</button>
-        <button id="btn-breed" title="Cross with saved specimens (sexual reproduction)">&#9891;&#9893; Breed</button>
         <button id="btn-undo" title="Return to previous generation (Ctrl+Z)">&larr; Back</button>
         <div class="random-group">
           <button id="btn-random" title="Start with a random organism">Seed</button>
@@ -43,22 +42,32 @@
             <option value="pure">Pure random</option>
           </select>
         </div>
-        <button id="btn-send-expedition" title="Register this creature in Expedition">Send to Expedition</button>
+        <div class="action-divider" title="Everything right of this line goes beyond the 1988 paper"></div>
+        <button id="btn-breed" title="Cross with saved specimens (sexual reproduction) — our addition, not in the paper">&#9891;&#9893; Breed</button>
+        <button id="btn-send-expedition" title="Register this creature in Expedition — our addition">Send to Expedition</button>
       </div>
     </div>
-    <nav class="mode-tabs">
-      <button class="mode-tab" data-mode="0">Pixel Peppering</button>
-      <button class="mode-tab active" data-mode="1">Basic</button>
-      <button class="mode-tab" data-mode="2">+ Symmetry</button>
-      <button class="mode-tab" data-mode="3">+ Segments</button>
-      <button class="mode-tab" data-mode="4">+ Gradients</button>
-      <button class="mode-tab" data-mode="5">Full Dawkins</button>
-      <button class="mode-tab" data-mode="6">+ Buds (Mustard)</button>
-      <button class="mode-tab" data-mode="7">+ Exploratory</button>
-      <button class="mode-tab" data-mode="8">+ Buds (Hox)</button>
-      <button class="mode-tab" data-mode="9">+ Weak Linkage</button>
-      <button class="mode-tab" data-mode="10">+ Redundancy</button>
-    </nav>
+    <div class="mode-group">
+      <span class="mode-group-label" title="Dawkins' embryologies, in the paper's order — each mode adds one developmental idea">From the 1988 paper</span>
+      <nav class="mode-tabs">
+        <button class="mode-tab" data-mode="0">Pixel Peppering</button>
+        <button class="mode-tab active" data-mode="1">Basic</button>
+        <button class="mode-tab" data-mode="2">+ Symmetry</button>
+        <button class="mode-tab" data-mode="3">+ Segments</button>
+        <button class="mode-tab" data-mode="4">+ Gradients</button>
+        <button class="mode-tab" data-mode="5">Full Dawkins</button>
+      </nav>
+    </div>
+    <div class="mode-group">
+      <button class="mode-group-label mode-ext-toggle" id="ext-toggle" title="Embryology experiments we added beyond the paper, mostly after Kirschner's evolvability mechanisms">Extensions &#9656;</button>
+      <nav class="mode-tabs" id="ext-tabs" hidden>
+        <button class="mode-tab" data-mode="6">+ Buds (Mustard)</button>
+        <button class="mode-tab" data-mode="7">+ Exploratory</button>
+        <button class="mode-tab" data-mode="8">+ Buds (Hox)</button>
+        <button class="mode-tab" data-mode="9">+ Weak Linkage</button>
+        <button class="mode-tab" data-mode="10">+ Redundancy</button>
+      </nav>
+    </div>
     <div id="bud-legend" class="setting-row" style="display:none"></div>
     <div id="settings-bar">
       <div id="symmetry-controls" class="setting-row" style="display:none">
@@ -184,6 +193,14 @@
         <li>Breed specimens together with ♀♂ Breed</li>
         <li>Press <kbd>Ctrl+Z</kbd> to undo</li>
       </ul>
+      <h3>From the Paper, and Beyond</h3>
+      <p class="about-note">
+        The modes from Pixel Peppering to Full Dawkins follow the 1988 paper.
+        The rest we added: the Extensions modes, color, mutation intensity,
+        the &#9792;&#9794; Breed crossing, Expedition &mdash; and the orange-dashed
+        <em>lost ant</em>: one offspring in every brood takes several large mutations
+        at once, a long jump through morphospace instead of a small step.
+      </p>
       <p class="about-credit">Based on Richard Dawkins' <em>The Evolution of Evolvability</em> (1988)</p>
       <button id="about-close">Close</button>
     </div>
@@ -192,5 +209,19 @@
   <script src="peppering.js"></script>
   <script src="history.js"></script>
   <script src="biomorph.js"></script>
+  <script>
+    (() => {
+      const toggle = document.getElementById('ext-toggle');
+      const tabs = document.getElementById('ext-tabs');
+      const setOpen = (open) => {
+        tabs.hidden = !open;
+        toggle.innerHTML = open ? 'Extensions ▾' : 'Extensions ▸';
+      };
+      toggle.addEventListener('click', () => setOpen(tabs.hidden));
+      // Open the row when the restored state is already an extension mode
+      const active = document.querySelector('.mode-tab.active');
+      if (active && parseInt(active.dataset.mode) >= 6) setOpen(true);
+    })();
+  </script>
 </body>
 </html>

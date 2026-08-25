@@ -2814,7 +2814,7 @@ function createParentCard() {
   const label = document.createElement('div');
   label.className = 'parent-label';
   label.innerHTML = `Parent \u00B7 ${MODE_NAMES[currentMode]} \u00B7 Gen ${generation}`
-    + ` \u00B7 <a id="link-3d" href="3d/${encodeState()}" title="View in 3D">3D</a>`;
+    + ` \u00B7 <a id="link-3d" href="3d/${encodeState()}" title="Open this creature in the 3D gallery (our addition)">3D</a>`;
   parentCard.appendChild(label);
 
   const pCanvas = document.createElement('canvas');
@@ -2888,7 +2888,10 @@ function createOffspringCard(childGenes, childColorGenes, index, isLostAnt) {
   canvas.title = 'Click to select \u00B7 Shift+click to compare';
   card.appendChild(canvas);
 
-  if (isLostAnt) card.classList.add('lost-ant');
+  if (isLostAnt) {
+    card.classList.add('lost-ant');
+    canvas.title = 'Lost ant \u2014 this one took several large mutations at once, a long jump through morphospace (our addition, not in the paper). Click to select \u00B7 Shift+click to compare';
+  }
 
   const saveBtn = document.createElement('button');
   saveBtn.className = 'card-icon card-icon-save';
